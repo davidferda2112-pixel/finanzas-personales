@@ -5,7 +5,7 @@
   }
 
   const appsScriptUrl = process.env.APPS_SCRIPT_URL ||
-    'https://script.google.com/macros/s/AKfycbyqNs78f1YpbW_ksjF56rNl6VSd9dN8d9kFU0ka352bbzeJ1L_A9zaigqvAOVihNxlRHw/exec';
+    'https://script.google.com/macros/s/AKfycbxMzknKuO04oiyJbmsTwXyhmiVdPDYcfbSO_uiGnCyf2JMhL4Z1c-Bw9VbmtaY-6nl1OQ/exec';
   const token = 'finper_2026_Christian_JaegerSpend_9b7c4d2f6a';
 
   if (!appsScriptUrl) {

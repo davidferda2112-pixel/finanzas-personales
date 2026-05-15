@@ -380,10 +380,107 @@ function getDesgloseSub(mes,subcategoria){
     for(var i=1;i<D.length;i++){
       var mesFila=_s(D[i][2]).replace(/^'+/,'');
       if(mesFila===mes&&_s(D[i][5])===subcategoria)
-        result.push({fecha:_s(D[i][7]),monto:_n(D[i][6]),notas:_s(D[i][8])});
+        result.push({id:_s(D[i][0]),tipo:_s(D[i][3]),categoria:_s(D[i][4]),subcategoria:_s(D[i][5]),fecha:_s(D[i][7]),monto:_n(D[i][6]),notas:_s(D[i][8])});
     }
     return{ok:true,data:result};
   }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function getMovimientosMes(mes){
+  try{
+    var ss=getSS();
+    var reg=ss.getSheetByName('Registro');
+    if(!reg) return{ok:true,data:[]};
+    var D=reg.getDataRange().getValues(),result=[];
+    for(var i=1;i<D.length;i++){
+      var mesFila=_s(D[i][2]).replace(/^'+/,'');
+      if(mesFila!==mes) continue;
+      result.push({
+        id:_s(D[i][0]),
+        timestamp:_s(D[i][1]),
+        mes:mesFila,
+        tipo:_s(D[i][3]),
+        categoria:_s(D[i][4]),
+        subcategoria:_s(D[i][5]),
+        monto:_n(D[i][6]),
+        fecha:_s(D[i][7]),
+        notas:_s(D[i][8])
+      });
+    }
+    result.sort(function(a,b){
+      return String(b.fecha||'').localeCompare(String(a.fecha||''))||
+             String(b.timestamp||'').localeCompare(String(a.timestamp||''));
+    });
+    return{ok:true,data:result};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function actualizarMovimiento(params){
+  try{
+    var ss=getSS();
+    var reg=ss.getSheetByName('Registro');
+    if(!reg) return{ok:false,error:'Hoja Registro no encontrada'};
+    var D=reg.getDataRange().getValues();
+    for(var i=1;i<D.length;i++){
+      if(String(D[i][0])!==String(params.id)) continue;
+      var oldMes=_s(D[i][2]).replace(/^'+/,'');
+      var oldSub=_s(D[i][5]);
+      var oldMonto=_n(D[i][6]);
+      var newMes=_s(params.mes||oldMes);
+      newMes=newMes.charAt(0).toUpperCase()+newMes.slice(1);
+      var newTipo=_s(params.tipo);
+      var newSub=_s(params.subcategoria);
+      var newMonto=parseFloat(String(params.monto).replace(',','.'))||0;
+
+      _ajustarImpactoBalanceApp(ss, oldSub, -oldMonto);
+      _ajustarImpactoBalanceApp(ss, newSub, newMonto);
+
+      reg.getRange(i+1,3,1,7).setValues([[
+        newMes,
+        newTipo,
+        _s(params.categoria||newTipo),
+        newSub,
+        newMonto,
+        params.fecha||'',
+        params.notas||''
+      ]]);
+      reg.getRange(i+1,3).setNumberFormat('@STRING@').setValue(newMes);
+      _invalidarMovimientoMes(oldMes);
+      _invalidarMovimientoMes(newMes);
+      return{ok:true};
+    }
+    return{ok:false,error:'Movimiento no encontrado'};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function eliminarMovimiento(id){
+  try{
+    var ss=getSS();
+    var reg=ss.getSheetByName('Registro');
+    if(!reg) return{ok:false,error:'Hoja Registro no encontrada'};
+    var D=reg.getDataRange().getValues();
+    for(var i=1;i<D.length;i++){
+      if(String(D[i][0])!==String(id)) continue;
+      var mes=_s(D[i][2]).replace(/^'+/,'');
+      var sub=_s(D[i][5]);
+      var monto=_n(D[i][6]);
+      _ajustarImpactoBalanceApp(ss, sub, -monto);
+      reg.deleteRow(i+1);
+      _invalidarMovimientoMes(mes);
+      return{ok:true};
+    }
+    return{ok:false,error:'Movimiento no encontrado'};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function _ajustarImpactoBalanceApp(ss, subcategoria, monto){
+  var impactos=BALANCE_MAP[subcategoria];
+  if(impactos&&monto) _actualizarBalanceApp(ss, impactos, monto);
+}
+
+function _invalidarMovimientoMes(mes){
+  if(mes) cDel('mes_'+mes.replace(/ /g,'_'));
+  cDel('flujo');
 }
 
 function getNotificaciones(){
@@ -788,7 +885,7 @@ function _crearMes(ss,nombre){
 // ============================================================
 // API para Vercel - agrega este bloque al final de Code.gs
 // ============================================================
-var API_TOKEN_FALLBACK = 'CAMBIA_ESTE_TOKEN_LARGO_Y_PRIVADO';
+var API_TOKEN_FALLBACK = 'finper_2026_Christian_JaegerSpend_9b7c4d2f6a';
 
 function _getApiToken(){
   return PropertiesService.getScriptProperties().getProperty('FINPER_API_TOKEN') || API_TOKEN_FALLBACK;
@@ -805,6 +902,9 @@ var API_METHODS = {
   parseTarjetas: parseTarjetas,
   registrarMovimiento: registrarMovimiento,
   getDesgloseSub: getDesgloseSub,
+  getMovimientosMes: getMovimientosMes,
+  actualizarMovimiento: actualizarMovimiento,
+  eliminarMovimiento: eliminarMovimiento,
   getNotificaciones: getNotificaciones,
   marcarNotifLeida: marcarNotifLeida,
   crearMesNuevo: crearMesNuevo
