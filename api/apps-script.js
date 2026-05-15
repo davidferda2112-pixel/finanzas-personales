@@ -4,13 +4,14 @@
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const appsScriptUrl = process.env.APPS_SCRIPT_URL;
-  const token = process.env.APPS_SCRIPT_TOKEN;
+  const appsScriptUrl = process.env.APPS_SCRIPT_URL ||
+    'https://script.google.com/macros/s/AKfycbyqNs78f1YpbW_ksjF56rNl6VSd9dN8d9kFU0ka352bbzeJ1L_A9zaigqvAOVihNxlRHw/exec';
+  const token = 'finper_2026_Christian_JaegerSpend_9b7c4d2f6a';
 
-  if (!appsScriptUrl || !token) {
+  if (!appsScriptUrl) {
     return res.status(500).json({
       ok: false,
-      error: 'Faltan APPS_SCRIPT_URL o APPS_SCRIPT_TOKEN en las variables de entorno de Vercel.'
+      error: 'Falta APPS_SCRIPT_URL en las variables de entorno de Vercel.'
     });
   }
 
