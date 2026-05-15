@@ -278,6 +278,9 @@ function _mesLargoACorto(mes){
 }
 
 function _normalizarMesNombre(mes){
+  if(Object.prototype.toString.call(mes)==='[object Date]'&&!isNaN(mes.getTime())){
+    return MESES_NOM[mes.getMonth()]+' '+String(mes.getFullYear()).slice(-2);
+  }
   var p=String(mes||'').trim().replace(/\s+/g,' ').split(' ');
   if(p.length<2) return String(mes||'').trim();
   var mesRaw=p[0].toLowerCase();
@@ -340,6 +343,8 @@ function registrarMovimientoTarjeta(params){
       id,new Date().toISOString(),mes,tarjeta,tipo,monto,params.fecha||'',params.notas||'',
       params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||''
     ]);
+    var ultimaFila=sh.getLastRow();
+    sh.getRange(ultimaFila,3).setNumberFormat('@STRING@').setValue(mes);
     cDel('flujo');
     cDel('mes_'+mes.replace(/ /g,'_'));
     return{ok:true,id:id};
@@ -418,6 +423,7 @@ function actualizarMovimientoTarjeta(params){
         mes,_s(params.tarjeta),tipo,monto,params.fecha||'',params.notas||'',
         params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||''
       ]]);
+      sh.getRange(i+1,3).setNumberFormat('@STRING@').setValue(mes);
       cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));
       return{ok:true};
     }
