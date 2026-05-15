@@ -1696,7 +1696,7 @@ function getResumenTdc(t){
     if(idx>0&&f.concepto==='Total/ Saldo Rotativo') out.saldoRotAnt=f[meses[idx-1]]||0;
   });
   out.pendiente=Math.max(out.saldoRotAnt-out.pagos,0);
-  out.alDia=out.pagos>=out.saldoRotAnt&&out.saldoRotAnt>0;
+  out.alDia=out.pendiente<=0;
   return out;
 }
 
@@ -1714,9 +1714,9 @@ function renderHistorialTarjeta(){
   var resTdc=getResumenTdc(t),saldoRotTC=resTdc.saldoRot;
 
   eid('tc-resumen').innerHTML=[
-    {l:'Pagar '+mesAnteriorLabel(resTdc.mes),v:resTdc.saldoRotAnt,c:'var(--over)'},
-    {l:'Recogido',v:resTdc.pagos,c:'var(--ok)'},
-    {l:resTdc.alDia?'Al día':'Falta recoger',v:resTdc.alDia?0:resTdc.pendiente,c:resTdc.alDia?'var(--ok)':'var(--warn)'}
+    {l:'Consumos del mes',v:resTdc.consumos,c:'var(--over)'},
+    {l:'Valor recogido',v:resTdc.pagos,c:'var(--ok)'},
+    {l:resTdc.alDia?'Al día':'Saldo por recoger',v:resTdc.alDia?0:resTdc.pendiente,c:resTdc.alDia?'var(--ok)':'var(--warn)'}
   ].map(function(c){
     return'<div class="card p12 cr12"><div class="lup">'+c.l+'</div><div class="amd" style="color:'+c.c+'">'+(c.l==='Al día'?'✓':fmt(c.v))+'</div></div>';
   }).join('');
