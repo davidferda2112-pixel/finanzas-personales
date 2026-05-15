@@ -255,7 +255,7 @@ function _enriquecerTarjetasConApp(ss, tarjetas){
   if(!sh) return;
   var D=sh.getDataRange().getValues();
   for(var i=1;i<D.length;i++){
-    var mes=_s(D[i][2]),tarjeta=_s(D[i][3]),tipo=_s(D[i][4]),monto=_n(D[i][5]);
+    var mes=_normalizarMesNombre(D[i][2]),tarjeta=_s(D[i][3]),tipo=_s(D[i][4]),monto=_n(D[i][5]);
     if(!mes||!tarjeta||!tipo||!monto) continue;
     var mesCorto=_mesLargoACorto(mes);
     tarjetas.forEach(function(t){
@@ -272,8 +272,25 @@ function _enriquecerTarjetasConApp(ss, tarjetas){
 }
 
 function _mesLargoACorto(mes){
-  var p=String(mes||'').split(' ');
+  var normal=_normalizarMesNombre(mes);
+  var p=String(normal||'').split(' ');
   return p.length>=2?p[0].slice(0,3)+' '+p[1]:'';
+}
+
+function _normalizarMesNombre(mes){
+  var p=String(mes||'').trim().replace(/\s+/g,' ').split(' ');
+  if(p.length<2) return String(mes||'').trim();
+  var mesRaw=p[0].toLowerCase();
+  var idx=-1;
+  for(var i=0;i<MESES_NOM.length;i++){
+    if(MESES_NOM[i].toLowerCase()===mesRaw||MESES_NOM[i].slice(0,3).toLowerCase()===mesRaw.slice(0,3)){
+      idx=i;break;
+    }
+  }
+  var yy=String(p[1]).replace(/\D/g,'');
+  if(yy.length===4) yy=yy.slice(-2);
+  if(yy.length===1) yy='0'+yy;
+  return (idx>=0?MESES_NOM[idx]:p[0].charAt(0).toUpperCase()+p[0].slice(1).toLowerCase())+' '+yy;
 }
 
 function _sumarFilaTdc(hist, concepto, mesCorto, monto){
@@ -293,8 +310,7 @@ function registrarMovimientoTarjeta(params){
     var monto=parseFloat(String(params.monto).replace(',','.'))||0;
     if(['cargo','abono'].indexOf(tipo)===-1) return{ok:false,error:'Tipo TDC inválido'};
     if(!monto||monto<=0) return{ok:false,error:'Monto inválido'};
-    var mes=_s(params.mes);
-    mes=mes.charAt(0).toUpperCase()+mes.slice(1);
+    var mes=_normalizarMesNombre(params.mes);
     var tarjeta=_s(params.tarjeta);
     if(['VISA','MC'].indexOf(tarjeta)===-1) return{ok:false,error:'Tarjeta inválida'};
 
@@ -335,10 +351,11 @@ function getMovimientosTarjeta(mes,tarjeta){
     var ss=getSS();
     var sh=ss.getSheetByName('TDC_App');
     if(!sh) return{ok:true,data:[]};
+    var mesBuscado=_normalizarMesNombre(mes);
     var D=sh.getDataRange().getValues(),result=[];
     for(var i=1;i<D.length;i++){
-      var mesFila=_s(D[i][2]).replace(/^'+/,'');
-      if(mesFila!==mes||_s(D[i][3])!==tarjeta) continue;
+      var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
+      if(mesFila!==mesBuscado||_s(D[i][3])!==tarjeta) continue;
       result.push({
         id:_s(D[i][0]),timestamp:_s(D[i][1]),mes:mesFila,tarjeta:_s(D[i][3]),
         tipo:_s(D[i][4]),monto:_n(D[i][5]),fecha:_s(D[i][6]),notas:_s(D[i][7]),
@@ -365,8 +382,7 @@ function actualizarMovimientoTarjeta(params){
       var oldTipo=_s(D[i][4]);
       var oldOrigen=_s(D[i][8]);
       var oldRegistroId=_s(D[i][9]);
-      var mes=_s(params.mes||oldMes);
-      mes=mes.charAt(0).toUpperCase()+mes.slice(1);
+      var mes=_normalizarMesNombre(params.mes||oldMes);
       var tipo=_s(params.tipo||oldTipo);
       var monto=parseFloat(String(params.monto).replace(',','.'))||0;
       if(['cargo','abono'].indexOf(tipo)===-1) return{ok:false,error:'Tipo TDC inválido'};
