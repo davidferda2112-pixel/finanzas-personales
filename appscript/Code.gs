@@ -8,7 +8,7 @@ var MESES_NOM = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 var ESPECIALES = ['Balance General','Flujo TDC Papi','Flujo de Caja',
-                  'Viaje a Japón','Registro','TDC_VISA','TDC_MC','_NOTIF',
+                  'Viaje a Japón','Registro','TDC_App','TDC_VISA','TDC_MC','_NOTIF',
                   'Balance_App'];
 
 function getSS(){ return SpreadsheetApp.openById(SS_ID); }
@@ -235,7 +235,7 @@ function parseTarjetas(){
       }
     }
 
-    return{ok:true,tarjetas:[
+    var tarjetas=[
       {id:'VISA',nombre:'Visa Personal',numero:'**** **** **** 4894',
        clase:'visa-card',logo:'visa',
        historial2026:bloquePersonal,meses2026:meses2026,
@@ -244,7 +244,112 @@ function parseTarjetas(){
        clase:'mc-card',logo:'mc',
        historial2026:bloqueGC,meses2026:meses2026,
        historial2025:papi2025,meses2025:meses2025}
-    ]};
+    ];
+    _enriquecerTarjetasConApp(ss, tarjetas);
+    return{ok:true,tarjetas:tarjetas};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function _enriquecerTarjetasConApp(ss, tarjetas){
+  var sh=ss.getSheetByName('TDC_App');
+  if(!sh) return;
+  var D=sh.getDataRange().getValues();
+  for(var i=1;i<D.length;i++){
+    var mes=_s(D[i][2]),tarjeta=_s(D[i][3]),tipo=_s(D[i][4]),monto=_n(D[i][5]);
+    if(!mes||!tarjeta||!tipo||!monto) continue;
+    var mesCorto=_mesLargoACorto(mes);
+    tarjetas.forEach(function(t){
+      if(t.id!==tarjeta) return;
+      var hist=t.historial2026,meses=t.meses2026,idx=meses.indexOf(mesCorto);
+      if(idx<0) return;
+      var delta=tipo==='cargo'?monto:-monto;
+      _sumarFilaTdc(hist,'Consumos',mesCorto,tipo==='cargo'?monto:0);
+      _sumarFilaTdc(hist,'Pagos / Créditos',mesCorto,tipo==='abono'?monto:0);
+      _sumarFilaTdc(hist,'Total/ Saldo Rotativo',mesCorto,delta);
+      _sumarFilaTdc(hist,'Saldo Real',mesCorto,delta);
+    });
+  }
+}
+
+function _mesLargoACorto(mes){
+  var p=String(mes||'').split(' ');
+  return p.length>=2?p[0].slice(0,3)+' '+p[1]:'';
+}
+
+function _sumarFilaTdc(hist, concepto, mesCorto, monto){
+  if(!monto) return;
+  for(var i=0;i<hist.length;i++){
+    if(hist[i].concepto===concepto){
+      hist[i][mesCorto]=(hist[i][mesCorto]||0)+monto;
+      return;
+    }
+  }
+}
+
+function registrarMovimientoTarjeta(params){
+  try{
+    var ss=getSS();
+    var tipo=_s(params.tipo);
+    var monto=parseFloat(String(params.monto).replace(',','.'))||0;
+    if(['cargo','abono'].indexOf(tipo)===-1) return{ok:false,error:'Tipo TDC inválido'};
+    if(!monto||monto<=0) return{ok:false,error:'Monto inválido'};
+    var mes=_s(params.mes);
+    mes=mes.charAt(0).toUpperCase()+mes.slice(1);
+    var tarjeta=_s(params.tarjeta);
+    if(['VISA','MC'].indexOf(tarjeta)===-1) return{ok:false,error:'Tarjeta inválida'};
+
+    var registroId='';
+    if(tipo==='abono'&&params.origen==='egreso'){
+      var r=registrarMovimiento({
+        mes:mes,
+        tipo:params.egresoTipo||'deuda',
+        categoria:params.egresoTipo||'deuda',
+        subcategoria:params.subcategoria||'Prestamos TDC',
+        monto:String(monto),
+        fecha:params.fecha,
+        notas:(params.notas?params.notas+' · ':'')+'Abono '+tarjeta
+      });
+      if(!r||!r.ok) return r;
+      registroId=r.id||'';
+    }
+
+    var sh=ss.getSheetByName('TDC_App');
+    if(!sh){
+      sh=ss.insertSheet('TDC_App');
+      sh.appendRow(['ID','Timestamp','Mes','Tarjeta','Tipo','Monto','Fecha','Notas','Origen','RegistroID','Categoria','Subcategoria']);
+      sh.setFrozenRows(1);
+    }
+    var id=new Date().getTime().toString();
+    sh.appendRow([
+      id,new Date().toISOString(),mes,tarjeta,tipo,monto,params.fecha||'',params.notas||'',
+      params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||''
+    ]);
+    cDel('flujo');
+    cDel('mes_'+mes.replace(/ /g,'_'));
+    return{ok:true,id:id};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function getMovimientosTarjeta(mes,tarjeta){
+  try{
+    var ss=getSS();
+    var sh=ss.getSheetByName('TDC_App');
+    if(!sh) return{ok:true,data:[]};
+    var D=sh.getDataRange().getValues(),result=[];
+    for(var i=1;i<D.length;i++){
+      var mesFila=_s(D[i][2]).replace(/^'+/,'');
+      if(mesFila!==mes||_s(D[i][3])!==tarjeta) continue;
+      result.push({
+        id:_s(D[i][0]),timestamp:_s(D[i][1]),mes:mesFila,tarjeta:_s(D[i][3]),
+        tipo:_s(D[i][4]),monto:_n(D[i][5]),fecha:_s(D[i][6]),notas:_s(D[i][7]),
+        origen:_s(D[i][8]),registroId:_s(D[i][9]),categoria:_s(D[i][10]),subcategoria:_s(D[i][11])
+      });
+    }
+    result.sort(function(a,b){
+      return String(b.fecha||'').localeCompare(String(a.fecha||''))||
+             String(b.timestamp||'').localeCompare(String(a.timestamp||''));
+    });
+    return{ok:true,data:result};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
@@ -303,7 +408,7 @@ function registrarMovimiento(params){
     // 4. Notificar excesos
     _checkExceso(ss, params);
 
-    return{ok:true};
+    return{ok:true,id:id};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
@@ -900,6 +1005,8 @@ var API_METHODS = {
   getViajeJapon: getViajeJapon,
   actualizarJapon: actualizarJapon,
   parseTarjetas: parseTarjetas,
+  registrarMovimientoTarjeta: registrarMovimientoTarjeta,
+  getMovimientosTarjeta: getMovimientosTarjeta,
   registrarMovimiento: registrarMovimiento,
   getDesgloseSub: getDesgloseSub,
   getMovimientosMes: getMovimientosMes,

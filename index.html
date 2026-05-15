@@ -659,6 +659,11 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="fr g8 mb14">
         <select class="ms" id="sel-tc-mes" onchange="G.tcMesActual=this.value;renderHistorialTarjeta()" style="flex:1"></select>
       </div>
+      <div class="act-row mb14">
+        <button class="btn br" onclick="abrirMovTdc('cargo')">+ Cargo</button>
+        <button class="btn bg2" onclick="abrirMovTdc('abono')">+ Abono</button>
+      </div>
+      <div class="g3c mb14" id="tc-resumen"></div>
       <div id="tc-card" class="mb14"></div>
       <div class="tdc-tabs mb14">
         <div class="tdc-tab active" onclick="setTdcAnio(2026,this)">2026</div>
@@ -812,6 +817,33 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   </div>
 </div>
 
+<!-- MODAL MOVIMIENTO TDC -->
+<div class="mov" id="mov-tdc" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="msh">
+    <div class="mhnd"></div>
+    <div class="mti" id="tdc-mov-title">Movimiento de tarjeta</div>
+    <div class="fg"><div class="fl">Tarjeta</div><input class="fi" id="tdc-tarjeta-lbl" readonly></div>
+    <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="number" id="tdc-monto" placeholder="0.00" min="0" step="0.01"></div>
+    <div class="fg"><div class="fl">Fecha</div><input class="fi" type="date" id="tdc-fecha"></div>
+    <div id="tdc-abono-extra" style="display:none">
+      <div class="fg"><div class="fl">Origen del abono</div><select class="fs" id="tdc-origen" onchange="toggleTdcOrigen()">
+        <option value="egreso">Registrar como egreso de mis finanzas</option>
+        <option value="externo">Dinero externo / préstamo</option>
+      </select></div>
+      <div id="tdc-egreso-box">
+        <div class="fg"><div class="fl">Tipo de egreso</div><select class="fs" id="tdc-eg-tipo" onchange="prepTdcSubcats()">
+          <option value="deuda">Deuda</option>
+          <option value="necesidad">Necesidad</option>
+          <option value="deseo">Deseo</option>
+        </select></div>
+        <div class="fg"><div class="fl">Subcategoría</div><select class="fs" id="tdc-sub"></select></div>
+      </div>
+    </div>
+    <div class="fg"><div class="fl">Notas</div><input class="fi" type="text" id="tdc-notas" placeholder="Opcional"></div>
+    <button class="btn bb bful" id="btn-tdc-sv" onclick="guardarMovTdc()">Guardar</button>
+  </div>
+</div>
+
 <!-- MODAL HISTORIAL TDC -->
 <div class="mov" id="mov-tdc-hist" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="msh" style="max-height:88vh">
@@ -840,6 +872,7 @@ var G={
   notifOpen:false,srchOpen:false,
   balEdit:false,japEdit:false,
   tcIdx:0,tdcAnio:2026,tcMesActual:null,
+  tdcAccion:null,tdcMovs:[],
   calFecha:new Date(),prCats:null,catResumen:null,
   movimientos:[],editTx:null,deleteTx:null,
   _dirty:false  // flag: se activó después de guardar
@@ -1634,19 +1667,39 @@ function setTdcAnio(yr,el){
   el.classList.add('active');renderHistorialTarjeta();
 }
 
+function getResumenTdc(t){
+  var mes=G.tcMesActual||G.mesActual||G.meses[G.meses.length-1];
+  var hist=G.tdcAnio===2026?t.historial2026:t.historial2025;
+  var meses=G.tdcAnio===2026?t.meses2026:t.meses2025;
+  var mesCorto=mes?mes.split(' ')[0].slice(0,3)+' '+mes.split(' ')[1]:'';
+  var idx=meses?meses.indexOf(mesCorto):-1;
+  var out={mes:mes,idx:idx,meses:meses,hist:hist,consumos:0,pagos:0,saldoRot:0,saldoReal:0,saldoRotAnt:0,pendiente:0,alDia:false};
+  if(!hist||idx<0)return out;
+  hist.forEach(function(f){
+    var v=f[meses[idx]]||0;
+    if(f.concepto==='Consumos') out.consumos=v;
+    if(f.concepto==='Pagos / Créditos') out.pagos=v;
+    if(f.concepto==='Total/ Saldo Rotativo') out.saldoRot=v;
+    if(f.concepto==='Saldo Real') out.saldoReal=v;
+    if(idx>0&&f.concepto==='Total/ Saldo Rotativo') out.saldoRotAnt=f[meses[idx-1]]||0;
+  });
+  out.pendiente=Math.max(out.saldoRotAnt-out.pagos,0);
+  out.alDia=out.pagos>=out.saldoRotAnt&&out.saldoRotAnt>0;
+  return out;
+}
+
 function renderHistorialTarjeta(){
   var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
   eid('tc-title').textContent=t.nombre;
+  var resTdc=getResumenTdc(t),saldoRotTC=resTdc.saldoRot;
 
-  var mesTC=G.tcMesActual||G.mesActual||G.meses[G.meses.length-1];
-  var histTC=G.tdcAnio===2026?t.historial2026:t.historial2025;
-  var mesesTC=G.tdcAnio===2026?t.meses2026:t.meses2025;
-  var mesCortoTC=mesTC?mesTC.split(' ')[0].slice(0,3)+' '+mesTC.split(' ')[1]:'';
-  var idxTC=mesesTC?mesesTC.indexOf(mesCortoTC):-1;
-  var saldoRotTC=0;
-  if(histTC&&idxTC>=0){
-    histTC.forEach(function(f){if(f.concepto==='Total/ Saldo Rotativo')saldoRotTC=f[mesesTC[idxTC]]||0;});
-  }
+  eid('tc-resumen').innerHTML=[
+    {l:'Debes pagar',v:resTdc.saldoRotAnt,c:'var(--over)'},
+    {l:'Recogido',v:resTdc.pagos,c:'var(--ok)'},
+    {l:resTdc.alDia?'Al día':'Falta recoger',v:resTdc.alDia?0:resTdc.pendiente,c:resTdc.alDia?'var(--ok)':'var(--warn)'}
+  ].map(function(c){
+    return'<div class="card p12 cr12"><div class="lup">'+c.l+'</div><div class="amd" style="color:'+c.c+'">'+(c.l==='Al día'?'✓':fmt(c.v))+'</div></div>';
+  }).join('');
 
   eid('tc-card').innerHTML='<div class="bcard '+t.clase+'" onclick="abrirModalTDC()" style="cursor:pointer">'
     +'<div class="bc-num">'+t.numero+'</div>'
@@ -1682,6 +1735,72 @@ function renderHistorialTarjeta(){
   });
   html+='</tbody></table>';
   eid('tc-hist').innerHTML=html;
+  loadMovsTdc();
+}
+
+function loadMovsTdc(){
+  var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t||!G.tcMesActual)return;
+  google.script.run
+    .withSuccessHandler(function(res){G.tdcMovs=res&&res.ok?res.data||[]:[];})
+    .getMovimientosTarjeta(G.tcMesActual,t.id);
+}
+
+function abrirMovTdc(tipo){
+  var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
+  G.tdcAccion=tipo;
+  eid('tdc-mov-title').textContent=tipo==='cargo'?'Agregar cargo':'Agregar abono';
+  eid('tdc-tarjeta-lbl').value=t.nombre+' · '+(G.tcMesActual||G.mesActual||'');
+  eid('tdc-monto').value='';
+  eid('tdc-fecha').value=todayISO();
+  eid('tdc-notas').value='';
+  eid('tdc-abono-extra').style.display=tipo==='abono'?'block':'none';
+  if(tipo==='abono'){eid('tdc-origen').value='egreso';eid('tdc-eg-tipo').value='deuda';prepTdcSubcats();toggleTdcOrigen();}
+  eid('mov-tdc').classList.add('open');
+  setTimeout(function(){eid('tdc-monto').focus();},250);
+}
+
+function toggleTdcOrigen(){
+  eid('tdc-egreso-box').style.display=eid('tdc-origen').value==='egreso'?'block':'none';
+}
+
+function prepTdcSubcats(){
+  var tipo=eid('tdc-eg-tipo').value;
+  eid('tdc-sub').innerHTML=(SUBCATS[tipo]||[]).map(function(s){return'<option value="'+s+'">'+s+'</option>';}).join('');
+  if(tipo==='deuda'&&SUBCATS.deuda.indexOf('Prestamo 1')>=0) eid('tdc-sub').value='Prestamo 1';
+}
+
+function guardarMovTdc(){
+  var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
+  var monto=parseFloat(eid('tdc-monto').value);
+  if(!monto||monto<=0){showToast('Ingresa un monto válido','err');return;}
+  var btn=eid('btn-tdc-sv');btn.disabled=true;btn.textContent='Guardando…';
+  var params={
+    mes:G.tcMesActual||G.mesActual,
+    tarjeta:t.id,
+    tipo:G.tdcAccion,
+    monto:String(monto),
+    fecha:eid('tdc-fecha').value,
+    notas:eid('tdc-notas').value
+  };
+  if(G.tdcAccion==='abono'){
+    params.origen=eid('tdc-origen').value;
+    if(params.origen==='egreso'){
+      params.egresoTipo=eid('tdc-eg-tipo').value;
+      params.subcategoria=eid('tdc-sub').value;
+    }
+  }
+  google.script.run
+    .withSuccessHandler(function(res){
+      btn.disabled=false;btn.textContent='Guardar';
+      if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
+      eid('mov-tdc').classList.remove('open');
+      showToast(G.tdcAccion==='cargo'?'Cargo agregado':'Abono agregado','ok');
+      G.tarjetas=null;G.mesData=null;G.balance=null;G.flujo=null;G._dirty=true;
+      loadTarjetas();
+      cambiarMes(G.mesActual);
+    })
+    .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Guardar';showToast('Error: '+e,'err');})
+    .registrarMovimientoTarjeta(params);
 }
 
 function abrirModalTDC(){
@@ -1703,18 +1822,8 @@ function abrirModalTDC(){
     eid('tdc-hist-res').innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:8px;grid-column:span 3">Sin datos para '+mes+'</div>';return;
   }
 
-  var consumos=0,pagos=0,saldoRot=0,saldoReal=0;
-  hist.forEach(function(f){
-    var v=f[meses[mesIdx]]||0;
-    if(f.concepto==='Consumos') consumos=v;
-    if(f.concepto==='Pagos / Créditos') pagos=v;
-    if(f.concepto==='Total/ Saldo Rotativo') saldoRot=v;
-    if(f.concepto==='Saldo Real') saldoReal=v;
-  });
-  var mesAntIdx=mesIdx>0?mesIdx-1:-1,saldoRotAnt=0;
-  if(hist&&mesAntIdx>=0) hist.forEach(function(f){if(f.concepto==='Total/ Saldo Rotativo')saldoRotAnt=f[meses[mesAntIdx]]||0;});
-  var pendiente=Math.max(saldoRotAnt-pagos,0);
-  var alDia=pagos>=saldoRotAnt&&saldoRotAnt>0;
+  var resumen=getResumenTdc(t);
+  var pagos=resumen.pagos,saldoRotAnt=resumen.saldoRotAnt,pendiente=resumen.pendiente,alDia=resumen.alDia;
 
   eid('tdc-hist-res').innerHTML=[
     {l:'Debes pagar',v:saldoRotAnt,c:'var(--over)'},
@@ -1733,7 +1842,15 @@ function abrirModalTDC(){
     cargosHtml+='<div class="tdc-cargo-row"><div style="flex:1;font-size:13px;font-weight:'+(esSR||esSRot?'700':'500')+';color:'+col+'">'+f.concepto+'</div>'
       +'<div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;color:'+col+'">'+fmt(v)+'</div></div>';
   });
-  eid('tdc-hist-cargos').innerHTML=cargosHtml||'<div style="padding:14px;color:var(--t3);font-size:13px;text-align:center">Sin movimientos este mes</div>';
+  var appRows=(G.tdcMovs||[]).map(function(m){
+    var col=m.tipo==='abono'?'var(--ok)':'var(--over)';
+    var origen=m.tipo==='abono'?(m.origen==='externo'?'externo':'egreso'):'cargo';
+    return'<div class="tdc-cargo-row"><div style="flex:1"><div style="font-size:13px;font-weight:700;color:'+col+'">'+(m.tipo==='abono'?'Abono':'Cargo')+' app</div>'
+      +'<div style="font-size:11px;color:var(--t3)">'+fmtFecha(m.fecha)+' · '+origen+(m.notas?' · '+m.notas:'')+'</div></div>'
+      +'<div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;color:'+col+'">'+(m.tipo==='abono'?'+':'-')+fmt(m.monto)+'</div></div>';
+  }).join('');
+  eid('tdc-hist-cargos').innerHTML=(cargosHtml||'<div style="padding:14px;color:var(--t3);font-size:13px;text-align:center">Sin movimientos base este mes</div>')
+    +(appRows?'<div class="lup" style="padding:12px 14px 2px">Registrados en la app</div>'+appRows:'');
 }
 
 // ── JAPÓN ─────────────────────────────────────────────────────
