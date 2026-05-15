@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#f2f2f7">
+<link rel="icon" type="image/png" href="/app-icon.png">
+<link rel="apple-touch-icon" href="/app-icon.png">
+<link rel="manifest" href="/site.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
@@ -82,6 +85,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sb-li{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;
   background:linear-gradient(145deg,#007AFF,#34AADC);
   box-shadow:0 4px 14px rgba(0,122,255,0.35),inset 0 1px 0 rgba(255,255,255,0.3);}
+.brand-logo{width:132px;height:auto;display:block;}
 .sb-sec{font-size:10px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--t3);padding:10px 10px 5px;}
 .nv{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r12);
   cursor:pointer;color:var(--t2);font-size:13px;font-weight:500;position:relative;
@@ -499,8 +503,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 <!-- SIDEBAR -->
 <aside class="sb">
   <div class="sb-logo">
-    <div class="sb-li"><img src="/logo.svg" alt="" width="22" height="22"></div>
-    Finanzas
+    <img class="brand-logo" src="/logo-app.png" alt="Jaeger Finanzas">
   </div>
   <div class="sb-sec">Principal</div>
   <div class="nv active" data-page="home"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>Inicio<span class="tip">Inicio</span></div>
