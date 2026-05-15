@@ -656,6 +656,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
     <div class="pc">
       <div style="display:flex;gap:10px;margin-bottom:14px" id="tc-sel"></div>
+      <div id="tc-card" class="mb14"></div>
       <div class="fr g8 mb14">
         <select class="ms" id="sel-tc-mes" onchange="G.tcMesActual=this.value;renderHistorialTarjeta()" style="flex:1"></select>
       </div>
@@ -664,13 +665,14 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <button class="btn bg2" onclick="abrirMovTdc('abono')">+ Abono</button>
       </div>
       <div class="g3c mb14" id="tc-resumen"></div>
-      <div id="tc-card" class="mb14"></div>
       <div class="tdc-tabs mb14">
         <div class="tdc-tab active" onclick="setTdcAnio(2026,this)">2026</div>
         <div class="tdc-tab" onclick="setTdcAnio(2025,this)">2025</div>
       </div>
       <div class="lup mb10">Historial transaccional</div>
       <div class="card mb14" style="overflow-x:auto" id="tc-hist"></div>
+      <div class="lup mb10">Últimas transacciones de la tarjeta</div>
+      <div class="card cr12 mb14" id="tc-app-movs"></div>
     </div>
   </div>
 
@@ -844,6 +846,16 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   </div>
 </div>
 
+<!-- MODAL CONFIRMAR ELIMINACIÓN TDC -->
+<div class="mov" id="mov-tdc-del" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="msh">
+    <div class="mhnd"></div>
+    <div class="mti">Eliminar transacción</div>
+    <div style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:16px" id="tdc-del-text">Esta acción no se puede deshacer.</div>
+    <div class="fr g8"><button class="btn bgh bful" onclick="eid('mov-tdc-del').classList.remove('open')">Cancelar</button><button class="btn br bful" id="btn-tdc-del" onclick="confirmarEliminarTdc()">Eliminar</button></div>
+  </div>
+</div>
+
 <!-- MODAL HISTORIAL TDC -->
 <div class="mov" id="mov-tdc-hist" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="msh" style="max-height:88vh">
@@ -872,7 +884,7 @@ var G={
   notifOpen:false,srchOpen:false,
   balEdit:false,japEdit:false,
   tcIdx:0,tdcAnio:2026,tcMesActual:null,
-  tdcAccion:null,tdcMovs:[],
+  tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcExpanded:false,
   calFecha:new Date(),prCats:null,catResumen:null,
   movimientos:[],editTx:null,deleteTx:null,
   _dirty:false  // flag: se activó después de guardar
@@ -1688,13 +1700,21 @@ function getResumenTdc(t){
   return out;
 }
 
+function mesAnteriorLabel(mes){
+  if(!mes)return'';
+  var p=mes.split(' '),idx=MESES_NOM_JS.indexOf(p[0]),yr=parseInt(p[1],10);
+  if(idx<0||isNaN(yr))return'';
+  idx--;if(idx<0){idx=11;yr--;}
+  return MESES_NOM_JS[idx]+' '+String(yr).padStart(2,'0');
+}
+
 function renderHistorialTarjeta(){
   var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
   eid('tc-title').textContent=t.nombre;
   var resTdc=getResumenTdc(t),saldoRotTC=resTdc.saldoRot;
 
   eid('tc-resumen').innerHTML=[
-    {l:'Debes pagar',v:resTdc.saldoRotAnt,c:'var(--over)'},
+    {l:'Pagar '+mesAnteriorLabel(resTdc.mes),v:resTdc.saldoRotAnt,c:'var(--over)'},
     {l:'Recogido',v:resTdc.pagos,c:'var(--ok)'},
     {l:resTdc.alDia?'Al día':'Falta recoger',v:resTdc.alDia?0:resTdc.pendiente,c:resTdc.alDia?'var(--ok)':'var(--warn)'}
   ].map(function(c){
@@ -1741,13 +1761,32 @@ function renderHistorialTarjeta(){
 function loadMovsTdc(){
   var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t||!G.tcMesActual)return;
   google.script.run
-    .withSuccessHandler(function(res){G.tdcMovs=res&&res.ok?res.data||[]:[];})
+    .withSuccessHandler(function(res){G.tdcMovs=res&&res.ok?res.data||[]:[];renderMovsTdc();})
     .getMovimientosTarjeta(G.tcMesActual,t.id);
 }
+
+function renderMovsTdc(){
+  var box=eid('tc-app-movs');if(!box)return;
+  var movs=G.tdcMovs||[],show=G.tdcExpanded?movs:movs.slice(0,3);
+  if(!movs.length){box.innerHTML='<div class="empty-state">Sin transacciones de tarjeta registradas en este mes.</div>';return;}
+  box.innerHTML=show.map(function(m){
+    var col=m.tipo==='abono'?'var(--ok)':'var(--over)';
+    var sub=m.tipo==='abono'?(m.origen==='externo'?'Dinero externo':'Egreso · '+(m.subcategoria||'')):'Cargo';
+    return'<div class="tdc-cargo-row" style="cursor:pointer" onclick="toggleMovsTdc()">'
+      +'<div style="flex:1"><div style="font-size:13px;font-weight:700;color:'+col+'">'+(m.tipo==='abono'?'Abono':'Cargo')+'</div>'
+      +'<div style="font-size:11px;color:var(--t3)">'+fmtFecha(m.fecha)+' · '+sub+(m.notas?' · '+m.notas:'')+'</div></div>'
+      +'<div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;color:'+col+'">'+(m.tipo==='abono'?'+':'-')+fmt(m.monto)+'</div>'
+      +'<div class="hist-actions" onclick="event.stopPropagation()"><button class="mini-ib" onclick="editarMovTdc(\''+m.id+'\')" title="Editar">✎</button><button class="mini-ib" onclick="eliminarMovTdc(\''+m.id+'\')" title="Eliminar">×</button></div>'
+      +'</div>';
+  }).join('')+(movs.length>3?'<div class="empty-state" style="padding:10px">'+(G.tdcExpanded?'Toca una transacción para contraer':'Toca para ver todas las transacciones')+'</div>':'');
+}
+
+function toggleMovsTdc(){G.tdcExpanded=!G.tdcExpanded;renderMovsTdc();}
 
 function abrirMovTdc(tipo){
   var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
   G.tdcAccion=tipo;
+  G.tdcEditId=null;
   eid('tdc-mov-title').textContent=tipo==='cargo'?'Agregar cargo':'Agregar abono';
   eid('tdc-tarjeta-lbl').value=t.nombre+' · '+(G.tcMesActual||G.mesActual||'');
   eid('tdc-monto').value='';
@@ -1757,6 +1796,26 @@ function abrirMovTdc(tipo){
   if(tipo==='abono'){eid('tdc-origen').value='egreso';eid('tdc-eg-tipo').value='deuda';prepTdcSubcats();toggleTdcOrigen();}
   eid('mov-tdc').classList.add('open');
   setTimeout(function(){eid('tdc-monto').focus();},250);
+}
+
+function editarMovTdc(id){
+  var m=(G.tdcMovs||[]).filter(function(x){return String(x.id)===String(id);})[0];if(!m)return;
+  var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
+  G.tdcEditId=id;G.tdcAccion=m.tipo;
+  eid('tdc-mov-title').textContent=m.tipo==='cargo'?'Editar cargo':'Editar abono';
+  eid('tdc-tarjeta-lbl').value=t.nombre+' · '+(G.tcMesActual||G.mesActual||'');
+  eid('tdc-monto').value=m.monto;
+  eid('tdc-fecha').value=String(m.fecha||'').split('T')[0];
+  eid('tdc-notas').value=m.notas||'';
+  eid('tdc-abono-extra').style.display=m.tipo==='abono'?'block':'none';
+  if(m.tipo==='abono'){
+    eid('tdc-origen').value=m.origen||'externo';
+    eid('tdc-eg-tipo').value=m.categoria||'deuda';
+    prepTdcSubcats();
+    if(m.subcategoria) eid('tdc-sub').value=m.subcategoria;
+    toggleTdcOrigen();
+  }
+  eid('mov-tdc').classList.add('open');
 }
 
 function toggleTdcOrigen(){
@@ -1789,18 +1848,41 @@ function guardarMovTdc(){
       params.subcategoria=eid('tdc-sub').value;
     }
   }
-  google.script.run
+  var runner=google.script.run
     .withSuccessHandler(function(res){
       btn.disabled=false;btn.textContent='Guardar';
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
       eid('mov-tdc').classList.remove('open');
-      showToast(G.tdcAccion==='cargo'?'Cargo agregado':'Abono agregado','ok');
+      showToast(G.tdcEditId?'Transacción actualizada':(G.tdcAccion==='cargo'?'Cargo agregado':'Abono agregado'),'ok');
       G.tarjetas=null;G.mesData=null;G.balance=null;G.flujo=null;G._dirty=true;
       loadTarjetas();
       cambiarMes(G.mesActual);
     })
-    .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Guardar';showToast('Error: '+e,'err');})
-    .registrarMovimientoTarjeta(params);
+    .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Guardar';showToast('Error: '+e,'err');});
+  if(G.tdcEditId){params.id=G.tdcEditId;runner.actualizarMovimientoTarjeta(params);}
+  else runner.registrarMovimientoTarjeta(params);
+}
+
+function eliminarMovTdc(id){
+  var m=(G.tdcMovs||[]).filter(function(x){return String(x.id)===String(id);})[0];if(!m)return;
+  G.tdcDeleteId=id;
+  eid('tdc-del-text').innerHTML='Vas a eliminar <strong>'+(m.tipo==='abono'?'abono':'cargo')+'</strong> por <strong>'+fmt(m.monto)+'</strong>.';
+  eid('mov-tdc-del').classList.add('open');
+}
+
+function confirmarEliminarTdc(){
+  if(!G.tdcDeleteId)return;
+  var btn=eid('btn-tdc-del');btn.disabled=true;btn.textContent='Eliminando…';
+  google.script.run
+    .withSuccessHandler(function(res){
+      btn.disabled=false;btn.textContent='Eliminar';
+      if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
+      eid('mov-tdc-del').classList.remove('open');showToast('Transacción eliminada','ok');
+      G.tarjetas=null;G.mesData=null;G.balance=null;G.flujo=null;G._dirty=true;
+      loadTarjetas();cambiarMes(G.mesActual);
+    })
+    .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
+    .eliminarMovimientoTarjeta(G.tdcDeleteId);
 }
 
 function abrirModalTDC(){

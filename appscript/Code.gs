@@ -353,6 +353,81 @@ function getMovimientosTarjeta(mes,tarjeta){
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
+function actualizarMovimientoTarjeta(params){
+  try{
+    var ss=getSS();
+    var sh=ss.getSheetByName('TDC_App');
+    if(!sh) return{ok:false,error:'Hoja TDC_App no encontrada'};
+    var D=sh.getDataRange().getValues();
+    for(var i=1;i<D.length;i++){
+      if(String(D[i][0])!==String(params.id)) continue;
+      var oldMes=_s(D[i][2]).replace(/^'+/,'');
+      var oldTipo=_s(D[i][4]);
+      var oldOrigen=_s(D[i][8]);
+      var oldRegistroId=_s(D[i][9]);
+      var mes=_s(params.mes||oldMes);
+      mes=mes.charAt(0).toUpperCase()+mes.slice(1);
+      var tipo=_s(params.tipo||oldTipo);
+      var monto=parseFloat(String(params.monto).replace(',','.'))||0;
+      if(['cargo','abono'].indexOf(tipo)===-1) return{ok:false,error:'Tipo TDC inválido'};
+      if(!monto||monto<=0) return{ok:false,error:'Monto inválido'};
+
+      var registroId=oldRegistroId;
+      if(oldRegistroId&&!(tipo==='abono'&&params.origen==='egreso')){
+        eliminarMovimiento(oldRegistroId);
+        registroId='';
+      }
+      if(tipo==='abono'&&params.origen==='egreso'){
+        var movParams={
+          id:oldRegistroId,
+          mes:mes,
+          tipo:params.egresoTipo||'deuda',
+          categoria:params.egresoTipo||'deuda',
+          subcategoria:params.subcategoria||'Prestamos TDC',
+          monto:String(monto),
+          fecha:params.fecha,
+          notas:(params.notas?params.notas+' · ':'')+'Abono '+_s(params.tarjeta)
+        };
+        if(oldRegistroId&&oldOrigen==='egreso'){
+          var up=actualizarMovimiento(movParams);
+          if(!up||!up.ok) return up;
+        }else{
+          var cr=registrarMovimiento(movParams);
+          if(!cr||!cr.ok) return cr;
+          registroId=cr.id||'';
+        }
+      }
+
+      sh.getRange(i+1,3,1,10).setValues([[
+        mes,_s(params.tarjeta),tipo,monto,params.fecha||'',params.notas||'',
+        params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||''
+      ]]);
+      cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));
+      return{ok:true};
+    }
+    return{ok:false,error:'Movimiento TDC no encontrado'};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function eliminarMovimientoTarjeta(id){
+  try{
+    var ss=getSS();
+    var sh=ss.getSheetByName('TDC_App');
+    if(!sh) return{ok:false,error:'Hoja TDC_App no encontrada'};
+    var D=sh.getDataRange().getValues();
+    for(var i=1;i<D.length;i++){
+      if(String(D[i][0])!==String(id)) continue;
+      var mes=_s(D[i][2]).replace(/^'+/,'');
+      var registroId=_s(D[i][9]);
+      if(registroId) eliminarMovimiento(registroId);
+      sh.deleteRow(i+1);
+      cDel('flujo');cDel('mes_'+mes.replace(/ /g,'_'));
+      return{ok:true};
+    }
+    return{ok:false,error:'Movimiento TDC no encontrado'};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
 // ── REGISTRO ─────────────────────────────────────────────────
 
 var BALANCE_MAP = {
@@ -1007,6 +1082,8 @@ var API_METHODS = {
   parseTarjetas: parseTarjetas,
   registrarMovimientoTarjeta: registrarMovimientoTarjeta,
   getMovimientosTarjeta: getMovimientosTarjeta,
+  actualizarMovimientoTarjeta: actualizarMovimientoTarjeta,
+  eliminarMovimientoTarjeta: eliminarMovimientoTarjeta,
   registrarMovimiento: registrarMovimiento,
   getDesgloseSub: getDesgloseSub,
   getMovimientosMes: getMovimientosMes,
