@@ -1083,24 +1083,59 @@ function _parseFlujoCaja(){
     }
     filas.forEach(function(f){
       for(var idx in deltas){
-        var d=deltas[idx],flujoOp=d.ing-d.egr;
-        if(f.label==='TOTAL INGRESOS')          f.valores[idx]=(f.valores[idx]||0)+d.ing;
+        var d=deltas[idx];
         if(f.label==='SUELDO')                  f.valores[idx]=(f.valores[idx]||0)+d.sueldo;
         if(f.label==='PINTURAS')                f.valores[idx]=(f.valores[idx]||0)+d.pinturasIng;
         if(f.label==='OTROS INGRESOS')          f.valores[idx]=(f.valores[idx]||0)+d.otrosIng;
-        if(f.label==='TOTAL EGRESOS')           f.valores[idx]=(f.valores[idx]||0)+d.egr;
         if(f.label==='NECESIDADES')             f.valores[idx]=(f.valores[idx]||0)+d.nec;
         if(f.label==='DESEOS')                  f.valores[idx]=(f.valores[idx]||0)+d.des;
         if(f.label==='DEUDAS')                  f.valores[idx]=(f.valores[idx]||0)+d.deu;
         if(f.label==='AHORROS')                 f.valores[idx]=(f.valores[idx]||0)+d.aho;
-        if(f.label==='FLUJO OPERATIVO')         f.valores[idx]=(f.valores[idx]||0)+flujoOp;
-        if(f.label==='FLUJO DE CAJA ACUMULADO') f.valores[idx]=(f.valores[idx]||0)+flujoOp;
       }
       f.total=f.valores.reduce(function(a,v){return a+v;},0);
     });
   }
 
+  _recalcularFlujoCajaMensual(filas, meses);
+
   return{ok:true,data:{meses:meses,filas:filas}};
+}
+
+function _filaFlujo(filas,label){
+  for(var i=0;i<filas.length;i++) if(filas[i].label===label) return filas[i];
+  var f={label:label,valores:[0,0,0,0,0,0,0,0,0,0,0,0],total:0};
+  filas.push(f);
+  return f;
+}
+
+function _recalcularFlujoCajaMensual(filas, meses){
+  var si=_filaFlujo(filas,'SALDO INICIAL');
+  var ing=_filaFlujo(filas,'TOTAL INGRESOS');
+  var egr=_filaFlujo(filas,'TOTAL EGRESOS');
+  var op=_filaFlujo(filas,'FLUJO OPERATIVO');
+  var ac=_filaFlujo(filas,'FLUJO DE CAJA ACUMULADO');
+  var sueldo=_filaFlujo(filas,'SUELDO'),pinturas=_filaFlujo(filas,'PINTURAS'),otros=_filaFlujo(filas,'OTROS INGRESOS');
+  var nec=_filaFlujo(filas,'NECESIDADES'),des=_filaFlujo(filas,'DESEOS'),deu=_filaFlujo(filas,'DEUDAS'),aho=_filaFlujo(filas,'AHORROS');
+  var saldoInicial=_n(si.valores[0]);
+  for(var i=0;i<meses.length;i++){
+    if(i>0) si.valores[i]=_money(ac.valores[i-1]);
+    ing.valores[i]=_money((sueldo.valores[i]||0)+(pinturas.valores[i]||0)+(otros.valores[i]||0));
+    egr.valores[i]=_money((nec.valores[i]||0)+(des.valores[i]||0)+(deu.valores[i]||0)+(aho.valores[i]||0));
+    op.valores[i]=_money((ing.valores[i]||0)-(egr.valores[i]||0));
+    ac.valores[i]=_money((i===0?saldoInicial:si.valores[i]||0)+(op.valores[i]||0));
+  }
+  filas.forEach(function(f){
+    f.valores=f.valores.map(_money);
+    f.total=(f.label==='FLUJO DE CAJA ACUMULADO'||f.label==='SALDO INICIAL')
+      ?f.valores[f.valores.length-1]
+      :f.valores.reduce(function(a,v){return a+(v||0);},0);
+    f.total=_money(f.total);
+  });
+}
+
+function _money(v){
+  var n=Math.round((_n(v)+Number.EPSILON)*100)/100;
+  return Math.abs(n)<0.005?0:n;
 }
 
 function _parseJapon(){
