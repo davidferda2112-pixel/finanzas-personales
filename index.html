@@ -346,7 +346,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   font-size:16px;flex-shrink:0;background:rgba(0,122,255,0.1);}
 .hist-main{flex:1;min-width:0;}
 .hist-title{font-size:13px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.hist-meta{font-size:11px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hist-meta{font-size:11px;color:var(--t3);margin-top:2px;line-height:1.35;}
 .hist-amt{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:800;white-space:nowrap;}
 .hist-actions{display:flex;gap:5px;flex-shrink:0;}
 .mini-ib{width:30px;height:30px;border-radius:10px;border:1px solid rgba(0,0,0,0.06);
@@ -1576,10 +1576,11 @@ function renderHistorialMovimientos(){
     var col=t.tipo==='ingreso'?'var(--ok)':t.tipo==='ahorro'?'var(--blue)':'var(--over)';
     var ic=ICONOS[t.subcategoria]||ICONOS['default'];
     var notas=t.notas?' · '+t.notas:'';
+    var saldoInfo=(t.saldoDespues!==undefined&&t.saldoDespues!==null)?' · Saldo '+fmt(t.saldoDespues):'';
     return'<div class="hist-row">'
       +'<div class="hist-ic" style="color:'+col+'">'+ic+'</div>'
       +'<div class="hist-main"><div class="hist-title">'+t.subcategoria+'</div>'
-      +'<div class="hist-meta">'+fmtFecha(t.fecha)+' · '+tipoLabel(t.tipo)+notas+'</div></div>'
+      +'<div class="hist-meta">'+fmtFecha(t.fecha)+' · '+tipoLabel(t.tipo)+notas+saldoInfo+'</div></div>'
       +'<div class="hist-amt" style="color:'+col+'">'+(pos?'+':'-')+fmt(t.monto)+'</div>'
       +'<div class="hist-actions"><button class="mini-ib" onclick="abrirEditarTx(\''+t.id+'\')" title="Editar">✎</button>'
       +'<button class="mini-ib" onclick="abrirEliminarTx(\''+t.id+'\')" title="Eliminar">×</button></div>'

@@ -653,6 +653,7 @@ function getMovimientosMes(mes){
     var reg=ss.getSheetByName('Registro');
     if(!reg) return{ok:true,data:[]};
     var D=reg.getDataRange().getValues(),result=[];
+    var base=_getSaldoBaseMovimientos(mes);
     for(var i=1;i<D.length;i++){
       var mesFila=_s(D[i][2]).replace(/^'+/,'');
       if(mesFila!==mes) continue;
@@ -668,12 +669,35 @@ function getMovimientosMes(mes){
         notas:_s(D[i][8])
       });
     }
+    result.sort(function(a,b){return _ordenMovimiento(a)-_ordenMovimiento(b);});
+    var saldo=base;
+    result.forEach(function(t){
+      var delta=t.tipo==='ingreso'?t.monto:-t.monto;
+      saldo+=delta;
+      t.saldoDespues=Math.round((saldo+Number.EPSILON)*100)/100;
+    });
     result.sort(function(a,b){
       return String(b.fecha||'').localeCompare(String(a.fecha||''))||
              String(b.timestamp||'').localeCompare(String(a.timestamp||''));
     });
-    return{ok:true,data:result};
+    return{ok:true,data:result,saldoBase:base};
   }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function _getSaldoBaseMovimientos(mes){
+  var d=_parseMes(mes);
+  if(d&&d.ok&&d.vistaGeneral&&d.vistaGeneral.saldoFinal) return _n(d.vistaGeneral.saldoFinal.actual);
+  return 0;
+}
+
+function _ordenMovimiento(t){
+  var f=String(t.fecha||'').split('T')[0];
+  var ts=String(t.timestamp||'');
+  var raw=ts.indexOf('-')>=0?ts:((f||'0000-00-00')+' '+ts);
+  var n=new Date(raw.replace(' ','T')).getTime();
+  if(isNaN(n)&&f) n=new Date(f+'T00:00:00').getTime();
+  if(!isNaN(n)) return n;
+  return parseFloat(String(t.id||'0').replace(/\D/g,''))||0;
 }
 
 function actualizarMovimiento(params){
