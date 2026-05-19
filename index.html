@@ -354,11 +354,23 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   cursor:pointer;font-size:13px;font-weight:800;color:var(--t2);}
 .mini-ib:hover{background:#fff;color:var(--t1);}
 .empty-state{padding:24px 14px;text-align:center;color:var(--t3);font-size:13px;}
+.hist-filters{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+.filter-row{display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none;}
+.filter-row::-webkit-scrollbar{display:none;}
+.filter-chip{flex:0 0 auto;border:none;border-radius:12px;padding:9px 12px;background:rgba(255,255,255,0.72);
+  color:var(--t2);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
+  box-shadow:0 1px 6px rgba(0,0,0,0.04);border:1px solid rgba(255,255,255,0.72);}
+.filter-chip.active{background:var(--blue);color:#fff;box-shadow:0 4px 14px rgba(0,122,255,0.24);}
+.filter-row.sub .filter-chip.active{background:var(--t1);}
+.hero-card.tap-target{cursor:pointer;}
+.hero-card.tap-target:active{transform:scale(0.992);}
 
 /* ── RESPONSIVE ──────────────────────────────────────────── */
 @media(max-width:768px){
+  html,body,#app{width:100%;max-width:100%;overflow:hidden;}
   .sb{display:none;}.bnv{display:block;}
-  .pc{padding:12px 12px calc(var(--th) + var(--sb) + 10px);}
+  .main,.page,.pc{min-width:0;width:100%;}
+  .pc{padding:12px 12px calc(var(--th) + var(--sb) + 14px);}
   .ph{
     height:calc(58px + var(--st));
     padding:var(--st) 12px 0;
@@ -378,6 +390,18 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .np{right:8px;left:8px;width:auto;top:calc(var(--st) + 50px);}.g2c{grid-template-columns:1fr 1fr;}
   .act-row{gap:8px;}
   .act-row .btn{min-height:46px;}
+  .hist-row{align-items:flex-start;padding:11px;gap:9px;}
+  .hist-amt{font-size:13px;}
+  .hist-actions{gap:4px;}
+  .mini-ib{width:32px;height:32px;}
+  .bcard{height:118px;padding:16px;}
+  .bc-name{font-size:19px!important;}
+  .bc-bal{font-size:18px;}
+  #tc-sel{flex-direction:column;}
+  #tc-sel>div{width:100%;}
+  .tdc-cargo-row{padding:11px 12px;}
+  .msh{max-width:none;border-radius:24px 24px 0 0;padding:16px 14px calc(26px + var(--sb));}
+  .toast{max-width:calc(100vw - 28px);white-space:normal;text-align:center;}
 }
 @media(max-width:400px){
   .g2c{grid-template-columns:1fr 1fr;}
@@ -389,6 +413,15 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .ib{width:38px;height:38px;flex-basis:38px;}
   .ms{width:104px;max-width:30vw;height:38px;}
   .page#page-home .ph-r .ib:nth-last-child(-n+2){display:none;}
+  .ah{font-size:28px;}
+  .saldo-change{font-size:11px;padding:3px 7px;}
+  .hero-saldo{align-items:flex-start;flex-direction:column;gap:6px;}
+  .act-row{flex-direction:column;}
+  .act-row .btn{width:100%;}
+  .cat-grid,.kpi-grid{grid-template-columns:1fr;}
+  .hist-row{display:grid;grid-template-columns:34px 1fr auto;align-items:center;}
+  .hist-actions{grid-column:2 / 4;justify-content:flex-end;}
+  .filter-chip{padding:8px 10px;font-size:11px;}
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -643,6 +676,20 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
     <div class="pc">
       <div class="g3c mb14" id="tx-resumen"></div>
+      <div class="hist-filters">
+        <div class="filter-row" id="tx-filter-tipo">
+          <button class="filter-chip active" data-filter="todos" onclick="setHistFilter('tipo','todos',this)">Todos</button>
+          <button class="filter-chip" data-filter="ingreso" onclick="setHistFilter('tipo','ingreso',this)">Ingresos</button>
+          <button class="filter-chip" data-filter="egreso" onclick="setHistFilter('tipo','egreso',this)">Egresos</button>
+          <button class="filter-chip" data-filter="ahorro" onclick="setHistFilter('tipo','ahorro',this)">Ahorros</button>
+        </div>
+        <div class="filter-row sub" id="tx-filter-cat">
+          <button class="filter-chip active" data-filter="todos" onclick="setHistFilter('cat','todos',this)">Todas las clases</button>
+          <button class="filter-chip" data-filter="necesidad" onclick="setHistFilter('cat','necesidad',this)">Necesidad</button>
+          <button class="filter-chip" data-filter="deseo" onclick="setHistFilter('cat','deseo',this)">Deseo</button>
+          <button class="filter-chip" data-filter="deuda" onclick="setHistFilter('cat','deuda',this)">Deuda</button>
+        </div>
+      </div>
       <div class="lup mb10">Movimientos registrados</div>
       <div id="tx-list" class="hist-list"></div>
       <div style="margin-top:4px"><button class="btn bgh bful" id="btn-nmes" onclick="crearMesNuevo()" style="display:none">+ Crear mes nuevo</button></div>
@@ -887,6 +934,7 @@ var G={
   tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcExpanded:false,
   calFecha:new Date(),prCats:null,catResumen:null,
   movimientos:[],editTx:null,deleteTx:null,
+  histFiltroTipo:'todos',histFiltroCat:'todos',
   _dirty:false  // flag: se activó después de guardar
 };
 var MESES_NOM_JS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -912,6 +960,7 @@ function fmtFecha(v){
   return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:fl;
 }
 function tipoLabel(t){return({necesidad:'Necesidad',deseo:'Deseo',deuda:'Deuda',ahorro:'Ahorro',ingreso:'Ingreso'}[t]||t||'-');}
+function esEgresoTipo(t){return['necesidad','deseo','deuda'].indexOf(t)>=0;}
 function getCategoriasDetalle(d){
   if(!d)return[];
   var vg=d.vistaGeneral||{},ing=d.ingresos?d.ingresos.totalActual:(vg.ingresos?vg.ingresos.actual:0),mt=d.metricas||{};
@@ -1053,7 +1102,7 @@ function renderHome(d){
   var greetTxt=dia?'Buenos días':(tarde?'Buenas tardes':'Buenas noches');
 
   if(dia){
-    heroHTML='<div class="hero-card hero-day mb14" style="border:1px solid rgba(255,255,255,0.7)">'
+    heroHTML='<div class="hero-card hero-day tap-target mb14" onclick="irHistorialDesdeSaldo()" title="Ver historial de transacciones" style="border:1px solid rgba(255,255,255,0.7)">'
       +'<svg class="hero-bg" viewBox="0 0 400 168" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%">'
       +'<defs><linearGradient id="skyDay" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b8dfff"/><stop offset="100%" stop-color="#e8f6ff"/></linearGradient></defs>'
       +'<rect width="400" height="168" fill="url(#skyDay)"/>'
@@ -1075,7 +1124,7 @@ function renderHome(d){
       +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
       +'</div></div>';
   } else if(tarde){
-    heroHTML='<div class="hero-card hero-eve mb14" style="border:1px solid rgba(255,220,100,0.25)">'
+    heroHTML='<div class="hero-card hero-eve tap-target mb14" onclick="irHistorialDesdeSaldo()" title="Ver historial de transacciones" style="border:1px solid rgba(255,220,100,0.25)">'
       +'<svg class="hero-bg" viewBox="0 0 400 168" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%">'
       +'<defs><linearGradient id="skyEve" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e8541a"/><stop offset="45%" stop-color="#f08a1e"/><stop offset="100%" stop-color="#f5cc40"/></linearGradient></defs>'
       +'<rect width="400" height="168" fill="url(#skyEve)"/>'
@@ -1095,7 +1144,7 @@ function renderHome(d){
       +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
       +'</div></div>';
   } else {
-    heroHTML='<div class="hero-card hero-night mb14" style="border:1px solid rgba(255,255,255,0.1)">'
+    heroHTML='<div class="hero-card hero-night tap-target mb14" onclick="irHistorialDesdeSaldo()" title="Ver historial de transacciones" style="border:1px solid rgba(255,255,255,0.1)">'
       +'<svg class="hero-bg" viewBox="0 0 400 168" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%">'
       +'<defs><linearGradient id="skyNight" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#070e1a"/><stop offset="100%" stop-color="#0f1e38"/></linearGradient></defs>'
       +'<rect width="400" height="168" fill="url(#skyNight)"/>'
@@ -1480,6 +1529,13 @@ function renderPresupuesto(d){
   loadMovimientosMes();
 }
 
+function irHistorialDesdeSaldo(){
+  G.histFiltroTipo='todos';
+  G.histFiltroCat='todos';
+  navTo('presupuesto');
+  actualizarChipsHistorial();
+}
+
 function loadMovimientosMes(){
   if(!G.mesActual)return;
   eid('tx-list').innerHTML='<div class="empty-state">Cargando movimientos…</div>';
@@ -1500,8 +1556,9 @@ function renderHistorialMovimientos(){
     var m=parseFloat(t.monto)||0;
     if(t.tipo==='ingreso') ing+=m;
     else if(t.tipo==='ahorro') aho+=m;
-    else egr+=m;
+    else if(esEgresoTipo(t.tipo)) egr+=m;
   });
+  actualizarChipsHistorial();
   eid('tx-resumen').innerHTML=[
     {l:'Ingresos',v:ing,c:'var(--ok)'},
     {l:'Egresos',v:egr,c:'var(--over)'},
@@ -1509,8 +1566,9 @@ function renderHistorialMovimientos(){
   ].map(function(r){
     return'<div class="card p12 cr12"><div class="lup">'+r.l+'</div><div class="amd" style="color:'+r.c+'">'+fmt(r.v)+'</div></div>';
   }).join('');
+  txs=filtrarHistorial(txs);
   if(!txs.length){
-    eid('tx-list').innerHTML='<div class="card cr12 empty-state">Sin movimientos registrados desde la app para este mes.</div>';
+    eid('tx-list').innerHTML='<div class="card cr12 empty-state">Sin movimientos para el filtro seleccionado.</div>';
     return;
   }
   eid('tx-list').innerHTML=txs.map(function(t){
@@ -1527,6 +1585,36 @@ function renderHistorialMovimientos(){
       +'<button class="mini-ib" onclick="abrirEliminarTx(\''+t.id+'\')" title="Eliminar">×</button></div>'
       +'</div>';
   }).join('');
+}
+
+function setHistFilter(grupo,valor,el){
+  if(grupo==='tipo'){
+    G.histFiltroTipo=valor;
+    if(valor==='ingreso'||valor==='ahorro') G.histFiltroCat='todos';
+  }else{
+    G.histFiltroCat=valor;
+    if(valor!=='todos') G.histFiltroTipo='egreso';
+  }
+  actualizarChipsHistorial();
+  renderHistorialMovimientos();
+}
+
+function actualizarChipsHistorial(){
+  var tipo=G.histFiltroTipo||'todos',cat=G.histFiltroCat||'todos';
+  var tipoBox=eid('tx-filter-tipo'),catBox=eid('tx-filter-cat');
+  if(tipoBox) Array.prototype.forEach.call(tipoBox.querySelectorAll('.filter-chip'),function(b){b.classList.toggle('active',b.dataset.filter===tipo);});
+  if(catBox) Array.prototype.forEach.call(catBox.querySelectorAll('.filter-chip'),function(b){b.classList.toggle('active',b.dataset.filter===cat);});
+}
+
+function filtrarHistorial(txs){
+  var tipo=G.histFiltroTipo||'todos',cat=G.histFiltroCat||'todos';
+  return (txs||[]).filter(function(t){
+    if(tipo==='ingreso'&&t.tipo!=='ingreso') return false;
+    if(tipo==='ahorro'&&t.tipo!=='ahorro') return false;
+    if(tipo==='egreso'&&!esEgresoTipo(t.tipo)) return false;
+    if(cat!=='todos'&&t.tipo!==cat) return false;
+    return true;
+  });
 }
 
 function abrirEditarTx(id){
