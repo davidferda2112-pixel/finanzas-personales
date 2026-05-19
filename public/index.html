@@ -347,21 +347,23 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .hist-main{flex:1;min-width:0;}
 .hist-title{font-size:13px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .hist-meta{font-size:11px;color:var(--t3);margin-top:2px;line-height:1.35;}
-.hist-amt{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:800;white-space:nowrap;}
+.hist-side{display:flex;flex-direction:column;align-items:flex-end;gap:3px;white-space:nowrap;}
+.hist-amt{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:800;}
+.hist-balance{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--t3);}
 .hist-actions{display:flex;gap:5px;flex-shrink:0;}
 .mini-ib{width:30px;height:30px;border-radius:10px;border:1px solid rgba(0,0,0,0.06);
   background:rgba(255,255,255,0.75);display:flex;align-items:center;justify-content:center;
   cursor:pointer;font-size:13px;font-weight:800;color:var(--t2);}
 .mini-ib:hover{background:#fff;color:var(--t1);}
 .empty-state{padding:24px 14px;text-align:center;color:var(--t3);font-size:13px;}
-.hist-filters{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
-.filter-row{display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none;}
-.filter-row::-webkit-scrollbar{display:none;}
-.filter-chip{flex:0 0 auto;border:none;border-radius:12px;padding:9px 12px;background:rgba(255,255,255,0.72);
-  color:var(--t2);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
-  box-shadow:0 1px 6px rgba(0,0,0,0.04);border:1px solid rgba(255,255,255,0.72);}
-.filter-chip.active{background:var(--blue);color:#fff;box-shadow:0 4px 14px rgba(0,122,255,0.24);}
-.filter-row.sub .filter-chip.active{background:var(--t1);}
+.hist-filters{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:5px;
+  background:rgba(255,255,255,0.58);border:1px solid rgba(255,255,255,0.72);border-radius:14px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.04);}
+.filter-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;}
+.filter-chip{min-width:0;border:none;border-radius:10px;padding:8px 5px;background:transparent;
+  color:var(--t2);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;}
+.filter-chip.active{background:rgba(255,255,255,0.94);color:var(--blue);box-shadow:0 2px 8px rgba(0,0,0,0.07);}
+.filter-row.sub .filter-chip.active{color:var(--t1);}
 .hero-card.tap-target{cursor:pointer;}
 .hero-card.tap-target:active{transform:scale(0.992);}
 
@@ -389,7 +391,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .g3c{grid-template-columns:1fr 1fr;}.g4c{grid-template-columns:1fr 1fr;}
   .np{right:8px;left:8px;width:auto;top:calc(var(--st) + 50px);}.g2c{grid-template-columns:1fr 1fr;}
   .act-row{gap:8px;}
-  .act-row .btn{min-height:46px;}
+  .page#page-home .act-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
+  .page#page-home .act-row .btn{min-height:42px;font-size:12px;padding:9px 4px;border-radius:12px;}
+  .act-row .btn{min-height:42px;}
   .hist-row{align-items:flex-start;padding:11px;gap:9px;}
   .hist-amt{font-size:13px;}
   .hist-actions{gap:4px;}
@@ -416,12 +420,12 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .ah{font-size:28px;}
   .saldo-change{font-size:11px;padding:3px 7px;}
   .hero-saldo{align-items:flex-start;flex-direction:column;gap:6px;}
-  .act-row{flex-direction:column;}
-  .act-row .btn{width:100%;}
+  .page#page-home .act-row{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .page#page-home .act-row .btn svg{display:none;}
   .cat-grid,.kpi-grid{grid-template-columns:1fr;}
   .hist-row{display:grid;grid-template-columns:34px 1fr auto;align-items:center;}
   .hist-actions{grid-column:2 / 4;justify-content:flex-end;}
-  .filter-chip{padding:8px 10px;font-size:11px;}
+  .filter-chip{padding:8px 3px;font-size:10px;}
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -684,7 +688,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
           <button class="filter-chip" data-filter="ahorro" onclick="setHistFilter('tipo','ahorro',this)">Ahorros</button>
         </div>
         <div class="filter-row sub" id="tx-filter-cat">
-          <button class="filter-chip active" data-filter="todos" onclick="setHistFilter('cat','todos',this)">Todas las clases</button>
+          <button class="filter-chip active" data-filter="todos" onclick="setHistFilter('cat','todos',this)">Todas</button>
           <button class="filter-chip" data-filter="necesidad" onclick="setHistFilter('cat','necesidad',this)">Necesidad</button>
           <button class="filter-chip" data-filter="deseo" onclick="setHistFilter('cat','deseo',this)">Deseo</button>
           <button class="filter-chip" data-filter="deuda" onclick="setHistFilter('cat','deuda',this)">Deuda</button>
@@ -953,7 +957,7 @@ function fmt(n){n=parseFloat(n)||0;return '$'+Math.abs(n).toLocaleString('en-US'
 function pw(a,m){return m>0?Math.min((a/m)*100,100):0;}
 function st(p,a){if(!a||!p)return'e';var r=a/p;if(r<=0.85)return'ok';if(r<=1)return'warn';return'over';}
 function todayISO(){return new Date().toISOString().split('T')[0];}
-function todayFull(){return new Date().toLocaleDateString('es-EC',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
+function todayFull(){return new Date().toLocaleDateString('es-EC',{day:'2-digit',month:'2-digit',year:'numeric'});}
 function fmtFecha(v){
   var s=String(v||'');if(!s)return'-';
   var fl=s.split('T')[0],p=fl.split('-');
@@ -1576,12 +1580,13 @@ function renderHistorialMovimientos(){
     var col=t.tipo==='ingreso'?'var(--ok)':t.tipo==='ahorro'?'var(--blue)':'var(--over)';
     var ic=ICONOS[t.subcategoria]||ICONOS['default'];
     var notas=t.notas?' · '+t.notas:'';
-    var saldoInfo=(t.saldoDespues!==undefined&&t.saldoDespues!==null)?' · Saldo '+fmt(t.saldoDespues):'';
+    var saldoInfo=(t.saldoDespues!==undefined&&t.saldoDespues!==null)?fmt(t.saldoDespues):'';
     return'<div class="hist-row">'
       +'<div class="hist-ic" style="color:'+col+'">'+ic+'</div>'
       +'<div class="hist-main"><div class="hist-title">'+t.subcategoria+'</div>'
-      +'<div class="hist-meta">'+fmtFecha(t.fecha)+' · '+tipoLabel(t.tipo)+notas+saldoInfo+'</div></div>'
-      +'<div class="hist-amt" style="color:'+col+'">'+(pos?'+':'-')+fmt(t.monto)+'</div>'
+      +'<div class="hist-meta">'+fmtFecha(t.fecha)+' · '+tipoLabel(t.tipo)+notas+'</div></div>'
+      +'<div class="hist-side"><div class="hist-amt" style="color:'+col+'">'+(pos?'+':'-')+fmt(t.monto)+'</div>'
+      +(saldoInfo?'<div class="hist-balance">Saldo '+saldoInfo+'</div>':'')+'</div>'
       +'<div class="hist-actions"><button class="mini-ib" onclick="abrirEditarTx(\''+t.id+'\')" title="Editar">✎</button>'
       +'<button class="mini-ib" onclick="abrirEliminarTx(\''+t.id+'\')" title="Eliminar">×</button></div>'
       +'</div>';
