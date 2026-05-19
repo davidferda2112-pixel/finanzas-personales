@@ -588,10 +588,13 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .wallet-stack{position:relative;margin-bottom:0;}
 .wallet-stack.open{margin-bottom:0;}
 .wallet-stack .bcard{position:relative;z-index:2;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease;}
-.wallet-stack .bcard.ghost,.wallet-list{display:none;}
+.wallet-stack .bcard.ghost{display:none;}
+.tc-carousel{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:2px 18px 12px 2px;margin-right:-16px;scrollbar-width:none;}
+.tc-carousel::-webkit-scrollbar{display:none;}
+.tc-slide{flex:0 0 min(82vw,380px);scroll-snap-align:start;}
+.tc-slide .bcard{height:148px;}
+.tc-slide.active .bcard{box-shadow:0 18px 44px rgba(34,79,116,.18),inset 0 1px 0 rgba(255,255,255,.26);}
 .wallet-caret{position:absolute;top:14px;right:16px;color:rgba(255,255,255,0.72);font-size:16px;font-weight:800;}
-.tc-select-btn{flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;background:rgba(255,255,255,0.78);border:1px solid rgba(255,255,255,0.72);box-shadow:0 5px 18px rgba(0,0,0,0.07);cursor:pointer;}
-.tc-select-btn.active{border-color:rgba(0,122,255,0.34);box-shadow:0 6px 20px rgba(0,122,255,0.12);}
 .tc-chip{width:34px;height:22px;border-radius:6px;flex-shrink:0;}
 .tc-name{font-size:13px;font-weight:800;color:var(--t1);}
 .tc-num{font-size:10px;color:var(--t3);margin-top:1px;}
@@ -648,7 +651,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   box-shadow:var(--glass-shadow);}
 
 /* ── JAEGER AERO GLASS REFINEMENT ───────────────────────── */
-html,body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",system-ui,sans-serif;}
+html,body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","SF Pro Text","SF Pro Display","Segoe UI",system-ui,sans-serif;}
 body{background:#edf7fb;font-weight:400;letter-spacing:0;}
 body::before{
   background:
@@ -704,6 +707,8 @@ body::before{
   .tab .tl{font-size:9px;font-weight:450;}
   .pc{padding-bottom:calc(66px + var(--sb));}
   .hero-card{min-height:150px;}
+  .tc-carousel{margin-left:-2px;margin-right:-12px;padding-right:42px;}
+  .tc-slide{flex-basis:82%;}
   .fin-table{min-width:460px;font-size:12px;}
   .fin-table th,.fin-table td{padding:9px 10px;}
 }
@@ -1045,7 +1050,7 @@ body::before{
       <div id="tdc-hist-logo"></div>
     </div>
     <div class="g3c mb14" id="tdc-hist-res"></div>
-    <div class="lup mb10">Tabla del mes</div>
+    <div class="lup mb10">Historial transaccional</div>
     <div class="card cr12" id="tdc-hist-cargos"></div>
   </div>
 </div>
@@ -1929,21 +1934,15 @@ function loadTarjetas(){
 }
 
 function renderSelectorTarjeta(){
-  var tarjetas=G.tarjetas||[],act=tarjetas[G.tcIdx];
-  if(!act){eid('tc-sel').innerHTML='';return;}
-  function chip(t){return'<div class="tc-chip" style="'+(t.id==='MC'?'background:linear-gradient(135deg,#7a5c00,#daa520)':'background:linear-gradient(135deg,#c94b00,#f48c06)')+'"></div>';}
-  eid('tc-sel').innerHTML=tarjetas.map(function(t,i){
-    return'<button class="tc-select-btn '+(i===G.tcIdx?'active':'')+'" onclick="selectTarjeta('+i+')">'
-      +chip(t)+'<span><span class="tc-name">'+t.nombre+'</span><span class="tc-num">'+t.numero+'</span></span>'
-      +'</button>';
-  }).join('');
+  var el=eid('tc-sel');
+  if(el){el.innerHTML='';el.style.display='none';el.style.marginBottom='0';}
 }
 
 function toggleSelectorTarjeta(){
-  var tarjetas=G.tarjetas||[];
-  if(tarjetas.length>1) selectTarjeta((G.tcIdx+1)%tarjetas.length);
+  abrirModalTDC();
 }
 function selectTarjeta(i){G.tcIdx=i;G.tcSelectorOpen=false;renderSelectorTarjeta();renderHistorialTarjeta();}
+function abrirModalTDCFor(i){G.tcIdx=i;G.tcSelectorOpen=false;renderSelectorTarjeta();renderHistorialTarjeta();setTimeout(abrirModalTDC,0);}
 
 function setTdcAnio(yr,el){
   G.tdcAnio=yr;
@@ -1989,8 +1988,7 @@ function tarjetaGrandeHtml(t,saldoRotTC,extraClass,onClick,label,showName){
     +(saldoRotTC>0?'<div style="font-family:JetBrains Mono,monospace;font-size:'+(showName?'18px':'22px')+';font-weight:600;color:rgba(255,255,255,0.92)">'+fmt(saldoRotTC)+'</div>'
       +'<div style="font-size:9px;color:rgba(255,255,255,0.58);text-transform:uppercase;letter-spacing:0.07em">Saldo a pagar</div>':'<div style="font-size:18px;font-weight:600;color:rgba(255,255,255,0.9)">Sin saldo a pagar</div>')
     +'</div>'
-    +'<div class="bc-lbl" style="margin-top:5px">Banco Internacional · <span style="opacity:0.55;font-size:9px">'+(label||'Toca para cambiar tarjeta')+'</span></div>'
-    +'<div class="wallet-caret">⌄</div>'
+    +'<div class="bc-lbl" style="margin-top:5px">Banco Internacional · <span style="opacity:0.55;font-size:9px">'+(label||'Toca para ver resumen')+'</span></div>'
     +'</div>';
 }
 
@@ -2008,8 +2006,14 @@ function renderHistorialTarjeta(){
     return'<div class="card p12 cr12"><div class="lup">'+c.l+'</div><div class="amd" style="color:'+c.c+'">'+(c.l==='Al día'?'✓':fmt(c.v))+'</div></div>';
   }).join('');
 
-  eid('tc-card').innerHTML='<div class="wallet-stack">'
-    +tarjetaGrandeHtml(t,saldoPagarTC,'','onclick="abrirModalTDC()"','Toca para ver resumen',false)
+  eid('tc-card').innerHTML='<div class="tc-carousel">'
+    +(G.tarjetas||[]).map(function(card,idx){
+      var r=getResumenTdc(card);
+      var saldoPagar=r.alDia?0:r.pendiente;
+      return'<div class="tc-slide '+(idx===G.tcIdx?'active':'')+'">'
+        +tarjetaGrandeHtml(card,saldoPagar,'','onclick="abrirModalTDCFor('+idx+')"','Toca para ver resumen',false)
+      +'</div>';
+    }).join('')
     +'</div>';
 
   var hist=G.tdcAnio===2026?t.historial2026:t.historial2025;
@@ -2219,15 +2223,27 @@ function abrirModalTDC(){
     cargosHtml+='<div class="tdc-cargo-row"><div style="flex:1;font-size:13px;font-weight:'+(esSR||esSRot?'700':'500')+';color:'+col+'">'+f.concepto+'</div>'
       +'<div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;color:'+col+'">'+fmt(v)+'</div></div>';
   });
-  var appRows=(G.tdcMovs||[]).map(function(m){
-    var col=m.tipo==='abono'?'var(--ok)':'var(--over)';
+  var movsOrdenados=(G.tdcMovs||[]).slice().sort(function(a,b){return String(a.fecha||'').localeCompare(String(b.fecha||''));});
+  var pendienteRun=saldoRotAnt;
+  var appRows=movsOrdenados.map(function(m){
+    var monto=parseFloat(m.monto)||0;
+    var consumo=m.tipo==='cargo'?monto:0;
+    var recogido=m.tipo==='abono'?monto:0;
+    pendienteRun=Math.max(Math.round((pendienteRun+consumo-recogido)*100)/100,0);
     var origen=m.tipo==='abono'?(m.origen==='externo'?'externo':'egreso'):'cargo';
-    return'<div class="tdc-cargo-row"><div style="flex:1"><div style="font-size:13px;font-weight:700;color:'+col+'">'+(m.tipo==='abono'?'Abono':'Cargo')+' app</div>'
-      +'<div style="font-size:11px;color:var(--t3)">'+fmtFecha(m.fecha)+' · '+origen+(m.notas?' · '+m.notas:'')+'</div></div>'
-      +'<div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;color:'+col+'">'+(m.tipo==='abono'?'+':'-')+fmt(m.monto)+'</div></div>';
+    return'<tr>'
+      +'<td>'+fmtFecha(m.fecha)+'<div class="small">'+origen+(m.notas?' · '+m.notas:'')+'</div></td>'
+      +'<td>'+(consumo?fmt(consumo):'–')+'</td>'
+      +'<td>'+(recogido?fmt(recogido):'–')+'</td>'
+      +'<td>'+fmt(pendienteRun)+'</td>'
+    +'</tr>';
   }).join('');
-  eid('tdc-hist-cargos').innerHTML=(cargosHtml||'<div style="padding:14px;color:var(--t3);font-size:13px;text-align:center">Sin movimientos base este mes</div>')
-    +(appRows?'<div class="lup" style="padding:12px 14px 2px">Registrados en la app</div>'+appRows:'');
+  var appTable=appRows?'<div class="fin-table-scroll"><table class="fin-table tdc-detail-table">'
+    +'<thead><tr><th>Movimiento</th><th>Consumo</th><th>Recogido</th><th>Por recoger</th></tr></thead><tbody>'
+    +appRows+'</tbody></table></div>'
+    :'<div style="padding:14px;color:var(--t3);font-size:13px;text-align:center">Sin consumos registrados en la app este mes</div>';
+  eid('tdc-hist-cargos').innerHTML=appTable
+    +(cargosHtml?'<div class="lup" style="padding:12px 14px 2px">Resumen base de la tarjeta</div>'+cargosHtml:'');
 }
 
 // ── JAPÓN ─────────────────────────────────────────────────────
