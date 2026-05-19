@@ -22,6 +22,7 @@ function _s(v){ return String(v||'').trim(); }
 function cGet(k){ var r=CacheService.getScriptCache().get(k); return r?JSON.parse(r):null; }
 function cPut(k,d){ CacheService.getScriptCache().put(k,JSON.stringify(d),CACHE_S); }
 function cDel(k){ CacheService.getScriptCache().remove(k); }
+function _nowLocal(){ return Utilities.formatDate(new Date(),'America/Guayaquil','yyyy-MM-dd HH:mm:ss'); }
 function _st(p,a){
   if(!a||!p) return 'empty';
   var r=a/p; if(r<=0.85) return 'ok'; if(r<=1) return 'warn'; return 'over';
@@ -483,7 +484,7 @@ function registrarMovimiento(params){
     }
     var id=new Date().getTime().toString();
     reg.appendRow([
-      id, new Date().toISOString(), mes, params.tipo, params.categoria,
+      id, _nowLocal(), mes, params.tipo, params.categoria,
       params.subcategoria,
       parseFloat(String(params.monto).replace(',','.'))||0,
       params.fecha, params.notas||''
@@ -966,59 +967,47 @@ function _parseFlujoCaja(){
     filas.push({label:key,valores:vals,total:total});
   }
 
-  // Enriquecer mes actual con registros de la app
-  var mesActual=_getMesActual();
-  if(mesActual){
-    var reg=ss.getSheetByName('Registro');
-    if(reg){
-      var DR=reg.getDataRange().getValues();
-      var mesCorto=mesActual.split(' ')[0].slice(0,3);
+  var reg=ss.getSheetByName('Registro');
+  if(reg){
+    var DR=reg.getDataRange().getValues();
+    var deltas={};
+    for(var r=1;r<DR.length;r++){
+      var mesFila=_normalizarMesNombre(_s(DR[r][2]).replace(/^'+/,''));
+      var mesCorto=mesFila.split(' ')[0].slice(0,3);
       var idxMes=meses.indexOf(mesCorto);
-      if(idxMes>=0){
-        var deltaIng=0,deltaEgr=0,deltaNec=0,deltaDes=0,deltaDeu=0,deltaAho=0;
-        for(var r=1;r<DR.length;r++){
-          var mesFila=_s(DR[r][2]).replace(/^'+/,'');
-          if(mesFila!==mesActual) continue;
-          var tipo=_s(DR[r][3]),monto=_n(DR[r][6]);
-          if(tipo==='ingreso')        deltaIng+=monto;
-          else if(tipo==='necesidad') deltaNec+=monto;
-          else if(tipo==='deseo')     deltaDes+=monto;
-          else if(tipo==='deuda')     deltaDeu+=monto;
-          else if(tipo==='ahorro')    deltaAho+=monto;
-          if(tipo!=='ingreso') deltaEgr+=monto;
-        }
-        var flujoOp=deltaIng-deltaEgr;
-        filas.forEach(function(f){
-          if(f.label==='TOTAL INGRESOS')         f.valores[idxMes]=(f.valores[idxMes]||0)+deltaIng;
-          if(f.label==='TOTAL EGRESOS')          f.valores[idxMes]=(f.valores[idxMes]||0)+deltaEgr;
-          if(f.label==='NECESIDADES')            f.valores[idxMes]=(f.valores[idxMes]||0)+deltaNec;
-          if(f.label==='DESEOS')                 f.valores[idxMes]=(f.valores[idxMes]||0)+deltaDes;
-          if(f.label==='DEUDAS')                 f.valores[idxMes]=(f.valores[idxMes]||0)+deltaDeu;
-          if(f.label==='AHORROS')                f.valores[idxMes]=(f.valores[idxMes]||0)+deltaAho;
-          if(f.label==='FLUJO OPERATIVO')        f.valores[idxMes]=(f.valores[idxMes]||0)+flujoOp;
-          if(f.label==='FLUJO DE CAJA ACUMULADO')f.valores[idxMes]=(f.valores[idxMes]||0)+flujoOp;
-        });
-
-        // Propagar saldo acumulado correcto a meses futuros
-        var acFila=null,siFila=null;
-        filas.forEach(function(f){
-          if(f.label==='FLUJO DE CAJA ACUMULADO') acFila=f;
-          if(f.label==='SALDO INICIAL') siFila=f;
-        });
-        if(acFila&&siFila){
-          var saldoCorrectoMesActual=acFila.valores[idxMes];
-          for(var m2=idxMes+1;m2<12;m2++){
-            siFila.valores[m2]=saldoCorrectoMesActual;
-            acFila.valores[m2]=saldoCorrectoMesActual;
-          }
-        }
-
-        // Recalcular totales
-        filas.forEach(function(f){
-          f.total=f.valores.reduce(function(a,v){return a+v;},0);
-        });
+      if(idxMes<0) continue;
+      var tipo=_s(DR[r][3]),sub=_s(DR[r][5]),monto=_n(DR[r][6]);
+      if(!deltas[idxMes]) deltas[idxMes]={ing:0,egr:0,sueldo:0,pinturasIng:0,otrosIng:0,nec:0,des:0,deu:0,aho:0};
+      if(tipo==='ingreso'){
+        deltas[idxMes].ing+=monto;
+        if(sub==='Sueldo') deltas[idxMes].sueldo+=monto;
+        else if(sub==='Pinturas') deltas[idxMes].pinturasIng+=monto;
+        else deltas[idxMes].otrosIng+=monto;
+      }else{
+        deltas[idxMes].egr+=monto;
+        if(tipo==='necesidad') deltas[idxMes].nec+=monto;
+        else if(tipo==='deseo') deltas[idxMes].des+=monto;
+        else if(tipo==='deuda') deltas[idxMes].deu+=monto;
+        else if(tipo==='ahorro') deltas[idxMes].aho+=monto;
       }
     }
+    filas.forEach(function(f){
+      for(var idx in deltas){
+        var d=deltas[idx],flujoOp=d.ing-d.egr;
+        if(f.label==='TOTAL INGRESOS')          f.valores[idx]=(f.valores[idx]||0)+d.ing;
+        if(f.label==='SUELDO')                  f.valores[idx]=(f.valores[idx]||0)+d.sueldo;
+        if(f.label==='PINTURAS')                f.valores[idx]=(f.valores[idx]||0)+d.pinturasIng;
+        if(f.label==='OTROS INGRESOS')          f.valores[idx]=(f.valores[idx]||0)+d.otrosIng;
+        if(f.label==='TOTAL EGRESOS')           f.valores[idx]=(f.valores[idx]||0)+d.egr;
+        if(f.label==='NECESIDADES')             f.valores[idx]=(f.valores[idx]||0)+d.nec;
+        if(f.label==='DESEOS')                  f.valores[idx]=(f.valores[idx]||0)+d.des;
+        if(f.label==='DEUDAS')                  f.valores[idx]=(f.valores[idx]||0)+d.deu;
+        if(f.label==='AHORROS')                 f.valores[idx]=(f.valores[idx]||0)+d.aho;
+        if(f.label==='FLUJO OPERATIVO')         f.valores[idx]=(f.valores[idx]||0)+flujoOp;
+        if(f.label==='FLUJO DE CAJA ACUMULADO') f.valores[idx]=(f.valores[idx]||0)+flujoOp;
+      }
+      f.total=f.valores.reduce(function(a,v){return a+v;},0);
+    });
   }
 
   return{ok:true,data:{meses:meses,filas:filas}};
