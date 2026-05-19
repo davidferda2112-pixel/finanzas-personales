@@ -720,7 +720,7 @@ function _compararMovimientoAsc(a,b){
 
 function _compararMovimientoVista(a,b){
   return _fechaOrdenMovimiento(b)-_fechaOrdenMovimiento(a)||
-         (a.orden||0)-(b.orden||0);
+         (b.orden||0)-(a.orden||0);
 }
 
 function _fechaOrdenMovimiento(t){
