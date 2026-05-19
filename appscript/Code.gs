@@ -11,6 +11,11 @@ var ESPECIALES = ['Balance General','Flujo TDC Papi','Flujo de Caja',
                   'Viaje a Japón','Registro','TDC_App','TDC_VISA','TDC_MC','_NOTIF',
                   'Balance_App'];
 
+var TDC_DIFERIDOS = {
+  VISA: [{nombre:'Diferido Artefacta', inicial:366.68, cuota:30.56, cuotasAlMesBase:3, mesBase:'May 26'}],
+  MC:   [{nombre:'Television Said', inicial:414.95, cuota:34.58, cuotasAlMesBase:6, mesBase:'May 26'}]
+};
+
 function getSS(){ return SpreadsheetApp.openById(SS_ID); }
 function _n(v){
   if(v===null||v===undefined) return 0;
@@ -253,7 +258,10 @@ function parseTarjetas(){
 
 function _enriquecerTarjetasConApp(ss, tarjetas){
   var sh=ss.getSheetByName('TDC_App');
-  if(!sh) return;
+  if(!sh){
+    tarjetas.forEach(_recalcularHistorialTdc);
+    return;
+  }
   var D=sh.getDataRange().getValues();
   for(var i=1;i<D.length;i++){
     var mes=_normalizarMesNombre(D[i][2]),tarjeta=_s(D[i][3]),tipo=_s(D[i][4]),monto=_n(D[i][5]);
@@ -263,13 +271,63 @@ function _enriquecerTarjetasConApp(ss, tarjetas){
       if(t.id!==tarjeta) return;
       var hist=t.historial2026,meses=t.meses2026,idx=meses.indexOf(mesCorto);
       if(idx<0) return;
-      var delta=tipo==='cargo'?monto:-monto;
       _sumarFilaTdc(hist,'Consumos',mesCorto,tipo==='cargo'?monto:0);
       _sumarFilaTdc(hist,'Pagos / Créditos',mesCorto,tipo==='abono'?monto:0);
-      _sumarFilaTdc(hist,'Total/ Saldo Rotativo',mesCorto,delta);
-      _sumarFilaTdc(hist,'Saldo Real',mesCorto,delta);
     });
   }
+  tarjetas.forEach(_recalcularHistorialTdc);
+}
+
+function _recalcularHistorialTdc(t){
+  var hist=t.historial2026||[],meses=t.meses2026||[];
+  if(!hist.length||!meses.length) return;
+  var saldoAnt=_filaTdc(hist,'Saldo anterior');
+  var consumos=_filaTdc(hist,'Consumos');
+  var pagos=_filaTdc(hist,'Pagos / Créditos');
+  var rotativo=_filaTdc(hist,'Total/ Saldo Rotativo');
+  var diferido=_filaTdc(hist,'Saldo Diferido');
+  var real=_filaTdc(hist,'Saldo Real');
+
+  meses.forEach(function(m,idx){
+    if(idx>0) saldoAnt[m]=_tdcMoney(rotativo[meses[idx-1]]);
+    diferido[m]=_calcularSaldoDiferidoTdc(t.id,m,diferido[m]);
+    rotativo[m]=_tdcMoney((saldoAnt[m]||0)+(consumos[m]||0)-(pagos[m]||0));
+    real[m]=_tdcMoney((rotativo[m]||0)+(diferido[m]||0));
+  });
+}
+
+function _filaTdc(hist, concepto){
+  for(var i=0;i<hist.length;i++){
+    if(hist[i].concepto===concepto) return hist[i];
+  }
+  var fila={concepto:concepto};
+  hist.push(fila);
+  return fila;
+}
+
+function _calcularSaldoDiferidoTdc(tarjeta, mesCorto, valorHoja){
+  var cfg=TDC_DIFERIDOS[tarjeta]||[];
+  if(!cfg.length) return _tdcMoney(valorHoja||0);
+  var total=0;
+  cfg.forEach(function(d){
+    var idxMes=_idxMesCorto(mesCorto),idxBase=_idxMesCorto(d.mesBase);
+    if(idxMes<0||idxBase<0){total+=_n(valorHoja);return;}
+    var cuotasCobradas=(d.cuotasAlMesBase||0)+(idxMes-idxBase);
+    if(cuotasCobradas<0) cuotasCobradas=0;
+    var saldo=(d.inicial||0)-((d.cuota||0)*cuotasCobradas);
+    total+=Math.max(0,saldo);
+  });
+  return _tdcMoney(total);
+}
+
+function _idxMesCorto(mesCorto){
+  var abbr=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return abbr.indexOf(String(mesCorto||'').split(' ')[0]);
+}
+
+function _tdcMoney(v){
+  var n=Math.round((_n(v)+Number.EPSILON)*100)/100;
+  return Math.abs(n)<0.005?0:n;
 }
 
 function _mesLargoACorto(mes){
