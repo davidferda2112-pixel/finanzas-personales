@@ -15,6 +15,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 (function(){
+  var host=String(location.hostname||'');
+  var isAppsScriptHost=host.indexOf('script.google.com')>-1||host.indexOf('googleusercontent.com')>-1;
+  if(isAppsScriptHost) return;
+  if(window.google&&window.google.script&&window.google.script.run) return;
   function callAppsScript(fn,args){
     return fetch('/api/apps-script',{
       method:'POST',
@@ -145,17 +149,17 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .page.active{display:flex;}
 
 /* ── BOTTOM NAV ──────────────────────────────────────────── */
-.bnv{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;min-height:calc(50px + var(--sb));
+.bnv{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;min-height:calc(54px + var(--sb));
   background:rgba(240,240,245,0.96);backdrop-filter:var(--blur2);-webkit-backdrop-filter:var(--blur2);
   border-top:0.5px solid rgba(255,255,255,0.72);padding-bottom:var(--sb);}
 .bnv::after{display:none;}
-.tr{display:flex;justify-content:space-around;align-items:center;height:50px;padding:0 2px;}
+.tr{display:flex;justify-content:space-around;align-items:center;height:54px;padding:0 2px;}
 .tab{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 4px;
   border-radius:10px;cursor:pointer;flex:1;transition:all 0.18s ease;user-select:none;}
-.tab .ti{width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+.tab .ti{width:24px;height:24px;display:flex;align-items:center;justify-content:center;
   transition:transform 0.22s cubic-bezier(0.34,1.56,0.64,1);}
-.tab svg{width:20px;height:20px;stroke:var(--t3);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:stroke 0.15s ease;}
-.tab .tl{font-size:8px;font-weight:500;color:var(--t3);transition:color 0.15s ease;}
+.tab svg{width:21px;height:21px;stroke:var(--t3);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:stroke 0.15s ease;}
+.tab .tl{font-size:9px;font-weight:500;color:var(--t3);transition:color 0.15s ease;}
 .tab.active .ti{transform:scale(1.15);}
 .tab.active svg{stroke:var(--blue);}
 .tab.active .tl{color:var(--blue);font-weight:700;}
@@ -372,7 +376,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   html,body,#app{width:100%;max-width:100%;overflow:hidden;}
   .sb{display:none;}.bnv{display:block;}
   .main,.page,.pc{min-width:0;width:100%;height:100%;min-height:0;}
-  .pc{padding:10px 12px calc(58px + var(--sb));}
+  .pc{padding:12px 12px calc(60px + var(--sb));}
   .ph{
     height:calc(58px + var(--st));
     padding:var(--st) 12px 0;
@@ -384,42 +388,30 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .ib{width:40px;height:40px;flex:0 0 40px;}
   .ms{min-width:0;width:112px;max-width:28vw;height:40px;padding:6px 9px;font-size:13px;}
   .si.open{width:108px;}
-  .hero-card{min-height:138px;border-radius:20px;}
-  .hero-content{padding:15px 16px 16px;}
+  .hero-card{min-height:154px;border-radius:20px;}
+  .hero-content{padding:18px 18px 20px;}
   .hero-saldo{gap:8px;}
   .ah{font-size:32px;}.alg{font-size:18px;}
   .g3c{grid-template-columns:1fr 1fr;}.g4c{grid-template-columns:1fr 1fr;}
-  #tx-resumen.g3c,#tc-resumen.g3c{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px;}
-  #tx-resumen .card,#tc-resumen .card{padding:8px 7px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.04);}
+  #tx-resumen.g3c,#tc-resumen.g3c{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
+  #tx-resumen .card,#tc-resumen .card{padding:9px 8px;border-radius:13px;}
   #tx-resumen .lup,#tc-resumen .lup{font-size:8px;letter-spacing:0.07em;line-height:1.15;}
-  #tx-resumen .amd,#tc-resumen .amd{font-size:12px;margin-top:3px;}
+  #tx-resumen .amd,#tc-resumen .amd{font-size:13px;margin-top:3px;}
   .np{right:8px;left:8px;width:auto;top:calc(var(--st) + 50px);}.g2c{grid-template-columns:1fr 1fr;}
   .act-row{gap:8px;}
   .page#page-home .act-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
   .page#page-home .act-row .btn{min-height:42px;font-size:12px;padding:9px 4px;border-radius:12px;}
   .act-row .btn{min-height:42px;}
-  .hist-list{gap:6px;}
-  .hist-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto 52px;align-items:center;padding:7px 8px;gap:7px;border-radius:12px;}
-  .hist-ic{width:30px;height:30px;border-radius:9px;font-size:14px;}
-  .hist-title{font-size:12px;}
-  .hist-meta{font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .hist-side{gap:1px;}
-  .hist-amt{font-size:12px;}
-  .hist-balance{font-size:9px;}
-  .hist-actions{gap:3px;justify-content:flex-end;}
-  .mini-ib{width:24px;height:24px;border-radius:8px;font-size:11px;}
-  .bcard{height:108px;padding:15px 16px;border-radius:18px;}
+  .hist-row{align-items:flex-start;padding:11px;gap:9px;}
+  .hist-amt{font-size:13px;}
+  .hist-actions{gap:4px;}
+  .mini-ib{width:32px;height:32px;}
+  .bcard{height:118px;padding:16px;}
   .bc-name{font-size:19px!important;}
   .bc-bal{font-size:18px;}
-  #tc-sel{display:flex!important;margin-bottom:12px!important;}
-  .cat-grid{gap:10px;margin-bottom:12px;}
-  .cat-card{min-height:104px;padding:12px 12px 10px;border-radius:16px;}
-  .cat-ic{font-size:21px;margin-bottom:5px;}
-  .cat-name{font-size:11px;}
-  .cat-amt{font-size:18px;}
-  .cat-sub{font-size:9px;}
-  .cat-bar{height:3px;margin-top:7px;}
-  .tdc-cargo-row{padding:8px 10px;gap:8px;}
+  #tc-sel{flex-direction:column;}
+  #tc-sel>div{width:100%;}
+  .tdc-cargo-row{padding:11px 12px;}
   .msh{max-width:none;border-radius:24px 24px 0 0;padding:16px 14px calc(26px + var(--sb));}
   .toast{max-width:calc(100vw - 28px);white-space:normal;text-align:center;}
   .card:hover{transform:none;box-shadow:var(--glass-shadow);}
@@ -432,19 +424,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .bal-titulo{padding:12px 0 6px;}
   #b-act-list,#b-pas-list{min-width:0;}
   #page-balance .g2c{grid-template-columns:1fr;}
-  #fl-tabla{background:rgba(255,255,255,0.98);border:1px solid rgba(0,0,0,0.04);box-shadow:0 3px 16px rgba(0,0,0,0.05);backdrop-filter:none;-webkit-backdrop-filter:none;overflow:hidden;}
-  #fl-tabla .fl-mobile{display:none;}
-  #fl-tabla .fl-desktop{display:block;}
-  #page-flujo .flujo-grid{gap:6px;margin-bottom:10px;}
-  #page-flujo .fyc{padding:8px 7px;border-radius:12px;}
-  #page-flujo .fyv{font-size:12px;margin-top:2px;}
-  #page-flujo .lup{font-size:9px;}
-  #fl-tabla table{font-size:10px!important;}
-  #fl-tabla th,#fl-tabla td{padding:7px 6px!important;font-size:10px!important;}
-  #fl-tabla .fl-desktop{overflow-x:auto!important;max-width:100%;border-radius:16px;}
-  #fl-tabla .fl-desktop table{min-width:620px!important;width:max-content!important;}
-  #fl-tabla .fl-desktop th:first-child,
-  #fl-tabla .fl-desktop td:first-child{min-width:118px!important;max-width:118px!important;white-space:normal!important;line-height:1.15;}
+  #fl-tabla{background:transparent;border:none;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;}
+  #fl-tabla .fl-mobile{display:block;}
+  #fl-tabla .fl-desktop{display:none;}
   #tc-hist{background:transparent;border:none;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;overflow:visible!important;}
   #tc-hist .tc-hist-mobile{display:block;}
   #tc-hist .tc-hist-desktop{display:none;}
@@ -459,19 +441,16 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .ph-r{gap:4px;}
   .ib{width:38px;height:38px;flex-basis:38px;}
   .ms{width:104px;max-width:30vw;height:38px;}
-  .page#page-home .ph-r .ib:last-child{display:none;}
+  .page#page-home .ph-r .ib:nth-last-child(-n+2){display:none;}
   .ah{font-size:28px;}
   .saldo-change{font-size:11px;padding:3px 7px;}
   .hero-saldo{align-items:flex-start;flex-direction:column;gap:6px;}
   .page#page-home .act-row{grid-template-columns:repeat(3,minmax(0,1fr));}
   .page#page-home .act-row .btn svg{display:none;}
-  .cat-grid,.kpi-grid{grid-template-columns:1fr 1fr;}
-  .hist-row{grid-template-columns:28px minmax(0,1fr) auto 50px;}
-  .hist-ic{width:28px;height:28px;}
-  .hist-actions{grid-column:auto;justify-content:flex-end;}
+  .cat-grid,.kpi-grid{grid-template-columns:1fr;}
+  .hist-row{display:grid;grid-template-columns:34px 1fr auto;align-items:center;}
+  .hist-actions{grid-column:2 / 4;justify-content:flex-end;}
   .filter-chip{padding:8px 3px;font-size:10px;}
-  .hist-filters{padding:4px;gap:4px;margin-bottom:11px;}
-  .filter-row{gap:4px;}
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -585,19 +564,6 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .tc-hist-mobile{display:none;}
 .tc-hist-card{background:rgba(255,255,255,0.94);border:1px solid rgba(0,0,0,0.05);border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:0 3px 14px rgba(0,0,0,0.05);}
 .tc-hist-card .fl-row:first-child{border-top:none;}
-.wallet-stack{position:relative;margin-bottom:0;}
-.wallet-stack.open{margin-bottom:0;}
-.wallet-stack .bcard{position:relative;z-index:2;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease;}
-.wallet-stack .bcard.ghost{display:none;}
-.tc-carousel{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:2px 18px 12px 2px;margin-right:-16px;scrollbar-width:none;}
-.tc-carousel::-webkit-scrollbar{display:none;}
-.tc-slide{flex:0 0 min(82vw,380px);scroll-snap-align:start;}
-.tc-slide .bcard{height:148px;}
-.tc-slide.active .bcard{box-shadow:0 18px 44px rgba(34,79,116,.18),inset 0 1px 0 rgba(255,255,255,.26);}
-.wallet-caret{position:absolute;top:14px;right:16px;color:rgba(255,255,255,0.72);font-size:16px;font-weight:800;}
-.tc-chip{width:34px;height:22px;border-radius:6px;flex-shrink:0;}
-.tc-name{font-size:13px;font-weight:800;color:var(--t1);}
-.tc-num{font-size:10px;color:var(--t3);margin-top:1px;}
 
 /* ── FLUJO ───────────────────────────────────────────────── */
 .flujo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
@@ -649,69 +615,6 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ing-card-wrap{background:rgba(255,255,255,0.7);backdrop-filter:blur(28px);
   border:1px solid rgba(255,255,255,0.72);border-radius:var(--r16);padding:14px;margin-bottom:14px;
   box-shadow:var(--glass-shadow);}
-
-/* ── JAEGER AERO GLASS REFINEMENT ───────────────────────── */
-html,body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","SF Pro Text","SF Pro Display","Segoe UI",system-ui,sans-serif;}
-body{background:#edf7fb;font-weight:400;letter-spacing:0;}
-body::before{
-  background:
-    radial-gradient(circle at 18% 8%,rgba(83,190,255,.28),transparent 34%),
-    radial-gradient(circle at 78% 12%,rgba(241,238,158,.40),transparent 30%),
-    radial-gradient(circle at 82% 78%,rgba(91,210,132,.22),transparent 34%),
-    linear-gradient(145deg,#f9fdff 0%,#eaf7ff 48%,#eefaf3 100%);
-}
-:root{
-  --bg:rgba(238,246,250,.92);
-  --card:rgba(255,255,255,.54);
-  --card-h:rgba(255,255,255,.72);
-  --card-s:rgba(255,255,255,.86);
-  --bdr:rgba(255,255,255,.66);
-  --blur:blur(30px) saturate(190%);
-  --blur2:blur(42px) saturate(210%);
-  --glass-shadow:0 14px 38px rgba(34,79,116,.10),inset 0 1px 0 rgba(255,255,255,.92),inset 0 -1px 0 rgba(105,139,158,.10);
-  --glass-shadow-lg:0 22px 54px rgba(34,79,116,.15),inset 0 1px 0 rgba(255,255,255,.94),inset 0 -1px 0 rgba(105,139,158,.10);
-}
-#app,.main{background:transparent;}
-.sb,.ph,.bnv{background:rgba(244,249,252,.58);border-color:rgba(255,255,255,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.86);}
-.card,.ing-card-wrap,.hist-row,.hist-filters,.tc-select-btn,.kpi-card,.fl-month-card,.tc-hist-card{
-  background:linear-gradient(145deg,rgba(255,255,255,.72),rgba(255,255,255,.42));
-  border:1px solid rgba(255,255,255,.76);
-  box-shadow:var(--glass-shadow);
-}
-.ph-l .ph-t,.mti,.tsec,.sb-logo,.nv.active,.tab.active .tl,.hist-title,.tc-name,.card-name{font-weight:600;}
-.lup,.label,.hero-lbl,.cat-modal-hdr,.kpi-title,.fl-month-title{font-weight:650;letter-spacing:.075em;}
-.btn,.nv,.filter-chip,.tdc-tab,.month-pill{font-weight:500;}
-.ah{font-size:36px;font-weight:600;letter-spacing:-.035em;}
-.alg{font-size:20px;font-weight:600;}
-.amd{font-weight:500;}
-.hero-greet{font-size:14px;font-weight:500;}
-.hero-greet strong{font-weight:650;}
-.saldo-change{font-weight:500;}
-.hist-amt,.hist-balance,.txa,.bal-val,.fyv,.kpi-val,.card-pay{font-weight:600;}
-.bcard.visa-card{background:linear-gradient(135deg,#c64a00 0%,#e65c00 42%,#ff9500 100%);}
-.bcard.mc-card{background:linear-gradient(135deg,#5a4100 0%,#9c7600 38%,#d7a928 78%,#f4cd56 100%);}
-.bc-bal{font-weight:600;}
-.bc-num,.bc-lbl{font-weight:500;}
-.tdc-tab.active,.filter-chip.active{background:rgba(255,255,255,.72);backdrop-filter:blur(18px) saturate(190%);-webkit-backdrop-filter:blur(18px) saturate(190%);}
-.fin-table-card{overflow:hidden;}
-.fin-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-.fin-table{width:100%;min-width:520px;border-collapse:collapse;font-size:13px;background:rgba(255,255,255,.34);}
-.fin-table th{padding:10px 13px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.075em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid rgba(94,120,139,.12);background:rgba(255,255,255,.36);}
-.fin-table td{padding:11px 13px;border-bottom:.5px solid rgba(94,120,139,.10);color:var(--t2);}
-.fin-table td:last-child,.fin-table th:last-child{text-align:right;font-family:JetBrains Mono,monospace;font-weight:600;color:var(--t1);}
-.fin-table tr:last-child td{border-bottom:none;}
-.fin-total td{font-weight:650;color:var(--t1)!important;background:rgba(255,255,255,.44);}
-@media(max-width:768px){
-  .bnv{background:rgba(247,252,253,.74);min-height:calc(54px + var(--sb));}
-  .tr{height:54px;}
-  .tab .tl{font-size:9px;font-weight:450;}
-  .pc{padding-bottom:calc(66px + var(--sb));}
-  .hero-card{min-height:150px;}
-  .tc-carousel{margin-left:-2px;margin-right:-12px;padding-right:42px;}
-  .tc-slide{flex-basis:82%;}
-  .fin-table{min-width:460px;font-size:12px;}
-  .fin-table th,.fin-table td{padding:9px 10px;}
-}
 </style>
 </head>
 <body>
@@ -725,10 +628,10 @@ body::before{
   </div>
   <div class="sb-sec">Principal</div>
   <div class="nv active" data-page="home"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>Inicio<span class="tip">Inicio</span></div>
+  <div class="nv" data-page="balance"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>Balance<span class="tip">Balance General</span></div>
+  <div class="nv" data-page="flujo"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Flujo<span class="tip">Flujo Anual</span></div>
   <div class="nv" data-page="presupuesto"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>Historial<span class="tip">Movimientos</span></div>
   <div class="nv" data-page="tarjetas"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>Tarjetas<span class="tip">Tarjetas de Crédito</span></div>
-  <div class="nv" data-page="flujo"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Flujo<span class="tip">Flujo Anual</span></div>
-  <div class="nv" data-page="balance"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>Balance<span class="tip">Balance General</span></div>
   <div class="nv" data-page="japon"><div class="ni" style="font-size:14px">🎌</div>Japón<span class="tip">Viaje a Japón</span></div>
   <div class="sb-ft">
     <div class="sb-st">Saldo: <strong id="sb-s">–</strong></div>
@@ -743,6 +646,8 @@ body::before{
     <div class="ph">
       <div class="ph-l"><img class="header-logo" src="/logo-header.png" alt="Jaeger Spend"><div class="ph-s" id="h-fecha"></div></div>
       <div class="ph-r">
+        <input class="si" id="si" placeholder="Buscar…">
+        <div class="ib" onclick="tgSrch()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
         <div class="ib" id="btn-notif" onclick="tgNotif()">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <div class="nb" id="nb" style="display:none">0</div>
@@ -783,8 +688,6 @@ body::before{
           <div><div class="lup tov2">Pasivos</div><div class="amd tov2" id="b-pas-t">–</div></div>
         </div>
       </div>
-      <div class="lup mb10">Tabla principal de balance</div>
-      <div class="card mb14 fin-table-card" id="b-tabla"></div>
       <div class="g2c mb14">
         <div class="card p14"><div class="lup mb10 tok2">Activos</div><div id="b-act-list"></div></div>
         <div class="card p14"><div class="lup mb10 tov2">Pasivos</div><div id="b-pas-list"></div></div>
@@ -919,10 +822,11 @@ body::before{
 <nav class="bnv">
   <div class="tr">
     <div class="tab active" data-page="home"><div class="ti"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="tl">Inicio</span></div>
+    <div class="tab" data-page="balance"><div class="ti"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><span class="tl">Balance</span></div>
+    <div class="tab" data-page="flujo"><div class="ti"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="tl">Flujo</span></div>
     <div class="tab" data-page="presupuesto"><div class="ti"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><span class="tl">Hist.</span></div>
     <div class="tab" data-page="tarjetas"><div class="ti"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><span class="tl">Tarjetas</span></div>
-    <div class="tab" data-page="flujo"><div class="ti"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="tl">Flujo</span></div>
-    <div class="tab" data-page="balance"><div class="ti"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><span class="tl">Balance</span></div>
+    <div class="tab" data-page="japon"><div class="ti"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div><span class="tl">Japón</span></div>
   </div>
 </nav>
 
@@ -1050,7 +954,7 @@ body::before{
       <div id="tdc-hist-logo"></div>
     </div>
     <div class="g3c mb14" id="tdc-hist-res"></div>
-    <div class="lup mb10">Historial transaccional</div>
+    <div class="lup mb10">Cargos del mes</div>
     <div class="card cr12" id="tdc-hist-cargos"></div>
   </div>
 </div>
@@ -1066,7 +970,6 @@ var G={
   notifOpen:false,srchOpen:false,
   balEdit:false,japEdit:false,
   tcIdx:0,tdcAnio:2026,tcMesActual:null,
-  tcSelectorOpen:false,
   tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcExpanded:false,
   calFecha:new Date(),prCats:null,catResumen:null,
   movimientos:[],editTx:null,deleteTx:null,
@@ -1223,9 +1126,6 @@ function renderHome(d){
   G.catResumen=getCategoriasDetalle(d);
   var vg=d.vistaGeneral||{};
   var saldo=vg.saldoFinal?vg.saldoFinal.actual:0;
-  var saldoMinimoQuincenal=30;
-  var saldoOk=saldo>saldoMinimoQuincenal;
-  var saldoEstado=saldoOk?'Positivo':'Bajo mínimo';
   var ing=d.ingresos?d.ingresos.totalActual:(vg.ingresos?vg.ingresos.actual:0);
   var necR=d.necesidades?d.necesidades.total:0;
   var desR=d.deseos?d.deseos.total:0;
@@ -1264,7 +1164,7 @@ function renderHome(d){
       +'<div class="hero-date">'+todayFull()+'</div>'
       +'<div class="hero-lbl">Saldo disponible</div>'
       +'<div class="hero-saldo"><span class="ah" style="color:'+amtColor+';text-shadow:0 1px 8px rgba(255,255,255,0.5)">'+fmt(saldo)+'</span>'
-      +'<span class="saldo-change '+(saldoOk?'pos':'neg')+'">'+saldoEstado+'</span></div>'
+      +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
       +'</div></div>';
   } else if(tarde){
     heroHTML='<div class="hero-card hero-eve tap-target mb14" onclick="irHistorialDesdeSaldo()" title="Ver historial de transacciones" style="border:1px solid rgba(255,220,100,0.25)">'
@@ -1284,7 +1184,7 @@ function renderHome(d){
       +'<div class="hero-date">'+todayFull()+'</div>'
       +'<div class="hero-lbl">Saldo disponible</div>'
       +'<div class="hero-saldo"><span class="ah" style="color:'+amtColor+';text-shadow:0 1px 8px rgba(255,255,255,0.4)">'+fmt(saldo)+'</span>'
-      +'<span class="saldo-change '+(saldoOk?'pos':'neg')+'">'+saldoEstado+'</span></div>'
+      +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
       +'</div></div>';
   } else {
     heroHTML='<div class="hero-card hero-night tap-target mb14" onclick="irHistorialDesdeSaldo()" title="Ver historial de transacciones" style="border:1px solid rgba(255,255,255,0.1)">'
@@ -1303,7 +1203,7 @@ function renderHome(d){
       +'<div class="hero-date">'+todayFull()+'</div>'
       +'<div class="hero-lbl">Saldo disponible</div>'
       +'<div class="hero-saldo"><span class="ah hero-night-amt" style="color:#fff;text-shadow:0 2px 12px rgba(0,0,0,0.4)">'+fmt(saldo)+'</span>'
-      +'<span class="saldo-change '+(saldoOk?'pos':'neg')+'">'+saldoEstado+'</span></div>'
+      +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
       +'</div></div>';
   }
   eid('h-hero').innerHTML=heroHTML;
@@ -1425,21 +1325,6 @@ function renderBalance(d){
   eid('b-pat').textContent=fmt(d.patrimonioNeto||0);
   eid('b-act-t').textContent=fmt(d.totalActivos||0);
   eid('b-pas-t').textContent=fmt(d.totalPasivos||0);
-
-  var balanceRows=[];
-  (d.activos||[]).forEach(function(a){
-    if(!a.esGrupo&&a.valor!==0) balanceRows.push({tipo:'Activo',nombre:a.nombre,valor:a.valor,clase:'tok2'});
-  });
-  (d.pasivos||[]).forEach(function(p){
-    if(!p.esGrupo&&p.valor!==0) balanceRows.push({tipo:'Pasivo',nombre:p.nombre,valor:p.valor,clase:'tov2'});
-  });
-  eid('b-tabla').innerHTML='<div class="fin-table-scroll"><table class="fin-table">'
-    +'<thead><tr><th>Tipo</th><th>Cuenta</th><th>Valor</th></tr></thead><tbody>'
-    +(balanceRows.length?balanceRows.map(function(r){
-      return'<tr><td><span class="bdg '+(r.tipo==='Activo'?'ok':'over')+'">'+r.tipo+'</span></td><td>'+r.nombre+'</td><td class="'+r.clase+'">'+fmt(r.valor)+'</td></tr>';
-    }).join(''):'<tr><td colspan="3" style="text-align:center;color:var(--t3)">Sin datos de balance</td></tr>')
-    +'<tr class="fin-total"><td colspan="2">Patrimonio neto</td><td>'+fmt(d.patrimonioNeto||0)+'</td></tr>'
-    +'</tbody></table></div>';
 
   var actHtml='',grupoActual=null,itemsGrupo=[];
   function flushGrupo(){
@@ -1750,7 +1635,7 @@ function renderHistorialMovimientos(){
       +'<div class="hist-main"><div class="hist-title">'+t.subcategoria+'</div>'
       +'<div class="hist-meta">'+fmtFecha(t.fecha)+' · '+tipoLabel(t.tipo)+notas+'</div></div>'
       +'<div class="hist-side"><div class="hist-amt" style="color:'+col+'">'+(pos?'+':'-')+fmt(t.monto)+'</div>'
-      +(saldoInfo?'<div class="hist-balance">Saldo despues '+saldoInfo+'</div>':'')+'</div>'
+      +(saldoInfo?'<div class="hist-balance">Saldo '+saldoInfo+'</div>':'')+'</div>'
       +'<div class="hist-actions"><button class="mini-ib" onclick="abrirEditarTx(\''+t.id+'\')" title="Editar">✎</button>'
       +'<button class="mini-ib" onclick="abrirEliminarTx(\''+t.id+'\')" title="Eliminar">×</button></div>'
       +'</div>';
@@ -1773,10 +1658,7 @@ function actualizarChipsHistorial(){
   var tipo=G.histFiltroTipo||'todos',cat=G.histFiltroCat||'todos';
   var tipoBox=eid('tx-filter-tipo'),catBox=eid('tx-filter-cat');
   if(tipoBox) Array.prototype.forEach.call(tipoBox.querySelectorAll('.filter-chip'),function(b){b.classList.toggle('active',b.dataset.filter===tipo);});
-  if(catBox){
-    catBox.style.display=tipo==='egreso'?'grid':'none';
-    Array.prototype.forEach.call(catBox.querySelectorAll('.filter-chip'),function(b){b.classList.toggle('active',b.dataset.filter===cat);});
-  }
+  if(catBox) Array.prototype.forEach.call(catBox.querySelectorAll('.filter-chip'),function(b){b.classList.toggle('active',b.dataset.filter===cat);});
 }
 
 function filtrarHistorial(txs){
@@ -1787,22 +1669,7 @@ function filtrarHistorial(txs){
     if(tipo==='egreso'&&!esEgresoTipo(t.tipo)) return false;
     if(cat!=='todos'&&t.tipo!==cat) return false;
     return true;
-  }).sort(function(a,b){
-    var fa=Number(a.fechaOrden)||fechaOrdenJS(a.fecha)||0;
-    var fb=Number(b.fechaOrden)||fechaOrdenJS(b.fecha)||0;
-    return fb-fa||(Number(b.orden)||0)-(Number(a.orden)||0)||(Number(b.id)||0)-(Number(a.id)||0);
   });
-}
-
-function fechaOrdenJS(v){
-  var s=String(v||'').trim(),p=s.indexOf('/')>-1?s.split('/'):s.split('-');
-  if(p.length===3){
-    var y=p[0].length===4?p[0]:p[2],m=p[0].length===4?p[1]:p[1],d=p[0].length===4?p[2]:p[0];
-    var n=new Date(y+'-'+m+'-'+d+'T00:00:00').getTime();
-    return isNaN(n)?0:n;
-  }
-  var n2=new Date(s).getTime();
-  return isNaN(n2)?0:n2;
 }
 
 function abrirEditarTx(id){
@@ -1934,15 +1801,20 @@ function loadTarjetas(){
 }
 
 function renderSelectorTarjeta(){
-  var el=eid('tc-sel');
-  if(el){el.innerHTML='';el.style.display='none';el.style.marginBottom='0';}
+  eid('tc-sel').innerHTML=(G.tarjetas||[]).map(function(t,i){
+    var activo=i===G.tcIdx;
+    return'<div onclick="selectTarjeta('+i+')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:15px;cursor:pointer;flex:1;'
+      +'background:'+(activo?'rgba(255,255,255,0.82)':'rgba(255,255,255,0.55)')
+      +';backdrop-filter:blur(12px);border:1.5px solid '+(activo?'rgba(0,122,255,0.3)':'rgba(255,255,255,0.65)')
+      +';box-shadow:'+(activo?'0 3px 12px rgba(0,122,255,0.12)':'0 2px 8px rgba(0,0,0,0.05)')+'">'
+      +'<div style="width:28px;height:18px;border-radius:5px;'
+      +(t.id==='MC'?'background:linear-gradient(135deg,#7a5c00,#daa520)':'background:linear-gradient(135deg,#c94b00,#f48c06)')+'"></div>'
+      +'<div><div style="font-size:12px;font-weight:700">'+t.nombre+'</div>'
+      +'<div style="font-size:10px;color:var(--t3)">'+t.numero+'</div></div></div>';
+  }).join('');
 }
 
-function toggleSelectorTarjeta(){
-  abrirModalTDC();
-}
-function selectTarjeta(i){G.tcIdx=i;G.tcSelectorOpen=false;renderSelectorTarjeta();renderHistorialTarjeta();}
-function abrirModalTDCFor(i){G.tcIdx=i;G.tcSelectorOpen=false;renderSelectorTarjeta();renderHistorialTarjeta();setTimeout(abrirModalTDC,0);}
+function selectTarjeta(i){G.tcIdx=i;renderSelectorTarjeta();renderHistorialTarjeta();}
 
 function setTdcAnio(yr,el){
   G.tdcAnio=yr;
@@ -1980,23 +1852,10 @@ function mesAnteriorLabel(mes){
   return MESES_NOM_JS[idx]+' '+String(yr).padStart(2,'0');
 }
 
-function tarjetaGrandeHtml(t,saldoRotTC,extraClass,onClick,label,showName){
-  return'<div class="bcard '+t.clase+' '+(extraClass||'')+'" '+(onClick||'')+'>'
-    +'<div class="bc-num">'+t.numero+'</div>'
-    +(showName?'<div class="bc-bal">'+t.nombre+'</div>':'')
-    +'<div style="display:flex;align-items:baseline;gap:10px;margin-top:'+(showName?'4px':'8px')+'">'
-    +(saldoRotTC>0?'<div style="font-family:JetBrains Mono,monospace;font-size:'+(showName?'18px':'22px')+';font-weight:600;color:rgba(255,255,255,0.92)">'+fmt(saldoRotTC)+'</div>'
-      +'<div style="font-size:9px;color:rgba(255,255,255,0.58);text-transform:uppercase;letter-spacing:0.07em">Saldo a pagar</div>':'<div style="font-size:18px;font-weight:600;color:rgba(255,255,255,0.9)">Sin saldo a pagar</div>')
-    +'</div>'
-    +'<div class="bc-lbl" style="margin-top:5px">Banco Internacional · <span style="opacity:0.55;font-size:9px">'+(label||'Toca para ver resumen')+'</span></div>'
-    +'</div>';
-}
-
 function renderHistorialTarjeta(){
   var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
   eid('tc-title').textContent=t.nombre;
   var resTdc=getResumenTdc(t),saldoRotTC=resTdc.saldoRot;
-  var saldoPagarTC=resTdc.alDia?0:resTdc.pendiente;
 
   eid('tc-resumen').innerHTML=[
     {l:'Consumos del mes',v:resTdc.consumos,c:'var(--over)'},
@@ -2006,14 +1865,14 @@ function renderHistorialTarjeta(){
     return'<div class="card p12 cr12"><div class="lup">'+c.l+'</div><div class="amd" style="color:'+c.c+'">'+(c.l==='Al día'?'✓':fmt(c.v))+'</div></div>';
   }).join('');
 
-  eid('tc-card').innerHTML='<div class="tc-carousel">'
-    +(G.tarjetas||[]).map(function(card,idx){
-      var r=getResumenTdc(card);
-      var saldoPagar=r.alDia?0:r.pendiente;
-      return'<div class="tc-slide '+(idx===G.tcIdx?'active':'')+'">'
-        +tarjetaGrandeHtml(card,saldoPagar,'','onclick="abrirModalTDCFor('+idx+')"','Toca para ver resumen',false)
-      +'</div>';
-    }).join('')
+  eid('tc-card').innerHTML='<div class="bcard '+t.clase+'" onclick="abrirModalTDC()" style="cursor:pointer">'
+    +'<div class="bc-num">'+t.numero+'</div>'
+    +'<div class="bc-bal">'+t.nombre+'</div>'
+    +'<div style="display:flex;align-items:baseline;gap:10px;margin-top:4px">'
+    +(saldoRotTC>0?'<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:rgba(255,255,255,0.9)">'+fmt(saldoRotTC)+'</div>'
+      +'<div style="font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.07em">Saldo rotativo</div>':'')
+    +'</div>'
+    +'<div class="bc-lbl" style="margin-top:5px">Banco Internacional · <span style="opacity:0.55;font-size:9px">Toca para ver consumos</span></div>'
     +'</div>';
 
   var hist=G.tdcAnio===2026?t.historial2026:t.historial2025;
@@ -2207,11 +2066,11 @@ function abrirModalTDC(){
   var pagos=resumen.pagos,saldoRotAnt=resumen.saldoRotAnt,pendiente=resumen.pendiente,alDia=resumen.alDia;
 
   eid('tdc-hist-res').innerHTML=[
-    {l:'Consumos',v:resumen.consumos,c:'var(--over)'},
-    {l:'Valor recogido',v:pagos,c:'var(--ok)'},
-    {l:alDia?'Por recoger':'Por recoger',v:alDia?0:pendiente,c:alDia?'var(--ok)':'var(--warn)'}
+    {l:'Debes pagar',v:saldoRotAnt,c:'var(--over)'},
+    {l:'Pagado/Rec.',v:pagos,c:'var(--ok)'},
+    {l:alDia?'¡Al día! ✓':'Falta',v:alDia?0:pendiente,c:alDia?'var(--ok)':'var(--warn)'}
   ].map(function(c){
-    return'<div class="card p12 cr12"><div class="lup">'+c.l+'</div><div class="amd" style="color:'+c.c+'">'+fmt(c.v)+'</div></div>';
+    return'<div class="card p12 cr12"><div class="lup">'+c.l+'</div><div class="amd" style="color:'+c.c+'">'+(c.l==='¡Al día! ✓'?'✓':fmt(c.v))+'</div></div>';
   }).join('')+(alDia?'<div style="grid-column:span 3;text-align:center;padding:8px;font-size:13px;color:var(--ok);font-weight:700">✅ Estás al día</div>':'');
 
   var cargosHtml='';
@@ -2223,27 +2082,15 @@ function abrirModalTDC(){
     cargosHtml+='<div class="tdc-cargo-row"><div style="flex:1;font-size:13px;font-weight:'+(esSR||esSRot?'700':'500')+';color:'+col+'">'+f.concepto+'</div>'
       +'<div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;color:'+col+'">'+fmt(v)+'</div></div>';
   });
-  var movsOrdenados=(G.tdcMovs||[]).slice().sort(function(a,b){return String(a.fecha||'').localeCompare(String(b.fecha||''));});
-  var pendienteRun=saldoRotAnt;
-  var appRows=movsOrdenados.map(function(m){
-    var monto=parseFloat(m.monto)||0;
-    var consumo=m.tipo==='cargo'?monto:0;
-    var recogido=m.tipo==='abono'?monto:0;
-    pendienteRun=Math.max(Math.round((pendienteRun+consumo-recogido)*100)/100,0);
+  var appRows=(G.tdcMovs||[]).map(function(m){
+    var col=m.tipo==='abono'?'var(--ok)':'var(--over)';
     var origen=m.tipo==='abono'?(m.origen==='externo'?'externo':'egreso'):'cargo';
-    return'<tr>'
-      +'<td>'+fmtFecha(m.fecha)+'<div class="small">'+origen+(m.notas?' · '+m.notas:'')+'</div></td>'
-      +'<td>'+(consumo?fmt(consumo):'–')+'</td>'
-      +'<td>'+(recogido?fmt(recogido):'–')+'</td>'
-      +'<td>'+fmt(pendienteRun)+'</td>'
-    +'</tr>';
+    return'<div class="tdc-cargo-row"><div style="flex:1"><div style="font-size:13px;font-weight:700;color:'+col+'">'+(m.tipo==='abono'?'Abono':'Cargo')+' app</div>'
+      +'<div style="font-size:11px;color:var(--t3)">'+fmtFecha(m.fecha)+' · '+origen+(m.notas?' · '+m.notas:'')+'</div></div>'
+      +'<div style="font-family:JetBrains Mono,monospace;font-size:14px;font-weight:700;color:'+col+'">'+(m.tipo==='abono'?'+':'-')+fmt(m.monto)+'</div></div>';
   }).join('');
-  var appTable=appRows?'<div class="fin-table-scroll"><table class="fin-table tdc-detail-table">'
-    +'<thead><tr><th>Movimiento</th><th>Consumo</th><th>Recogido</th><th>Por recoger</th></tr></thead><tbody>'
-    +appRows+'</tbody></table></div>'
-    :'<div style="padding:14px;color:var(--t3);font-size:13px;text-align:center">Sin consumos registrados en la app este mes</div>';
-  eid('tdc-hist-cargos').innerHTML=appTable
-    +(cargosHtml?'<div class="lup" style="padding:12px 14px 2px">Resumen base de la tarjeta</div>'+cargosHtml:'');
+  eid('tdc-hist-cargos').innerHTML=(cargosHtml||'<div style="padding:14px;color:var(--t3);font-size:13px;text-align:center">Sin movimientos base este mes</div>')
+    +(appRows?'<div class="lup" style="padding:12px 14px 2px">Registrados en la app</div>'+appRows:'');
 }
 
 // ── JAPÓN ─────────────────────────────────────────────────────
