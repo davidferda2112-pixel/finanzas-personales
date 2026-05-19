@@ -646,6 +646,67 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ing-card-wrap{background:rgba(255,255,255,0.7);backdrop-filter:blur(28px);
   border:1px solid rgba(255,255,255,0.72);border-radius:var(--r16);padding:14px;margin-bottom:14px;
   box-shadow:var(--glass-shadow);}
+
+/* ── JAEGER AERO GLASS REFINEMENT ───────────────────────── */
+html,body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",system-ui,sans-serif;}
+body{background:#edf7fb;font-weight:400;letter-spacing:0;}
+body::before{
+  background:
+    radial-gradient(circle at 18% 8%,rgba(83,190,255,.28),transparent 34%),
+    radial-gradient(circle at 78% 12%,rgba(241,238,158,.40),transparent 30%),
+    radial-gradient(circle at 82% 78%,rgba(91,210,132,.22),transparent 34%),
+    linear-gradient(145deg,#f9fdff 0%,#eaf7ff 48%,#eefaf3 100%);
+}
+:root{
+  --bg:rgba(238,246,250,.92);
+  --card:rgba(255,255,255,.54);
+  --card-h:rgba(255,255,255,.72);
+  --card-s:rgba(255,255,255,.86);
+  --bdr:rgba(255,255,255,.66);
+  --blur:blur(30px) saturate(190%);
+  --blur2:blur(42px) saturate(210%);
+  --glass-shadow:0 14px 38px rgba(34,79,116,.10),inset 0 1px 0 rgba(255,255,255,.92),inset 0 -1px 0 rgba(105,139,158,.10);
+  --glass-shadow-lg:0 22px 54px rgba(34,79,116,.15),inset 0 1px 0 rgba(255,255,255,.94),inset 0 -1px 0 rgba(105,139,158,.10);
+}
+#app,.main{background:transparent;}
+.sb,.ph,.bnv{background:rgba(244,249,252,.58);border-color:rgba(255,255,255,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.86);}
+.card,.ing-card-wrap,.hist-row,.hist-filters,.tc-select-btn,.kpi-card,.fl-month-card,.tc-hist-card{
+  background:linear-gradient(145deg,rgba(255,255,255,.72),rgba(255,255,255,.42));
+  border:1px solid rgba(255,255,255,.76);
+  box-shadow:var(--glass-shadow);
+}
+.ph-l .ph-t,.mti,.tsec,.sb-logo,.nv.active,.tab.active .tl,.hist-title,.tc-name,.card-name{font-weight:600;}
+.lup,.label,.hero-lbl,.cat-modal-hdr,.kpi-title,.fl-month-title{font-weight:650;letter-spacing:.075em;}
+.btn,.nv,.filter-chip,.tdc-tab,.month-pill{font-weight:500;}
+.ah{font-size:36px;font-weight:600;letter-spacing:-.035em;}
+.alg{font-size:20px;font-weight:600;}
+.amd{font-weight:500;}
+.hero-greet{font-size:14px;font-weight:500;}
+.hero-greet strong{font-weight:650;}
+.saldo-change{font-weight:500;}
+.hist-amt,.hist-balance,.txa,.bal-val,.fyv,.kpi-val,.card-pay{font-weight:600;}
+.bcard.visa-card{background:linear-gradient(135deg,#c64a00 0%,#e65c00 42%,#ff9500 100%);}
+.bcard.mc-card{background:linear-gradient(135deg,#5a4100 0%,#9c7600 38%,#d7a928 78%,#f4cd56 100%);}
+.bc-bal{font-weight:600;}
+.bc-num,.bc-lbl{font-weight:500;}
+.tdc-tab.active,.filter-chip.active{background:rgba(255,255,255,.72);backdrop-filter:blur(18px) saturate(190%);-webkit-backdrop-filter:blur(18px) saturate(190%);}
+.fin-table-card{overflow:hidden;}
+.fin-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.fin-table{width:100%;min-width:520px;border-collapse:collapse;font-size:13px;background:rgba(255,255,255,.34);}
+.fin-table th{padding:10px 13px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.075em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid rgba(94,120,139,.12);background:rgba(255,255,255,.36);}
+.fin-table td{padding:11px 13px;border-bottom:.5px solid rgba(94,120,139,.10);color:var(--t2);}
+.fin-table td:last-child,.fin-table th:last-child{text-align:right;font-family:JetBrains Mono,monospace;font-weight:600;color:var(--t1);}
+.fin-table tr:last-child td{border-bottom:none;}
+.fin-total td{font-weight:650;color:var(--t1)!important;background:rgba(255,255,255,.44);}
+@media(max-width:768px){
+  .bnv{background:rgba(247,252,253,.74);min-height:calc(54px + var(--sb));}
+  .tr{height:54px;}
+  .tab .tl{font-size:9px;font-weight:450;}
+  .pc{padding-bottom:calc(66px + var(--sb));}
+  .hero-card{min-height:150px;}
+  .fin-table{min-width:460px;font-size:12px;}
+  .fin-table th,.fin-table td{padding:9px 10px;}
+}
 </style>
 </head>
 <body>
@@ -659,10 +720,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   </div>
   <div class="sb-sec">Principal</div>
   <div class="nv active" data-page="home"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>Inicio<span class="tip">Inicio</span></div>
-  <div class="nv" data-page="balance"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>Balance<span class="tip">Balance General</span></div>
-  <div class="nv" data-page="flujo"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Flujo<span class="tip">Flujo Anual</span></div>
   <div class="nv" data-page="presupuesto"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>Historial<span class="tip">Movimientos</span></div>
   <div class="nv" data-page="tarjetas"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>Tarjetas<span class="tip">Tarjetas de Crédito</span></div>
+  <div class="nv" data-page="flujo"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Flujo<span class="tip">Flujo Anual</span></div>
+  <div class="nv" data-page="balance"><div class="ni"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>Balance<span class="tip">Balance General</span></div>
   <div class="nv" data-page="japon"><div class="ni" style="font-size:14px">🎌</div>Japón<span class="tip">Viaje a Japón</span></div>
   <div class="sb-ft">
     <div class="sb-st">Saldo: <strong id="sb-s">–</strong></div>
@@ -717,6 +778,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
           <div><div class="lup tov2">Pasivos</div><div class="amd tov2" id="b-pas-t">–</div></div>
         </div>
       </div>
+      <div class="lup mb10">Tabla principal de balance</div>
+      <div class="card mb14 fin-table-card" id="b-tabla"></div>
       <div class="g2c mb14">
         <div class="card p14"><div class="lup mb10 tok2">Activos</div><div id="b-act-list"></div></div>
         <div class="card p14"><div class="lup mb10 tov2">Pasivos</div><div id="b-pas-list"></div></div>
@@ -851,11 +914,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 <nav class="bnv">
   <div class="tr">
     <div class="tab active" data-page="home"><div class="ti"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="tl">Inicio</span></div>
-    <div class="tab" data-page="balance"><div class="ti"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><span class="tl">Balance</span></div>
-    <div class="tab" data-page="flujo"><div class="ti"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="tl">Flujo</span></div>
     <div class="tab" data-page="presupuesto"><div class="ti"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><span class="tl">Hist.</span></div>
     <div class="tab" data-page="tarjetas"><div class="ti"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><span class="tl">Tarjetas</span></div>
-    <div class="tab" data-page="japon"><div class="ti"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div><span class="tl">Japón</span></div>
+    <div class="tab" data-page="flujo"><div class="ti"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="tl">Flujo</span></div>
+    <div class="tab" data-page="balance"><div class="ti"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><span class="tl">Balance</span></div>
   </div>
 </nav>
 
@@ -983,7 +1045,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div id="tdc-hist-logo"></div>
     </div>
     <div class="g3c mb14" id="tdc-hist-res"></div>
-    <div class="lup mb10">Cargos del mes</div>
+    <div class="lup mb10">Tabla del mes</div>
     <div class="card cr12" id="tdc-hist-cargos"></div>
   </div>
 </div>
@@ -1156,6 +1218,9 @@ function renderHome(d){
   G.catResumen=getCategoriasDetalle(d);
   var vg=d.vistaGeneral||{};
   var saldo=vg.saldoFinal?vg.saldoFinal.actual:0;
+  var saldoMinimoQuincenal=30;
+  var saldoOk=saldo>saldoMinimoQuincenal;
+  var saldoEstado=saldoOk?'Positivo':'Bajo mínimo';
   var ing=d.ingresos?d.ingresos.totalActual:(vg.ingresos?vg.ingresos.actual:0);
   var necR=d.necesidades?d.necesidades.total:0;
   var desR=d.deseos?d.deseos.total:0;
@@ -1194,7 +1259,7 @@ function renderHome(d){
       +'<div class="hero-date">'+todayFull()+'</div>'
       +'<div class="hero-lbl">Saldo disponible</div>'
       +'<div class="hero-saldo"><span class="ah" style="color:'+amtColor+';text-shadow:0 1px 8px rgba(255,255,255,0.5)">'+fmt(saldo)+'</span>'
-      +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
+      +'<span class="saldo-change '+(saldoOk?'pos':'neg')+'">'+saldoEstado+'</span></div>'
       +'</div></div>';
   } else if(tarde){
     heroHTML='<div class="hero-card hero-eve tap-target mb14" onclick="irHistorialDesdeSaldo()" title="Ver historial de transacciones" style="border:1px solid rgba(255,220,100,0.25)">'
@@ -1214,7 +1279,7 @@ function renderHome(d){
       +'<div class="hero-date">'+todayFull()+'</div>'
       +'<div class="hero-lbl">Saldo disponible</div>'
       +'<div class="hero-saldo"><span class="ah" style="color:'+amtColor+';text-shadow:0 1px 8px rgba(255,255,255,0.4)">'+fmt(saldo)+'</span>'
-      +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
+      +'<span class="saldo-change '+(saldoOk?'pos':'neg')+'">'+saldoEstado+'</span></div>'
       +'</div></div>';
   } else {
     heroHTML='<div class="hero-card hero-night tap-target mb14" onclick="irHistorialDesdeSaldo()" title="Ver historial de transacciones" style="border:1px solid rgba(255,255,255,0.1)">'
@@ -1233,7 +1298,7 @@ function renderHome(d){
       +'<div class="hero-date">'+todayFull()+'</div>'
       +'<div class="hero-lbl">Saldo disponible</div>'
       +'<div class="hero-saldo"><span class="ah hero-night-amt" style="color:#fff;text-shadow:0 2px 12px rgba(0,0,0,0.4)">'+fmt(saldo)+'</span>'
-      +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
+      +'<span class="saldo-change '+(saldoOk?'pos':'neg')+'">'+saldoEstado+'</span></div>'
       +'</div></div>';
   }
   eid('h-hero').innerHTML=heroHTML;
@@ -1355,6 +1420,21 @@ function renderBalance(d){
   eid('b-pat').textContent=fmt(d.patrimonioNeto||0);
   eid('b-act-t').textContent=fmt(d.totalActivos||0);
   eid('b-pas-t').textContent=fmt(d.totalPasivos||0);
+
+  var balanceRows=[];
+  (d.activos||[]).forEach(function(a){
+    if(!a.esGrupo&&a.valor!==0) balanceRows.push({tipo:'Activo',nombre:a.nombre,valor:a.valor,clase:'tok2'});
+  });
+  (d.pasivos||[]).forEach(function(p){
+    if(!p.esGrupo&&p.valor!==0) balanceRows.push({tipo:'Pasivo',nombre:p.nombre,valor:p.valor,clase:'tov2'});
+  });
+  eid('b-tabla').innerHTML='<div class="fin-table-scroll"><table class="fin-table">'
+    +'<thead><tr><th>Tipo</th><th>Cuenta</th><th>Valor</th></tr></thead><tbody>'
+    +(balanceRows.length?balanceRows.map(function(r){
+      return'<tr><td><span class="bdg '+(r.tipo==='Activo'?'ok':'over')+'">'+r.tipo+'</span></td><td>'+r.nombre+'</td><td class="'+r.clase+'">'+fmt(r.valor)+'</td></tr>';
+    }).join(''):'<tr><td colspan="3" style="text-align:center;color:var(--t3)">Sin datos de balance</td></tr>')
+    +'<tr class="fin-total"><td colspan="2">Patrimonio neto</td><td>'+fmt(d.patrimonioNeto||0)+'</td></tr>'
+    +'</tbody></table></div>';
 
   var actHtml='',grupoActual=null,itemsGrupo=[];
   function flushGrupo(){
@@ -1665,7 +1745,7 @@ function renderHistorialMovimientos(){
       +'<div class="hist-main"><div class="hist-title">'+t.subcategoria+'</div>'
       +'<div class="hist-meta">'+fmtFecha(t.fecha)+' · '+tipoLabel(t.tipo)+notas+'</div></div>'
       +'<div class="hist-side"><div class="hist-amt" style="color:'+col+'">'+(pos?'+':'-')+fmt(t.monto)+'</div>'
-      +(saldoInfo?'<div class="hist-balance">Saldo '+saldoInfo+'</div>':'')+'</div>'
+      +(saldoInfo?'<div class="hist-balance">Saldo despues '+saldoInfo+'</div>':'')+'</div>'
       +'<div class="hist-actions"><button class="mini-ib" onclick="abrirEditarTx(\''+t.id+'\')" title="Editar">✎</button>'
       +'<button class="mini-ib" onclick="abrirEliminarTx(\''+t.id+'\')" title="Eliminar">×</button></div>'
       +'</div>';
@@ -1906,8 +1986,8 @@ function tarjetaGrandeHtml(t,saldoRotTC,extraClass,onClick,label,showName){
     +'<div class="bc-num">'+t.numero+'</div>'
     +(showName?'<div class="bc-bal">'+t.nombre+'</div>':'')
     +'<div style="display:flex;align-items:baseline;gap:10px;margin-top:'+(showName?'4px':'8px')+'">'
-    +(saldoRotTC>0?'<div style="font-family:JetBrains Mono,monospace;font-size:'+(showName?'18px':'22px')+';font-weight:700;color:rgba(255,255,255,0.92)">'+fmt(saldoRotTC)+'</div>'
-      +'<div style="font-size:9px;color:rgba(255,255,255,0.48);text-transform:uppercase;letter-spacing:0.07em">Saldo rotativo</div>':'<div style="font-size:18px;font-weight:700;color:rgba(255,255,255,0.9)">Sin saldo rotativo</div>')
+    +(saldoRotTC>0?'<div style="font-family:JetBrains Mono,monospace;font-size:'+(showName?'18px':'22px')+';font-weight:600;color:rgba(255,255,255,0.92)">'+fmt(saldoRotTC)+'</div>'
+      +'<div style="font-size:9px;color:rgba(255,255,255,0.58);text-transform:uppercase;letter-spacing:0.07em">Saldo a pagar</div>':'<div style="font-size:18px;font-weight:600;color:rgba(255,255,255,0.9)">Sin saldo a pagar</div>')
     +'</div>'
     +'<div class="bc-lbl" style="margin-top:5px">Banco Internacional · <span style="opacity:0.55;font-size:9px">'+(label||'Toca para cambiar tarjeta')+'</span></div>'
     +'<div class="wallet-caret">⌄</div>'
@@ -1918,6 +1998,7 @@ function renderHistorialTarjeta(){
   var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
   eid('tc-title').textContent=t.nombre;
   var resTdc=getResumenTdc(t),saldoRotTC=resTdc.saldoRot;
+  var saldoPagarTC=resTdc.alDia?0:resTdc.pendiente;
 
   eid('tc-resumen').innerHTML=[
     {l:'Consumos del mes',v:resTdc.consumos,c:'var(--over)'},
@@ -1928,7 +2009,7 @@ function renderHistorialTarjeta(){
   }).join('');
 
   eid('tc-card').innerHTML='<div class="wallet-stack">'
-    +tarjetaGrandeHtml(t,saldoRotTC,'','onclick="toggleSelectorTarjeta()"','Toca para cambiar tarjeta',false)
+    +tarjetaGrandeHtml(t,saldoPagarTC,'','onclick="abrirModalTDC()"','Toca para ver resumen',false)
     +'</div>';
 
   var hist=G.tdcAnio===2026?t.historial2026:t.historial2025;
@@ -2122,11 +2203,11 @@ function abrirModalTDC(){
   var pagos=resumen.pagos,saldoRotAnt=resumen.saldoRotAnt,pendiente=resumen.pendiente,alDia=resumen.alDia;
 
   eid('tdc-hist-res').innerHTML=[
-    {l:'Debes pagar',v:saldoRotAnt,c:'var(--over)'},
-    {l:'Pagado/Rec.',v:pagos,c:'var(--ok)'},
-    {l:alDia?'¡Al día! ✓':'Falta',v:alDia?0:pendiente,c:alDia?'var(--ok)':'var(--warn)'}
+    {l:'Consumos',v:resumen.consumos,c:'var(--over)'},
+    {l:'Valor recogido',v:pagos,c:'var(--ok)'},
+    {l:alDia?'Por recoger':'Por recoger',v:alDia?0:pendiente,c:alDia?'var(--ok)':'var(--warn)'}
   ].map(function(c){
-    return'<div class="card p12 cr12"><div class="lup">'+c.l+'</div><div class="amd" style="color:'+c.c+'">'+(c.l==='¡Al día! ✓'?'✓':fmt(c.v))+'</div></div>';
+    return'<div class="card p12 cr12"><div class="lup">'+c.l+'</div><div class="amd" style="color:'+c.c+'">'+fmt(c.v)+'</div></div>';
   }).join('')+(alDia?'<div style="grid-column:span 3;text-align:center;padding:8px;font-size:13px;color:var(--ok);font-weight:700">✅ Estás al día</div>':'');
 
   var cargosHtml='';
