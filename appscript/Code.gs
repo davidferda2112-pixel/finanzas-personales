@@ -28,6 +28,31 @@ function cGet(k){ var r=CacheService.getScriptCache().get(k); return r?JSON.pars
 function cPut(k,d){ CacheService.getScriptCache().put(k,JSON.stringify(d),CACHE_S); }
 function cDel(k){ CacheService.getScriptCache().remove(k); }
 function _nowLocal(){ return Utilities.formatDate(new Date(),'America/Guayaquil','yyyy-MM-dd HH:mm:ss'); }
+function _fmtFechaSimple(v){
+  if(Object.prototype.toString.call(v)==='[object Date]'&&!isNaN(v.getTime())){
+    return Utilities.formatDate(v,'America/Guayaquil','dd/MM/yyyy');
+  }
+  var s=String(v||'').trim();
+  if(!s) return '';
+  if(s.indexOf('T')>-1) s=s.split('T')[0];
+  var p=s.split('-');
+  if(p.length===3) return p[2]+'/'+p[1]+'/'+p[0];
+  return s;
+}
+function _fechaMsSimple(v){
+  if(Object.prototype.toString.call(v)==='[object Date]'&&!isNaN(v.getTime())) return v.getTime();
+  var s=String(v||'').trim();
+  if(!s) return 0;
+  if(s.indexOf('T')>-1) s=s.split('T')[0];
+  var p=s.indexOf('/')>-1?s.split('/'):s.split('-');
+  if(p.length===3){
+    var y=p[0].length===4?p[0]:p[2],m=p[0].length===4?p[1]:p[1],d=p[0].length===4?p[2]:p[0];
+    var n=new Date(y+'-'+m+'-'+d+'T00:00:00').getTime();
+    return isNaN(n)?0:n;
+  }
+  var n2=new Date(s).getTime();
+  return isNaN(n2)?0:n2;
+}
 function _st(p,a){
   if(!a||!p) return 'empty';
   var r=a/p; if(r<=0.85) return 'ok'; if(r<=1) return 'warn'; return 'over';
@@ -421,14 +446,13 @@ function getMovimientosTarjeta(mes,tarjeta){
       var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
       if(mesFila!==mesBuscado||_s(D[i][3])!==tarjeta) continue;
       result.push({
-        id:_s(D[i][0]),timestamp:_s(D[i][1]),mes:mesFila,tarjeta:_s(D[i][3]),
-        tipo:_s(D[i][4]),monto:_n(D[i][5]),fecha:_s(D[i][6]),notas:_s(D[i][7]),
+        id:_s(D[i][0]),orden:i,timestamp:_s(D[i][1]),mes:mesFila,tarjeta:_s(D[i][3]),
+        tipo:_s(D[i][4]),monto:_n(D[i][5]),fecha:_fmtFechaSimple(D[i][6]),fechaOrden:_fechaMsSimple(D[i][6]),notas:_s(D[i][7]),
         origen:_s(D[i][8]),registroId:_s(D[i][9]),categoria:_s(D[i][10]),subcategoria:_s(D[i][11])
       });
     }
     result.sort(function(a,b){
-      return String(b.fecha||'').localeCompare(String(a.fecha||''))||
-             String(b.timestamp||'').localeCompare(String(a.timestamp||''));
+      return (b.fechaOrden||0)-(a.fechaOrden||0)||(a.orden||0)-(b.orden||0);
     });
     return{ok:true,data:result};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -641,7 +665,7 @@ function getDesgloseSub(mes,subcategoria){
     for(var i=1;i<D.length;i++){
       var mesFila=_s(D[i][2]).replace(/^'+/,'');
       if(mesFila===mes&&_s(D[i][5])===subcategoria)
-        result.push({id:_s(D[i][0]),tipo:_s(D[i][3]),categoria:_s(D[i][4]),subcategoria:_s(D[i][5]),fecha:_s(D[i][7]),monto:_n(D[i][6]),notas:_s(D[i][8])});
+        result.push({id:_s(D[i][0]),tipo:_s(D[i][3]),categoria:_s(D[i][4]),subcategoria:_s(D[i][5]),fecha:_fmtFechaSimple(D[i][7]),monto:_n(D[i][6]),notas:_s(D[i][8])});
     }
     return{ok:true,data:result};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -666,7 +690,8 @@ function getMovimientosMes(mes){
         categoria:_s(D[i][4]),
         subcategoria:_s(D[i][5]),
         monto:_n(D[i][6]),
-        fecha:_s(D[i][7]),
+        fecha:_fmtFechaSimple(D[i][7]),
+        fechaOrden:_fechaMsSimple(D[i][7]),
         notas:_s(D[i][8])
       });
     }
@@ -699,9 +724,9 @@ function _compararMovimientoVista(a,b){
 }
 
 function _fechaOrdenMovimiento(t){
-  var f=String(t.fecha||'').split('T')[0];
-  var n=f?new Date(f+'T00:00:00').getTime():NaN;
-  if(!isNaN(n)) return n;
+  if(t.fechaOrden) return t.fechaOrden;
+  var n=_fechaMsSimple(t.fecha);
+  if(n) return n;
   var ts=String(t.timestamp||'');
   n=new Date(ts.replace(' ','T')).getTime();
   if(!isNaN(n)) return n;
