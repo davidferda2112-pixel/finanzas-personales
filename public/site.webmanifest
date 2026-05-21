@@ -1,11 +1,18 @@
 {
   "name": "Jaeger Spend",
-  "short_name": "Jaeger Spend",
+  "short_name": "Jaeger",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f2f2f7",
-  "theme_color": "#f2f2f7",
+  "background_color": "#eaf8ff",
+  "theme_color": "#eaf8ff",
   "icons": [
+    {
+      "src": "/app-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "/app-icon.png",
       "sizes": "192x192",

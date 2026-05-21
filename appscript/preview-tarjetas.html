@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Preview Tarjetas</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  min-height:100dvh;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","SF Pro Text","Segoe UI",sans-serif;
+  background:
+    radial-gradient(circle at 20% 8%,rgba(179,231,255,.72),transparent 32%),
+    radial-gradient(circle at 88% 18%,rgba(255,236,169,.62),transparent 30%),
+    linear-gradient(145deg,#f8fdff,#eef8ff 48%,#f0fbf4);
+  color:#111827;
+  display:grid;
+  place-items:center;
+  padding:24px;
+}
+.phone{
+  width:min(390px,100%);
+  height:800px;
+  border-radius:38px;
+  background:rgba(255,255,255,.56);
+  border:1px solid rgba(255,255,255,.82);
+  box-shadow:0 28px 70px rgba(40,80,120,.18),inset 0 1px 0 rgba(255,255,255,.92);
+  overflow:hidden;
+  position:relative;
+}
+.top{
+  padding:54px 20px 14px;
+  background:rgba(248,252,255,.62);
+  backdrop-filter:blur(28px) saturate(180%);
+  border-bottom:1px solid rgba(255,255,255,.72);
+}
+h1{font-size:29px;letter-spacing:-.035em;font-weight:700}
+.sub{font-size:14px;color:#74808a;margin-top:4px}
+.content{height:calc(100% - 123px);overflow-y:auto;padding:16px 0 102px;scrollbar-width:none}
+.content::-webkit-scrollbar,.wallet::-webkit-scrollbar{display:none}
+.wallet{
+  display:grid;grid-template-columns:1fr;gap:12px;
+  padding:2px 20px 12px;
+  position:relative;
+  transition:min-height .42s cubic-bezier(.22,1,.36,1);
+}
+.slide{
+  width:100%;
+  transition:transform .48s cubic-bezier(.22,1,.36,1),opacity .34s ease,filter .34s ease;
+}
+.card{
+  height:150px;border-radius:28px;padding:18px;
+  color:white;position:relative;overflow:hidden;
+  box-shadow:0 22px 42px rgba(36,66,95,.20),inset 0 1px 0 rgba(255,255,255,.28);
+  cursor:pointer;
+  transform:translateZ(0);
+  transition:transform .34s cubic-bezier(.22,1,.36,1),box-shadow .34s ease,filter .34s ease;
+}
+.card:active{transform:scale(.985)}
+.card:before{content:"";position:absolute;right:-36px;top:-44px;width:155px;height:155px;border-radius:50%;background:rgba(255,255,255,.15)}
+.card:after{content:"";position:absolute;left:-24px;bottom:-40px;width:160px;height:100px;border-radius:50%;background:rgba(0,0,0,.08)}
+.visa{background:linear-gradient(135deg,#c84c00,#ed6500 48%,#ff9500)}
+.mc{background:linear-gradient(135deg,#5b4300,#a57a00 50%,#e0b235)}
+.brand{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:650;position:relative;z-index:1}
+.digits{letter-spacing:.18em;color:rgba(255,255,255,.76);font-size:13px;margin-top:38px;position:relative;z-index:1}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.58);margin-top:9px;position:relative;z-index:1}
+.due{font-size:30px;font-weight:700;letter-spacing:-.05em;margin-top:2px;position:relative;z-index:1}
+.tap{position:absolute;right:18px;bottom:18px;font-size:11px;color:rgba(255,255,255,.68);z-index:1}
+.card.selected{outline:0;box-shadow:0 26px 52px rgba(36,66,95,.24),inset 0 1px 0 rgba(255,255,255,.30)}
+.wallet.stacked{min-height:172px;display:block;padding-bottom:22px}
+.wallet.stacked .slide{position:absolute;left:20px;right:20px;top:2px;width:auto}
+.wallet.stacked .slide.active-slide{z-index:2;transform:translateY(0) scale(1);opacity:1;filter:none}
+.wallet.stacked .slide.back-slide{
+  z-index:1;
+  transform:translateY(118px) scale(.93);
+  opacity:.96;
+  filter:saturate(.9);
+}
+.wallet.stacked .slide.back-slide .card{
+  height:62px;
+  box-shadow:0 14px 30px rgba(36,66,95,.16),inset 0 1px 0 rgba(255,255,255,.24);
+}
+.wallet.stacked .slide.back-slide .digits,
+.wallet.stacked .slide.back-slide .label,
+.wallet.stacked .slide.back-slide .due{display:none}
+.wallet.stacked .slide.back-slide .tap{
+  right:18px;bottom:21px;font-weight:650;color:rgba(255,255,255,.78);
+}
+.pager{display:flex;justify-content:center;gap:6px;margin-bottom:12px}
+.dot{width:7px;height:7px;border-radius:99px;background:#cbd5df}
+.dot.active{width:18px;background:#007aff}
+.section{padding:0 20px;margin-top:10px}
+.data-section{display:none}
+.data-section.visible{display:block;animation:riseIn .42s cubic-bezier(.22,1,.36,1)}
+.month-pills{display:flex;gap:8px;overflow-x:auto;padding:0 0 4px;scrollbar-width:none}
+.month-pills::-webkit-scrollbar{display:none}
+.month-btn{
+  border:1px solid rgba(255,255,255,.86);background:rgba(255,255,255,.72);
+  border-radius:999px;padding:9px 13px;color:#64717c;font-weight:650;font-size:12px;
+  box-shadow:0 8px 18px rgba(40,80,120,.06);
+}
+.month-btn.active{background:#111827;color:white}
+@keyframes riseIn{
+  from{opacity:0;transform:translateY(18px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.empty-state{
+  margin:6px 20px 0;padding:16px;border-radius:22px;
+  background:rgba(255,255,255,.68);border:1px solid rgba(255,255,255,.86);
+  color:#6f7b85;font-size:13px;line-height:1.35;text-align:center;
+  box-shadow:0 12px 28px rgba(40,80,120,.07);
+}
+.section-title{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#98a2ab;font-weight:750;margin:12px 0 9px}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.metric{
+  padding:12px 9px;border-radius:18px;background:rgba(255,255,255,.72);
+  border:1px solid rgba(255,255,255,.82);
+  box-shadow:0 10px 24px rgba(40,80,120,.07),inset 0 1px 0 rgba(255,255,255,.95);
+}
+.metric span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#97a1aa;font-weight:700;margin-bottom:5px}
+.metric strong{display:block;font-size:15px;letter-spacing:-.03em}
+.red{color:#e63b32}.green{color:#22a74f}.orange{color:#ff7a00}.gold{color:#b58300}
+.monthly-table-card{overflow:hidden;border-radius:22px;background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.84);box-shadow:0 12px 28px rgba(40,80,120,.08)}
+.monthly-table{width:100%;min-width:0;border-collapse:collapse;table-layout:fixed;font-size:11px}
+.monthly-table th{
+  padding:9px 7px;text-align:left;text-transform:uppercase;letter-spacing:.035em;
+  font-size:8px;color:#87939e;border-bottom:1px solid rgba(110,125,140,.13);
+  background:rgba(248,252,255,.78);
+}
+.monthly-table td{padding:8px 7px;border-bottom:1px solid rgba(110,125,140,.09);color:#3f4a54;vertical-align:middle}
+.monthly-table tr:last-child td{border-bottom:0}
+.monthly-table tr.charge-row{cursor:pointer}
+.monthly-table tr.charge-row:active td{background:rgba(255,255,255,.68)}
+.monthly-table th:nth-child(1),.monthly-table td:nth-child(1){width:34%}
+.monthly-table th:nth-child(2),.monthly-table td:nth-child(2){width:20%}
+.monthly-table th:nth-child(3),.monthly-table td:nth-child(3){width:23%}
+.monthly-table th:nth-child(4),.monthly-table td:nth-child(4){width:23%}
+.monthly-table th span{display:block;line-height:1.08}
+.monthly-table th:not(:first-child),.monthly-table td:not(:first-child){text-align:right}
+.monthly-table .total td{font-weight:750;background:rgba(255,255,255,.58)}
+.monthly-name{display:block}
+.monthly-name strong{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;font-size:12px}
+.table-card{overflow:hidden;border-radius:22px;background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.84);box-shadow:0 12px 28px rgba(40,80,120,.08)}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;min-width:520px;border-collapse:collapse;font-size:12px}
+th{padding:11px 12px;text-align:left;text-transform:uppercase;letter-spacing:.07em;font-size:10px;color:#98a2ab;border-bottom:1px solid rgba(110,125,140,.13)}
+td{padding:11px 12px;border-bottom:1px solid rgba(110,125,140,.09);color:#46515c}
+td:not(:first-child),th:not(:first-child){text-align:right}
+tr:last-child td{border-bottom:0}
+.overlay{
+  position:absolute;inset:0;background:rgba(15,23,42,.22);
+  display:none;align-items:flex-end;z-index:10;
+}
+.overlay.open{display:flex}
+.modal{
+  width:100%;margin:0 10px 10px;padding:16px;border-radius:28px;
+  background:rgba(255,255,255,.88);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 24px 70px rgba(20,40,70,.30),inset 0 1px 0 rgba(255,255,255,.95);
+  backdrop-filter:blur(34px) saturate(190%);
+  animation:sheetIn .42s cubic-bezier(.22,1,.36,1);
+}
+@keyframes sheetIn{
+  from{transform:translateY(24px) scale(.98);opacity:0}
+  to{transform:translateY(0) scale(1);opacity:1}
+}
+.handle{width:42px;height:4px;border-radius:99px;background:#d7dde3;margin:0 auto 14px}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.modal h2{font-size:20px;letter-spacing:-.03em}
+.mini-card{width:50px;height:32px;border-radius:9px;box-shadow:inset 0 1px 0 rgba(255,255,255,.32)}
+.modal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.modal-history{margin-top:12px;border-radius:18px;overflow:hidden;border:1px solid rgba(210,222,232,.72);background:rgba(245,250,255,.78)}
+.modal-history table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px}
+.modal-history th,.modal-history td{padding:9px 7px;border-bottom:1px solid rgba(110,125,140,.1)}
+.modal-history th{text-align:left;text-transform:uppercase;letter-spacing:.035em;font-size:8px;color:#87939e}
+.modal-history th:not(:first-child),.modal-history td:not(:first-child){text-align:right}
+.modal-history tr:last-child td{border-bottom:0;font-weight:750}
+.detail{margin-top:8px}
+.detail-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid rgba(110,125,140,.13);font-size:14px}
+.detail-row span{color:#73818c}
+.detail-row strong{text-align:right}
+.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.edit,.delete{height:46px;border:0;border-radius:15px;font-weight:750}
+.edit{background:#007aff;color:white}.delete{background:#ffe6e5;color:#e63b32}
+.danger{color:#e63b32}
+.close{margin-top:12px;width:100%;border:0;border-radius:16px;padding:11px;background:#111827;color:white;font-weight:650}
+.nav{
+  position:absolute;left:0;right:0;bottom:0;height:78px;
+  background:rgba(250,253,255,.78);
+  border-top:1px solid rgba(255,255,255,.86);
+  backdrop-filter:blur(28px) saturate(180%);
+  display:grid;grid-template-columns:repeat(5,1fr);align-items:start;padding-top:10px;
+}
+.tab{text-align:center;color:#9aa3aa;font-size:11px}
+.tab b{display:block;font-size:22px;line-height:1;margin-bottom:3px}
+.tab.active{color:#007aff;font-weight:700}
+</style>
+</head>
+<body>
+<section class="phone">
+  <header class="top">
+    <h1>Tarjetas</h1>
+    <div class="sub">Desliza para seleccionar. Toca una tarjeta para resumen.</div>
+  </header>
+
+  <main class="content">
+    <section class="wallet" id="wallet">
+      <article class="slide">
+        <div class="card visa" data-card="visa">
+          <div class="brand"><span>Visa Personal</span><strong>VISA</strong></div>
+          <div class="digits">.... 4894</div>
+          <div class="label">Por recoger</div>
+          <div class="due">$46.56</div>
+          <div class="tap">Elegir</div>
+        </div>
+      </article>
+      <article class="slide">
+        <div class="card mc" data-card="mastercard">
+          <div class="brand"><span>Mastercard GC</span><strong>MC</strong></div>
+          <div class="digits">.... 9593</div>
+          <div class="label">Por recoger</div>
+          <div class="due">$18.90</div>
+          <div class="tap">Elegir</div>
+        </div>
+      </article>
+    </section>
+    <div class="empty-state" id="emptyState">Selecciona una tarjeta para ver el resumen mensual, editar cargos y revisar el registro historico.</div>
+
+    <section class="section data-section" id="dataSection">
+      <div class="section-title">Mes</div>
+      <div class="month-pills" id="monthPills"></div>
+
+      <div class="section-title" id="summaryTitle">Resumen Visa - Mayo 26</div>
+      <div class="summary">
+        <div class="metric"><span>Cargos</span><strong class="red" id="totalCargo">$86.56</strong></div>
+        <div class="metric"><span>Recogido</span><strong class="green" id="totalRecogido">$40.00</strong></div>
+        <div class="metric"><span>Por recoger</span><strong class="orange" id="totalPendiente">$46.56</strong></div>
+      </div>
+
+      <div class="section-title">Cargos del mes</div>
+      <div class="monthly-table-card">
+        <table class="monthly-table">
+          <thead><tr><th>Cargos</th><th>Valor</th><th><span>Saldo</span><span>recogido</span></th><th><span>Saldo</span><span>pendiente</span></th></tr></thead>
+          <tbody id="monthlyRows"></tbody>
+        </table>
+      </div>
+
+      <div class="section-title">Registro historico transaccional</div>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Mes</th><th>Consumos</th><th>Valor recogido</th><th>Por recoger</th></tr></thead>
+            <tbody id="historyRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="overlay" id="summaryOverlay">
+    <section class="modal">
+      <div class="handle"></div>
+      <div class="modal-head">
+        <div><h2 id="modalTitle">Visa Personal</h2><div class="sub" id="modalSub">Mayo 26 - resumen del mes</div></div>
+        <div class="mini-card visa" id="modalCard"></div>
+      </div>
+      <div class="modal-grid">
+        <div class="metric"><span>Cargo</span><strong class="red" id="modalCargo">$86.56</strong></div>
+        <div class="metric"><span>Recogido</span><strong class="green" id="modalRecogido">$40.00</strong></div>
+        <div class="metric"><span>Por recoger</span><strong class="orange" id="modalPendiente">$46.56</strong></div>
+      </div>
+      <div class="modal-history">
+        <table>
+          <thead><tr><th>Mes</th><th>Consumos</th><th>Recogido</th><th>Pend.</th></tr></thead>
+          <tbody id="modalHistoryRow"></tbody>
+        </table>
+      </div>
+      <button class="close" id="closeModal">Cerrar</button>
+    </section>
+  </div>
+
+  <div class="overlay" id="chargeOverlay">
+    <section class="modal">
+      <div class="handle"></div>
+      <div class="modal-head">
+        <div><h2 id="chargeTitle">Supermercado</h2><div class="sub">Detalle del cargo</div></div>
+      </div>
+      <div class="detail">
+        <div class="detail-row"><span>Tarjeta</span><strong id="chargeCard">Visa Personal</strong></div>
+        <div class="detail-row"><span>Mes</span><strong id="chargeMonth">Mayo 26</strong></div>
+        <div class="detail-row"><span>Valor</span><strong class="red" id="chargeValue">$0.00</strong></div>
+        <div class="detail-row"><span>Saldo recogido</span><strong class="green" id="chargePaid">$0.00</strong></div>
+        <div class="detail-row"><span>Saldo pendiente</span><strong class="orange" id="chargePending">$0.00</strong></div>
+      </div>
+      <div class="modal-actions"><button class="edit">Editar</button><button class="delete">Eliminar</button></div>
+    </section>
+  </div>
+
+  <nav class="nav">
+    <div class="tab"><b>⌂</b>Inicio</div>
+    <div class="tab"><b>↕</b>Hist.</div>
+    <div class="tab active"><b>▭</b>Tarjetas</div>
+    <div class="tab"><b>⌁</b>Flujo</div>
+    <div class="tab"><b>▣</b>Balance</div>
+  </nav>
+</section>
+
+<script>
+const cards = {
+  visa: {
+    name: 'Visa Personal',
+    shortName: 'Visa',
+    cls: 'visa',
+    months: {
+      'Mayo 26': {
+        cargo: '$86.56', recogido: '$40.00', pendiente: '$46.56',
+        cargos: [
+          {nombre:'Comida fuera', cargo:'$15.97', recogido:'$0.00', pendiente:'$15.97'},
+          {nombre:'Pagos tienda', cargo:'$10.00', recogido:'$10.00', pendiente:'$0.00'},
+          {nombre:'Internet', cargo:'$60.59', recogido:'$30.00', pendiente:'$30.59'}
+        ]
+      },
+      'Abril 26': {
+        cargo: '$74.20', recogido: '$74.20', pendiente: '$0.00',
+        cargos: [
+          {nombre:'Supermercado', cargo:'$34.20', recogido:'$34.20', pendiente:'$0.00'},
+          {nombre:'Farmacia', cargo:'$15.00', recogido:'$15.00', pendiente:'$0.00'},
+          {nombre:'Transporte', cargo:'$25.00', recogido:'$25.00', pendiente:'$0.00'}
+        ]
+      },
+      'Marzo 26': {
+        cargo: '$103.10', recogido: '$90.00', pendiente: '$13.10',
+        cargos: [
+          {nombre:'Mercado', cargo:'$63.10', recogido:'$50.00', pendiente:'$13.10'},
+          {nombre:'Comida diaria', cargo:'$20.00', recogido:'$20.00', pendiente:'$0.00'},
+          {nombre:'Salud', cargo:'$20.00', recogido:'$20.00', pendiente:'$0.00'}
+        ]
+      }
+    }
+  },
+  mastercard: {
+    name: 'Mastercard GC',
+    shortName: 'Mastercard',
+    cls: 'mc',
+    months: {
+      'Mayo 26': {
+        cargo: '$58.90', recogido: '$40.00', pendiente: '$18.90',
+        cargos: [
+          {nombre:'Supermercado', cargo:'$28.90', recogido:'$10.00', pendiente:'$18.90'},
+          {nombre:'Farmacia', cargo:'$12.00', recogido:'$12.00', pendiente:'$0.00'},
+          {nombre:'Transporte', cargo:'$18.00', recogido:'$18.00', pendiente:'$0.00'}
+        ]
+      },
+      'Abril 26': {
+        cargo: '$91.40', recogido: '$91.40', pendiente: '$0.00',
+        cargos: [
+          {nombre:'Internet', cargo:'$41.40', recogido:'$41.40', pendiente:'$0.00'},
+          {nombre:'Tienda', cargo:'$30.00', recogido:'$30.00', pendiente:'$0.00'},
+          {nombre:'Taxi', cargo:'$20.00', recogido:'$20.00', pendiente:'$0.00'}
+        ]
+      },
+      'Marzo 26': {
+        cargo: '$47.25', recogido: '$47.25', pendiente: '$0.00',
+        cargos: [
+          {nombre:'Farmacia', cargo:'$17.25', recogido:'$17.25', pendiente:'$0.00'},
+          {nombre:'Comida fuera', cargo:'$30.00', recogido:'$30.00', pendiente:'$0.00'}
+        ]
+      }
+    }
+  }
+};
+
+let active = null;
+let activeMonth = 'Mayo 26';
+const wallet = document.getElementById('wallet');
+const monthlyRows = document.getElementById('monthlyRows');
+const rows = document.getElementById('historyRows');
+const summaryOverlay = document.getElementById('summaryOverlay');
+const chargeOverlay = document.getElementById('chargeOverlay');
+const monthPills = document.getElementById('monthPills');
+
+function renderMonthButtons(data){
+  monthPills.innerHTML = Object.keys(data.months).map(month => `
+    <button class="month-btn ${month === activeMonth ? 'active' : ''}" data-month="${month}">${month}</button>
+  `).join('');
+  monthPills.querySelectorAll('.month-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      activeMonth = button.dataset.month;
+      render(active);
+    });
+  });
+}
+
+function historyFor(data){
+  return Object.entries(data.months).map(([month, info]) => [month, info.cargo, info.recogido, info.pendiente]);
+}
+
+function render(key){
+  active = key;
+  const data = cards[key];
+  const monthData = data.months[activeMonth] || Object.values(data.months)[0];
+  wallet.classList.add('stacked');
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('dataSection').classList.add('visible');
+  renderMonthButtons(data);
+  document.getElementById('summaryTitle').textContent = `Resumen ${data.shortName} - ${activeMonth}`;
+  document.getElementById('totalCargo').textContent = monthData.cargo;
+  document.getElementById('totalRecogido').textContent = monthData.recogido;
+  document.getElementById('totalPendiente').textContent = monthData.pendiente;
+  document.querySelectorAll('.slide').forEach(slide => {
+    const card = slide.querySelector('.card');
+    const selected = card.dataset.card === key;
+    slide.classList.toggle('active-slide', selected);
+    slide.classList.toggle('back-slide', !selected);
+    card.classList.toggle('selected', selected);
+    card.querySelector('.tap').textContent = selected ? 'Toca para resumen' : 'Cambiar';
+  });
+
+  monthlyRows.innerHTML = monthData.cargos.map((item, index) => `
+    <tr class="charge-row" data-index="${index}">
+      <td>
+        <div class="monthly-name">
+          <strong>${item.nombre}</strong>
+        </div>
+      </td>
+      <td class="red">${item.cargo}</td>
+      <td class="green">${item.recogido}</td>
+      <td class="${item.pendiente === '$0.00' ? '' : 'orange'}">${item.pendiente}</td>
+    </tr>
+  `).join('') + `
+    <tr class="total">
+      <td>Total</td>
+      <td class="red">${monthData.cargo}</td>
+      <td class="green">${monthData.recogido}</td>
+      <td class="${monthData.pendiente === '$0.00' ? '' : 'orange'}">${monthData.pendiente}</td>
+    </tr>
+  `;
+
+  rows.innerHTML = historyFor(data).map(row => `
+    <tr><td>${row[0]}</td><td class="red">${row[1]}</td><td class="green">${row[2]}</td><td class="${row[3] === '$0.00' ? '' : 'orange'}">${row[3]}</td></tr>
+  `).join('');
+
+}
+
+function openModal(key){
+  const data = cards[key];
+  const monthData = data.months[activeMonth];
+  document.getElementById('modalTitle').textContent = `${data.name} - ${activeMonth}`;
+  document.getElementById('modalSub').textContent = 'Resumen del historico transaccional';
+  document.getElementById('modalCargo').textContent = monthData.cargo;
+  document.getElementById('modalRecogido').textContent = monthData.recogido;
+  document.getElementById('modalPendiente').textContent = monthData.pendiente;
+  document.getElementById('modalHistoryRow').innerHTML = `
+    <tr>
+      <td>${activeMonth}</td>
+      <td class="red">${monthData.cargo}</td>
+      <td class="green">${monthData.recogido}</td>
+      <td class="${monthData.pendiente === '$0.00' ? '' : 'orange'}">${monthData.pendiente}</td>
+    </tr>
+  `;
+  document.getElementById('modalCard').className = `mini-card ${data.cls}`;
+  summaryOverlay.classList.add('open');
+}
+
+function openChargeModal(index, action){
+  const data = cards[active];
+  const charge = data.months[activeMonth].cargos[index];
+  document.getElementById('chargeTitle').textContent = charge.nombre;
+  document.getElementById('chargeCard').textContent = data.name;
+  document.getElementById('chargeMonth').textContent = activeMonth;
+  document.getElementById('chargeValue').textContent = charge.cargo;
+  document.getElementById('chargePaid').textContent = charge.recogido;
+  document.getElementById('chargePending').textContent = charge.pendiente;
+  chargeOverlay.classList.add('open');
+}
+
+document.querySelectorAll('.card').forEach(card => {
+  card.addEventListener('click', () => {
+    const key = card.dataset.card;
+    if(active === key) openModal(key);
+    render(key);
+  });
+});
+document.getElementById('closeModal').addEventListener('click', () => summaryOverlay.classList.remove('open'));
+summaryOverlay.addEventListener('click', event => {
+  if(event.target === summaryOverlay) summaryOverlay.classList.remove('open');
+});
+monthlyRows.addEventListener('click', event => {
+  const row = event.target.closest('.charge-row');
+  if(!row) return;
+  openChargeModal(Number(row.dataset.index), 'detail');
+});
+chargeOverlay.addEventListener('click', event => {
+  if(event.target === chargeOverlay) chargeOverlay.classList.remove('open');
+});
+</script>
+</body>
+</html>

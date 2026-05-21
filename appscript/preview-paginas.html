@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Preview Paginas Jaeger Spend</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  min-height:100dvh;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","SF Pro Text","Segoe UI",sans-serif;
+  color:#111827;
+  background:
+    radial-gradient(circle at 16% 6%,rgba(173,229,255,.68),transparent 30%),
+    radial-gradient(circle at 88% 12%,rgba(255,233,155,.62),transparent 28%),
+    linear-gradient(145deg,#f9fdff,#eef8ff 48%,#effaf3);
+}
+.phone{
+  width:min(390px,100%);
+  height:800px;
+  border-radius:38px;
+  overflow:hidden;
+  position:relative;
+  background:rgba(255,255,255,.58);
+  border:1px solid rgba(255,255,255,.84);
+  box-shadow:0 28px 70px rgba(40,80,120,.18),inset 0 1px 0 rgba(255,255,255,.92);
+}
+.status{height:28px}
+.page{
+  display:none;
+  height:calc(100% - 88px);
+  overflow:auto;
+  padding:22px 20px 106px;
+  scrollbar-width:none;
+}
+.page::-webkit-scrollbar{display:none}
+.page.active{display:block;animation:rise .34s cubic-bezier(.22,1,.36,1)}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
+h1{font-size:28px;line-height:1;letter-spacing:-.035em;font-weight:720}
+.sub{font-size:14px;color:#70808c;margin-top:7px}
+.icon-round{
+  width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.86);
+  background:rgba(255,255,255,.76);display:grid;place-items:center;color:#111827;
+  box-shadow:0 12px 26px rgba(40,80,120,.1),inset 0 1px 0 rgba(255,255,255,.92);
+}
+.glass{
+  border:1px solid rgba(255,255,255,.86);
+  background:rgba(255,255,255,.68);
+  box-shadow:0 14px 32px rgba(40,80,120,.09),inset 0 1px 0 rgba(255,255,255,.92);
+  backdrop-filter:blur(24px) saturate(175%);
+}
+.balance-card{
+  min-height:176px;
+  border-radius:28px;
+  padding:22px;
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(#bfeaff,#dff5ff 45%,#7fcf78 46%,#54ad56);
+  border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 20px 38px rgba(40,80,120,.13);
+}
+.balance-card:before{content:"";position:absolute;right:36px;top:16px;width:62px;height:62px;border-radius:50%;background:#ffdc24;box-shadow:0 0 0 18px rgba(255,220,36,.18)}
+.balance-card:after{content:"";position:absolute;left:-35px;right:-35px;bottom:18px;height:58px;border-radius:50% 50% 0 0;background:rgba(69,151,72,.55)}
+.balance-content{position:relative;z-index:1}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6f7f8b;font-weight:750}
+.amount{font-size:46px;letter-spacing:-.06em;font-weight:720;margin-top:10px}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700;background:rgba(42,196,93,.18);color:#198a42}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.action{height:58px;border:0;border-radius:18px;color:white;font-weight:720;font-size:15px;box-shadow:0 12px 24px rgba(40,80,120,.13)}
+.income{background:linear-gradient(135deg,#2fca63,#1fb354)}
+.expense{background:linear-gradient(135deg,#ff3b30,#c9221c)}
+.save{background:linear-gradient(135deg,#ff9f0a,#e47e00)}
+.section-title{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#98a2ab;font-weight:760;margin:18px 0 9px}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.metric{border-radius:18px;padding:12px 10px}
+.metric span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#8c98a2;font-weight:750;margin-bottom:5px}
+.metric strong{font-size:15px;letter-spacing:-.02em}
+.green{color:#24a851}.red{color:#f0322a}.blue{color:#007aff}.orange{color:#f08300}
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cat{
+  min-height:142px;
+  border-radius:24px;
+  padding:17px;
+  color:white;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 18px 34px rgba(40,80,120,.14);
+}
+.cat:before{content:"";position:absolute;right:-24px;top:-28px;width:112px;height:112px;border-radius:50%;background:rgba(255,255,255,.16)}
+.cat h3{font-size:14px;font-weight:700;margin-top:22px}
+.cat b{font-size:25px;letter-spacing:-.04em}
+.cat small{display:block;margin-top:3px;opacity:.72}
+.cat .bar{position:absolute;left:17px;right:17px;bottom:15px;height:5px;border-radius:99px;background:rgba(255,255,255,.35)}
+.cat .bar i{display:block;height:100%;border-radius:99px;background:rgba(255,255,255,.9)}
+.need{background:linear-gradient(135deg,#007aff,#35a8e8)}
+.wish{background:linear-gradient(135deg,#8e3fd0,#c768e9)}
+.debt{background:linear-gradient(135deg,#ec2620,#ff625b)}
+.savings{background:linear-gradient(135deg,#22b84f,#52d66d)}
+.kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{border-radius:20px;padding:14px}
+.kpi span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#8c98a2;font-weight:750;margin-bottom:6px}
+.kpi strong{display:block;font-size:24px;letter-spacing:-.04em}
+.kpi small{display:block;margin-top:4px;font-size:11px;color:#657380;line-height:1.25}
+.japan-card{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;
+  border-radius:24px;padding:17px;margin-top:12px;overflow:hidden;position:relative;
+  background:linear-gradient(135deg,rgba(255,255,255,.82),rgba(232,247,255,.7));
+}
+.japan-card:before{content:"";position:absolute;right:-20px;top:-28px;width:110px;height:110px;border-radius:50%;background:rgba(255,222,52,.42)}
+.japan-card h3{font-size:16px;letter-spacing:-.02em}
+.japan-card p{font-size:12px;color:#66737e;margin-top:4px}
+.japan-card b{font-size:22px;letter-spacing:-.04em}
+.japan-progress{height:7px;border-radius:999px;background:rgba(208,222,232,.8);overflow:hidden;margin-top:12px}
+.japan-progress i{display:block;height:100%;width:42%;border-radius:999px;background:linear-gradient(90deg,#007aff,#25c45a)}
+.filters{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:6px;padding:7px;border-radius:19px;margin-bottom:12px}
+.filter{border:0;border-radius:14px;background:transparent;color:#64717c;font-weight:700;padding:10px 5px}
+.filter.active{background:white;color:#007aff;box-shadow:0 6px 16px rgba(40,80,120,.08)}
+.tx-list{display:grid;gap:10px}
+.tx{
+  display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:12px;
+  border-radius:22px;padding:12px;
+}
+.tx-icon{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:22px;font-weight:500}
+.tx-icon.up{background:#dcf8e6;color:#1fac53}.tx-icon.down{background:#ffe1e0;color:#ff2d25}.tx-icon.money{background:#ddecff;color:#007aff}
+.tx h3{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx p{font-size:12px;color:#75838e;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-right{text-align:right}.tx-right b{display:block;font-size:15px}.tx-right small{display:block;color:#87939e;margin-top:4px}
+.table-card{border-radius:22px;overflow:hidden}
+.data-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}
+.data-table th{padding:11px 9px;text-align:left;text-transform:uppercase;letter-spacing:.06em;font-size:9px;color:#87939e;border-bottom:1px solid rgba(110,125,140,.13)}
+.data-table td{padding:12px 9px;border-bottom:1px solid rgba(110,125,140,.09);color:#48545f}
+.data-table tr:last-child td{border-bottom:0}
+.badge{display:inline-block;border-radius:999px;padding:5px 9px;background:#e0f8e8;color:#1e9b4b;font-weight:750}
+.balance-total{text-align:center;border-radius:26px;padding:22px;margin-bottom:14px}
+.balance-total .amount{font-size:42px}
+.two-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.nav{
+  position:absolute;left:0;right:0;bottom:0;height:88px;
+  background:rgba(250,253,255,.78);
+  border-top:1px solid rgba(255,255,255,.86);
+  backdrop-filter:blur(28px) saturate(180%);
+  display:grid;grid-template-columns:repeat(5,1fr);align-items:start;padding-top:10px;
+}
+.tab{border:0;background:transparent;text-align:center;color:#9aa3aa;font-size:11px}
+.tab b{display:block;font-size:21px;line-height:1;margin-bottom:4px}
+.tab.active{color:#007aff;font-weight:760}
+.overlay{position:absolute;inset:0;background:rgba(15,23,42,.22);display:none;align-items:flex-end;z-index:5}
+.overlay.open{display:flex}
+.modal{
+  width:100%;margin:0 10px 10px;padding:18px;border-radius:28px;
+  background:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 24px 70px rgba(20,40,70,.3),inset 0 1px 0 rgba(255,255,255,.95);
+  backdrop-filter:blur(34px) saturate(190%);
+  animation:sheet .36s cubic-bezier(.22,1,.36,1);
+}
+@keyframes sheet{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.handle{width:42px;height:4px;border-radius:99px;background:#d7dde3;margin:0 auto 18px}
+.modal h2{font-size:22px;letter-spacing:-.03em;margin-bottom:4px}
+.detail{margin-top:14px}
+.detail-row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(110,125,140,.13);font-size:14px}
+.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.edit,.delete{height:46px;border:0;border-radius:15px;font-weight:750}
+.edit{background:#007aff;color:white}.delete{background:#ffe6e5;color:#e63b32}
+</style>
+</head>
+<body>
+<section class="phone">
+  <main class="page active" id="inicio">
+    <div class="header">
+      <div><h1>Inicio</h1><div class="sub">viernes, 15 de mayo de 2026</div></div>
+      <div class="icon-round">J</div>
+    </div>
+    <section class="balance-card">
+      <div class="balance-content">
+        <div>Buenos dias, <b>Christian</b></div>
+        <div class="eyebrow" style="margin-top:18px">Saldo disponible</div>
+        <div class="amount">$55.15 <span class="pill">Positivo</span></div>
+      </div>
+    </section>
+    <div class="actions">
+      <button class="action income">+ Ingreso</button>
+      <button class="action expense">- Egreso</button>
+      <button class="action save">$ Ahorro</button>
+    </div>
+    <div class="section-title">Resumen del mes</div>
+    <div class="summary">
+      <div class="metric glass"><span>Ingresos</span><strong class="green">$526.00</strong></div>
+      <div class="metric glass"><span>Egresos</span><strong class="red">$326.00</strong></div>
+      <div class="metric glass"><span>Ahorros</span><strong class="blue">$200.00</strong></div>
+    </div>
+    <div class="section-title">Distribucion del mes</div>
+    <div class="cat-grid">
+      <article class="cat need"><h3>Necesidades</h3><b>$127.97</b><small>80% del presupuesto</small><div class="bar"><i style="width:80%"></i></div></article>
+      <article class="cat wish"><h3>Deseos</h3><b>$95.64</b><small>100% usado</small><div class="bar"><i style="width:100%"></i></div></article>
+      <article class="cat debt"><h3>Deudas</h3><b>$46.56</b><small>54% usado</small><div class="bar"><i style="width:54%"></i></div></article>
+      <article class="cat savings"><h3>Ahorros</h3><b>$200.00</b><small>96% cumplido</small><div class="bar"><i style="width:96%"></i></div></article>
+    </div>
+    <div class="section-title">Viaje a Japon</div>
+    <article class="japan-card glass">
+      <div>
+        <h3>Meta Japon</h3>
+        <p>Progreso acumulado para el viaje</p>
+        <div class="japan-progress"><i></i></div>
+      </div>
+      <div style="text-align:right;position:relative;z-index:1">
+        <b class="blue">$420.00</b>
+        <p>42%</p>
+      </div>
+    </article>
+    <div class="section-title">Analisis rapido</div>
+    <div class="kpi-row">
+      <div class="kpi glass" data-kpi="ahorro"><span>Ahorro mensual</span><strong class="green">$23.00</strong><small>mayor ahorro: internet</small></div>
+      <div class="kpi glass" data-kpi="sobregasto"><span>Sobregasto</span><strong class="red">$15.97</strong><small>mayor exceso: comida fuera</small></div>
+    </div>
+  </main>
+
+  <main class="page" id="historial">
+    <div class="header">
+      <div><h1>Historial</h1><div class="sub">Mayo 26 - movimientos registrados</div></div>
+    </div>
+    <div class="summary">
+      <div class="metric glass"><span>Ingresos</span><strong class="green">$526.00</strong></div>
+      <div class="metric glass"><span>Egresos</span><strong class="red">$326.00</strong></div>
+      <div class="metric glass"><span>Ahorros</span><strong class="blue">$200.00</strong></div>
+    </div>
+    <div class="filters glass" style="margin-top:16px">
+      <button class="filter active">Todos</button><button class="filter">Ing.</button><button class="filter">Egr.</button><button class="filter">Ahorro</button>
+    </div>
+    <div class="tx-list">
+      <article class="tx glass" data-modal="ingreso"><div class="tx-icon up">↑</div><div><h3>Sueldo</h3><p>15/05/2026 - Pago mensual</p></div><div class="tx-right"><b class="green">+$526.00</b><small>$581.15</small></div></article>
+      <article class="tx glass" data-modal="egreso"><div class="tx-icon down">↓</div><div><h3>Comida diaria</h3><p>15/05/2026 - Almuerzo</p></div><div class="tx-right"><b class="red">-$13.87</b><small>$55.15</small></div></article>
+      <article class="tx glass" data-modal="ahorro"><div class="tx-icon money">$</div><div><h3>Ahorro seguro</h3><p>14/05/2026 - Fondo mensual</p></div><div class="tx-right"><b class="blue">$200.00</b><small>$69.02</small></div></article>
+    </div>
+  </main>
+
+  <main class="page" id="flujo">
+    <div class="header">
+      <div><h1>Flujo</h1><div class="sub">Entradas, salidas y saldo operativo</div></div>
+      <div class="icon-round">+</div>
+    </div>
+    <div class="summary">
+      <div class="metric glass"><span>Entradas</span><strong class="green">$526.00</strong></div>
+      <div class="metric glass"><span>Salidas</span><strong class="red">$470.85</strong></div>
+      <div class="metric glass"><span>Neto</span><strong class="blue">$55.15</strong></div>
+    </div>
+    <div class="section-title">Tabla principal de flujo</div>
+    <div class="table-card glass">
+      <table class="data-table">
+        <thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th>Monto</th></tr></thead>
+        <tbody>
+          <tr><td>15/05</td><td>Sueldo</td><td><span class="badge">Ingreso</span></td><td class="green">$526.00</td></tr>
+          <tr><td>15/05</td><td>Comida</td><td>Egreso</td><td class="red">$13.87</td></tr>
+          <tr><td>14/05</td><td>Ahorro</td><td>Ahorro</td><td class="blue">$200.00</td></tr>
+          <tr><td>13/05</td><td>Tienda</td><td>Egreso</td><td class="red">$10.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <main class="page" id="balance">
+    <div class="header">
+      <div><h1>Balance</h1><div class="sub">Activos - pasivos - patrimonio</div></div>
+      <div class="icon-round">✎</div>
+    </div>
+    <section class="balance-total glass">
+      <div class="eyebrow">Patrimonio neto</div>
+      <div class="amount">$8,671.07</div>
+      <div class="two-cols">
+        <div><div class="eyebrow green">Activos</div><strong class="green">$9,353.17</strong></div>
+        <div><div class="eyebrow red">Pasivos</div><strong class="red">$682.10</strong></div>
+      </div>
+    </section>
+    <div class="section-title">Tabla principal de balance</div>
+    <div class="table-card glass">
+      <table class="data-table">
+        <thead><tr><th>Tipo</th><th>Cuenta</th><th>Valor</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge">Activo</span></td><td>Efectivo disponible</td><td class="green">$55.15</td></tr>
+          <tr><td><span class="badge">Activo</span></td><td>Ahorro programado</td><td class="green">$200.00</td></tr>
+          <tr><td>Pasivo</td><td>Visa Personal</td><td class="red">$46.56</td></tr>
+          <tr><td>Pasivo</td><td>Mastercard GC</td><td class="red">$18.90</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="overlay" id="txModal">
+    <section class="modal">
+      <div class="handle"></div>
+      <h2 id="modalTitle">Comida diaria</h2>
+      <div class="sub">Detalle de movimiento</div>
+      <div class="detail">
+        <div class="detail-row"><span>Tipo</span><strong id="modalType">Egreso</strong></div>
+        <div class="detail-row"><span>Monto</span><strong id="modalAmount" class="red">-$13.87</strong></div>
+        <div class="detail-row"><span>Fecha</span><strong>15/05/2026</strong></div>
+        <div class="detail-row"><span>Nota</span><strong>Almuerzo</strong></div>
+        <div class="detail-row"><span>Saldo despues</span><strong>$55.15</strong></div>
+      </div>
+      <div class="modal-actions"><button class="edit">Editar</button><button class="delete">Eliminar</button></div>
+    </section>
+  </div>
+
+  <div class="overlay" id="kpiModal">
+    <section class="modal">
+      <div class="handle"></div>
+      <h2 id="kpiTitle">Sobregasto</h2>
+      <div class="sub">Subcategorias con exceso este mes</div>
+      <div class="detail" id="kpiDetailRows">
+        <div class="detail-row"><span>Comida fuera</span><strong class="red">$15.97</strong></div>
+      </div>
+      <div class="modal-actions"><button class="edit" id="closeKpi">Entendido</button><button class="delete">Ajustar</button></div>
+    </section>
+  </div>
+
+  <nav class="nav">
+    <button class="tab active" data-page="inicio"><b>⌂</b>Inicio</button>
+    <button class="tab" data-page="historial"><b>↕</b>Hist.</button>
+    <button class="tab" data-page="tarjetas"><b>▭</b>Tarjetas</button>
+    <button class="tab" data-page="flujo"><b>⌁</b>Flujo</button>
+    <button class="tab" data-page="balance"><b>▣</b>Balance</button>
+  </nav>
+</section>
+
+<script>
+const pages = document.querySelectorAll('.page');
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(tab => tab.addEventListener('click', () => {
+  const target = tab.dataset.page;
+  if(target === 'tarjetas') {
+    window.location.href = 'preview-tarjetas.html';
+    return;
+  }
+  pages.forEach(page => page.classList.toggle('active', page.id === target));
+  tabs.forEach(item => item.classList.toggle('active', item === tab));
+}));
+
+const modal = document.getElementById('txModal');
+document.querySelectorAll('.tx').forEach(row => {
+  row.addEventListener('click', () => {
+    const type = row.dataset.modal;
+    const title = row.querySelector('h3').textContent;
+    const amount = row.querySelector('.tx-right b').textContent;
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalType').textContent = type === 'ingreso' ? 'Ingreso' : type === 'ahorro' ? 'Ahorro' : 'Egreso';
+    document.getElementById('modalAmount').textContent = amount;
+    document.getElementById('modalAmount').className = type === 'ingreso' ? 'green' : type === 'ahorro' ? 'blue' : 'red';
+    modal.classList.add('open');
+  });
+});
+modal.addEventListener('click', event => {
+  if(event.target === modal) modal.classList.remove('open');
+});
+const kpiModal = document.getElementById('kpiModal');
+document.querySelectorAll('.kpi').forEach(card => {
+  card.addEventListener('click', () => {
+    const type = card.dataset.kpi;
+    document.getElementById('kpiTitle').textContent = card.querySelector('span').textContent;
+    document.querySelector('#kpiModal .sub').textContent = type === 'ahorro'
+      ? 'Subcategorias donde estas gastando menos de lo presupuestado'
+      : 'Subcategorias donde estas excediendo el presupuesto';
+    document.getElementById('kpiDetailRows').innerHTML = type === 'ahorro'
+      ? [
+          ['Internet','$10.25'],
+          ['Aporte Seguro','$23.00'],
+          ['Salud','$8.10'],
+          ['Gastos Bancarios','$3.00']
+        ].map(([name,value]) => `<div class="detail-row"><span>${name}</span><strong class="green">${value}</strong></div>`).join('')
+      : [
+          ['Comida fuera','$15.97'],
+          ['Comida diaria','$13.87'],
+          ['Cerveza','$5.00'],
+          ['Entretenimiento','$4.55']
+        ].map(([name,value]) => `<div class="detail-row"><span>${name}</span><strong class="red">${value}</strong></div>`).join('');
+    kpiModal.classList.add('open');
+  });
+});
+document.getElementById('closeKpi').addEventListener('click', () => kpiModal.classList.remove('open'));
+kpiModal.addEventListener('click', event => {
+  if(event.target === kpiModal) kpiModal.classList.remove('open');
+});
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 // ============================================================
-// Code.gs — Finanzas Personales v8
+// Code.gs — Finanzas Personales v9
 // ============================================================
 var SS_ID   = '1S-Y1kozPzLPKt6iau3Tpe4TKhF7GcczlT8VUZyZTtdU';
 var CACHE_S = 300;
@@ -61,7 +61,7 @@ function _st(p,a){
 function doGet(){
   return HtmlService
     .createHtmlOutputFromFile('index')
-    .setTitle('Finanzas Personales')
+    .setTitle('Jaeger Spend')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport','width=device-width,initial-scale=1.0,viewport-fit=cover');
 }
@@ -1226,10 +1226,12 @@ function _crearMes(ss,nombre){
 // ============================================================
 // API para Vercel - agrega este bloque al final de Code.gs
 // ============================================================
-var API_TOKEN_FALLBACK = 'finper_2026_Christian_JaegerSpend_9b7c4d2f6a';
-
 function _getApiToken(){
-  return PropertiesService.getScriptProperties().getProperty('FINPER_API_TOKEN') || API_TOKEN_FALLBACK;
+  var token = PropertiesService.getScriptProperties().getProperty('FINPER_API_TOKEN');
+  if(!token){
+    throw new Error('Falta configurar FINPER_API_TOKEN en Propiedades del script.');
+  }
+  return token;
 }
 
 var API_METHODS = {

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Preview Historial</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  min-height:100dvh;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","SF Pro Text","Segoe UI",sans-serif;
+  background:linear-gradient(145deg,#f8fdff,#eef8ff 48%,#eefaf3);
+  color:#111827;
+  display:grid;
+  place-items:center;
+  padding:24px;
+}
+.phone{
+  width:min(390px,100%);
+  height:780px;
+  border-radius:38px;
+  background:rgba(255,255,255,.55);
+  border:1px solid rgba(255,255,255,.8);
+  box-shadow:0 28px 70px rgba(40,80,120,.18),inset 0 1px 0 rgba(255,255,255,.9);
+  overflow:hidden;
+  position:relative;
+}
+.top{
+  padding:54px 22px 18px;
+  background:rgba(248,252,255,.62);
+  backdrop-filter:blur(26px) saturate(180%);
+  border-bottom:1px solid rgba(255,255,255,.72);
+}
+h1{font-size:29px;letter-spacing:-.04em;font-weight:700}
+.sub{font-size:14px;color:#74808a;margin-top:4px}
+.content{padding:18px 16px 96px;display:grid;gap:12px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{
+  padding:12px 10px;border-radius:18px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(255,255,255,.82);
+  box-shadow:0 10px 24px rgba(40,80,120,.07),inset 0 1px 0 rgba(255,255,255,.95);
+}
+.stat span{display:block;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#96a0a9;font-weight:700;margin-bottom:5px}
+.stat strong{display:block;font-size:15px;letter-spacing:-.03em}
+.filters{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+  padding:5px;border-radius:17px;background:rgba(255,255,255,.50);
+  border:1px solid rgba(255,255,255,.78);
+}
+.filter{height:34px;border:0;border-radius:13px;background:transparent;color:#74808a;font-size:12px;font-weight:650}
+.filter.active{background:rgba(255,255,255,.82);color:#007aff;box-shadow:0 8px 18px rgba(40,80,120,.08)}
+.list{display:grid;gap:10px}
+.row{
+  display:grid;
+  grid-template-columns:46px minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:12px;
+  border-radius:22px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(255,255,255,.82);
+  box-shadow:0 12px 28px rgba(40,80,120,.08),inset 0 1px 0 rgba(255,255,255,.95);
+}
+.ico{
+  width:42px;height:42px;border-radius:50%;
+  display:grid;place-items:center;
+  font-size:24px;font-weight:600;
+}
+.up{color:#22a74f;background:rgba(52,199,89,.12)}
+.down{color:#e63b32;background:rgba(255,59,48,.10)}
+.save{color:#007aff;background:rgba(0,122,255,.11)}
+.main{min-width:0}
+.title{font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:12px;color:#7a8792;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side{text-align:right}
+.amt{font-size:17px;font-weight:700;letter-spacing:-.02em}
+.bal{font-size:11px;color:#8a95a0;margin-top:3px}
+.green{color:#22a74f}.red{color:#e63b32}.blue{color:#007aff}
+.modal{
+  position:absolute;left:14px;right:14px;bottom:18px;
+  padding:16px;
+  border-radius:28px;
+  background:rgba(255,255,255,.84);
+  border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 24px 70px rgba(40,80,120,.24),inset 0 1px 0 rgba(255,255,255,.95);
+  backdrop-filter:blur(34px) saturate(190%);
+}
+.handle{width:42px;height:4px;border-radius:99px;background:#d7dde3;margin:0 auto 14px}
+.modal-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.modal h2{font-size:19px;letter-spacing:-.03em}
+.detail{display:grid;gap:9px;margin-bottom:14px}
+.drow{display:flex;justify-content:space-between;gap:16px;font-size:14px;padding:8px 0;border-bottom:1px solid rgba(110,125,140,.12)}
+.drow span:first-child{color:#78838e}
+.drow strong{text-align:right;font-weight:600}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{height:44px;border:0;border-radius:16px;font:inherit;font-weight:650}
+.edit{background:#007aff;color:white}
+.delete{background:rgba(255,59,48,.10);color:#e63b32}
+.nav{
+  position:absolute;left:0;right:0;bottom:0;height:78px;
+  background:rgba(250,253,255,.75);
+  border-top:1px solid rgba(255,255,255,.86);
+  backdrop-filter:blur(28px) saturate(180%);
+  display:grid;grid-template-columns:repeat(5,1fr);align-items:start;padding-top:10px;
+}
+.tab{text-align:center;color:#9aa3aa;font-size:11px}
+.tab b{display:block;font-size:22px;line-height:1;margin-bottom:3px}
+.tab.active{color:#007aff;font-weight:700}
+</style>
+</head>
+<body>
+<section class="phone">
+  <header class="top">
+    <h1>Historial</h1>
+    <div class="sub">Mayo 26 · movimientos registrados</div>
+  </header>
+  <main class="content">
+    <section class="stats">
+      <div class="stat"><span>Ingresos</span><strong class="green">$526.00</strong></div>
+      <div class="stat"><span>Egresos</span><strong class="red">$326.00</strong></div>
+      <div class="stat"><span>Ahorros</span><strong class="blue">$200.00</strong></div>
+    </section>
+    <section class="filters">
+      <button class="filter active">Todos</button>
+      <button class="filter">Ing.</button>
+      <button class="filter">Egr.</button>
+      <button class="filter">Ahorro</button>
+    </section>
+    <section class="list">
+    <article class="row">
+      <div class="ico up">↑</div>
+      <div class="main"><div class="title">Sueldo</div><div class="meta">15/05/2026 · Pago mensual</div></div>
+      <div class="side"><div class="amt green">+$526.00</div><div class="bal">$581.15</div></div>
+    </article>
+    <article class="row">
+      <div class="ico down">↓</div>
+      <div class="main"><div class="title">Comida diaria</div><div class="meta">15/05/2026 · Almuerzo</div></div>
+      <div class="side"><div class="amt red">-$13.87</div><div class="bal">$55.15</div></div>
+    </article>
+    <article class="row">
+      <div class="ico save">$</div>
+      <div class="main"><div class="title">Ahorro Japón</div><div class="meta">14/05/2026 · Fondo viaje</div></div>
+      <div class="side"><div class="amt blue">+$50.00</div><div class="bal">$200.00</div></div>
+    </article>
+    </section>
+  </main>
+  <section class="modal">
+    <div class="handle"></div>
+    <div class="modal-head">
+      <div class="ico down">↓</div>
+      <div><h2>Comida diaria</h2><div class="meta">Detalle de movimiento</div></div>
+    </div>
+    <div class="detail">
+      <div class="drow"><span>Tipo</span><strong>Egreso</strong></div>
+      <div class="drow"><span>Monto</span><strong class="red">-$13.87</strong></div>
+      <div class="drow"><span>Fecha</span><strong>15/05/2026</strong></div>
+      <div class="drow"><span>Nota</span><strong>Almuerzo</strong></div>
+      <div class="drow"><span>Saldo después</span><strong>$55.15</strong></div>
+    </div>
+    <div class="actions">
+      <button class="edit">Editar</button>
+      <button class="delete">Eliminar</button>
+    </div>
+  </section>
+  <nav class="nav">
+    <div class="tab"><b>⌂</b>Inicio</div>
+    <div class="tab active"><b>↕</b>Hist.</div>
+    <div class="tab"><b>▭</b>Tarjetas</div>
+    <div class="tab"><b>⌁</b>Flujo</div>
+    <div class="tab"><b>▣</b>Balance</div>
+  </nav>
+</section>
+</body>
+</html>
