@@ -244,19 +244,14 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   html.vercel-standalone #app{
     height:100dvh;
     min-height:100dvh;
-    background:
-      radial-gradient(900px 620px at -12% -12%,rgba(134,220,255,.58),transparent 58%),
-      radial-gradient(780px 560px at 112% 8%,rgba(255,242,156,.42),transparent 56%),
-      radial-gradient(760px 560px at 88% 82%,rgba(150,240,204,.30),transparent 60%),
-      linear-gradient(145deg,#eef9ff 0%,#f7f7fb 45%,#eefaf5 100%);
   }
   html.vercel-standalone .pc{
     padding-bottom:calc(82px + var(--sb));
   }
   html.vercel-standalone .bnv{
-    height:calc(66px + var(--sb));
-    min-height:calc(66px + var(--sb));
-    padding-bottom:0;
+    height:auto;
+    min-height:calc(54px + var(--sb));
+    padding-bottom:var(--sb);
     background:
       linear-gradient(120deg,rgba(250,252,255,.74),rgba(235,248,255,.70) 48%,rgba(239,250,245,.74)),
       rgba(245,248,252,.72);
@@ -264,14 +259,14 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     box-shadow:0 -16px 36px rgba(31,55,76,.08), inset 0 1px 0 rgba(255,255,255,.72);
   }
   html.vercel-standalone .tr{
-    height:calc(66px + var(--sb));
-    padding:0 2px calc(var(--sb) * .08);
+    height:54px;
+    padding:0 2px;
     align-items:center;
   }
   html.vercel-standalone .tab{
-    height:64px;
+    height:auto;
     justify-content:center;
-    padding:4px 4px 6px;
+    padding:5px 4px;
   }
 }
 
