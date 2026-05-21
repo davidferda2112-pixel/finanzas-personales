@@ -1058,7 +1058,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       </div>
     </div>
     <div class="fg"><div class="fl">Subcategoría</div><select class="fs" id="m-sub"><option value="">Selecciona tipo primero</option></select></div>
-    <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="number" inputmode="decimal" id="m-monto" placeholder="0.00" min="0" step="0.01"></div>
+    <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" id="m-monto" placeholder="0.00"></div>
     <div class="fg"><div class="fl">Fecha</div><input class="fi" type="date" id="m-fecha"></div>
     <div class="fg"><div class="fl">Notas</div><input class="fi" type="text" id="m-notas" placeholder="Opcional"></div>
     <button class="btn bb bful" id="btn-sv" onclick="guardar()">Guardar</button>
@@ -1120,7 +1120,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <option value="ingreso">Ingreso</option>
     </select></div>
     <div class="fg"><div class="fl">Subcategoría</div><select class="fs" id="e-sub"></select></div>
-    <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="number" inputmode="decimal" id="e-monto" min="0" step="0.01"></div>
+    <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" id="e-monto"></div>
     <div class="fg"><div class="fl">Fecha</div><input class="fi" type="date" id="e-fecha"></div>
     <div class="fg"><div class="fl">Notas</div><input class="fi" type="text" id="e-notas" placeholder="Opcional"></div>
     <div class="fr g8"><button class="btn bgh bful" onclick="eid('mov-edit').classList.remove('open')">Cancelar</button><button class="btn bb bful" id="btn-edit-sv" onclick="guardarEdicion()">Guardar</button></div>
@@ -1143,7 +1143,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="mhnd"></div>
     <div class="mti" id="tdc-mov-title">Movimiento de tarjeta</div>
     <div class="fg tdc-card-field"><div class="fl">Tarjeta</div><input class="fi" id="tdc-tarjeta-lbl" readonly></div>
-    <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="number" inputmode="decimal" id="tdc-monto" placeholder="0.00" min="0" step="0.01"></div>
+    <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" id="tdc-monto" placeholder="0.00"></div>
     <div class="tdc-form-row" id="tdc-cargo-date-row">
       <div class="fg tdc-abono-target" id="tdc-cargo-target-box"><div class="fl">Cargo a abonar</div><select class="fs" id="tdc-cargo-target" onchange="actualizarHintCargoAbono()"></select></div>
       <div class="fg tdc-date-box"><div class="fl">Fecha</div><input class="fi" type="date" id="tdc-fecha"></div>
@@ -1260,10 +1260,7 @@ function moneyVal(v){
   if(typeof v==='string')v=v.trim().replace(/\s/g,'').replace(',','.');
   return parseFloat(v)||0;
 }
-function normMoney(v){
-  var n=moneyVal(v);
-  return n?String(n):'';
-}
+function normMoney(v){return String(moneyVal(v));}
 function pw(a,m){return m>0?Math.min((a/m)*100,100):0;}
 function st(p,a){if(!a||!p)return'e';var r=a/p;if(r<=0.85)return'ok';if(r<=1)return'warn';return'over';}
 function todayISO(){return new Date().toISOString().split('T')[0];}
@@ -1664,7 +1661,7 @@ function renderBalance(d){
     var subHtml=itemsGrupo.map(function(a){
       return'<div class="bal-edit-row" style="padding-left:20px">'
         +'<div class="bn2" style="font-weight:500;font-size:13px">'+a.nombre+'</div>'
-        +(G.balEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+a.valor+'" onchange="saveBalance(\''+a.codigo+'\',normMoney(this.value))">'
+        +(G.balEdit?'<input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+a.valor+'" onchange="saveBalance(\''+a.codigo+'\',normMoney(this.value))">'
           :'<div class="bal-val tok2">'+fmt(a.valor)+'</div>')
         +'</div>';
     }).join('');
@@ -1688,7 +1685,7 @@ function renderBalance(d){
     if(p.esGrupo){pasHtml+='<div class="bal-titulo">'+p.nombre+'</div>';}
     else if(p.valor!==0){
       pasHtml+='<div class="bal-edit-row"><div class="bn2">'+p.nombre+'</div>'
-        +(G.balEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+p.valor+'" onchange="saveBalance(\''+p.codigo+'\',normMoney(this.value))">'
+        +(G.balEdit?'<input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+p.valor+'" onchange="saveBalance(\''+p.codigo+'\',normMoney(this.value))">'
           :'<div class="bal-val tov2">'+fmt(p.valor)+'</div>')+'</div>';
     }
   });
@@ -2569,14 +2566,14 @@ function renderModalJapon(d){
   var tram=(d.tramites||[]).map(function(t){
     return'<div class="tram-row"><div><div style="font-size:13px;font-weight:700">'+t.nombre+'</div>'
       +'<div style="font-size:11px;color:var(--t3)">'+fmt(t.presupuesto)+'</div></div>'
-      +'<div class="fr g8">'+(G.japEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+t.actual+'" onchange="saveJap(\''+t.nombre+'\',normMoney(this.value))">':'')
+      +'<div class="fr g8">'+(G.japEdit?'<input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+t.actual+'" onchange="saveJap(\''+t.nombre+'\',normMoney(this.value))">':'')
       +'<span class="bdg '+(t.pagado?'ok':'warn')+'">'+(t.pagado?'Pagado':'Pendiente')+'</span></div></div>';
   }).join('');
   var items=(d.items||[]).map(function(i){
     var falt=i.faltante||(i.presupuesto-i.actual);
     return'<div class="jap-item"><div class="jn">'+i.nombre+'</div>'
       +'<div class="jv"><span style="color:var(--t3)">'+fmt(i.presupuesto)+'</span>'
-      +(G.japEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+i.actual+'" onchange="saveJap(\''+i.nombre+'\',normMoney(this.value))">':'<span style="color:var(--ok)">'+fmt(i.actual)+'</span>')
+      +(G.japEdit?'<input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+i.actual+'" onchange="saveJap(\''+i.nombre+'\',normMoney(this.value))">':'<span style="color:var(--ok)">'+fmt(i.actual)+'</span>')
       +(falt>0?'<span class="bdg over">-'+fmt(falt)+'</span>':'<span class="bdg ok">✓</span>')
       +'</div></div>';
   }).join('');
@@ -2589,7 +2586,7 @@ function renderModalJapon(d){
     +'</div>'
     +'<div class="lup mb10">Trámites pre-viaje</div><div class="mb14">'+(tram||'<div class="empty-state">Sin trámites registrados.</div>')+'</div>'
     +'<div class="lup mb10">Desglose del viaje</div><div class="mb14">'+(items||'<div class="empty-state">Sin desglose registrado.</div>')+'</div>'
-    +'<div class="lup mb10">Calculadora</div><div class="card cr12 calc-row mb14"><span style="font-size:13px;color:var(--t2)">Si ahorro</span><input type="number" inputmode="decimal" id="calc-in" placeholder="200" min="1" oninput="calcJ()"><span style="font-size:13px;color:var(--t2)">$/mes</span><div class="cres" id="calc-out">ingresa un monto</div></div>'
+    +'<div class="lup mb10">Calculadora</div><div class="card cr12 calc-row mb14"><span style="font-size:13px;color:var(--t2)">Si ahorro</span><input type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" id="calc-in" placeholder="200" oninput="calcJ()"><span style="font-size:13px;color:var(--t2)">$/mes</span><div class="cres" id="calc-out">ingresa un monto</div></div>'
     +'<div class="card cr12 p14 mb14"><div style="font-size:13px;color:var(--t2);line-height:1.6">El ahorro de <strong>'+fmt(d.totalActual||0)+'</strong> proviene de los aportes registrados para el viaje y del fondo acumulado correspondiente.</div></div>'
     +'<div class="detail-actions"><button class="btn bb bful" onclick="tgEditJap()">'+(G.japEdit?'Terminar edición':'Editar meta')+'</button><button class="btn bgh bful" onclick="eid(\'mov-japon\').classList.remove(\'open\')">Cerrar</button></div>';
 }
