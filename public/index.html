@@ -237,38 +237,6 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .tab.active .tl{color:var(--blue);font-weight:700;}
 .tab:active .ti{transform:scale(0.88);}
 
-/* Vercel instalado en iPhone: centra la navegacion dentro del safe area real. */
-@media(max-width:768px){
-  html.vercel-standalone,
-  html.vercel-standalone body,
-  html.vercel-standalone #app{
-    height:100dvh;
-    min-height:100dvh;
-  }
-  html.vercel-standalone .pc{
-    padding-bottom:calc(82px + var(--sb));
-  }
-  html.vercel-standalone .bnv{
-    height:auto;
-    min-height:calc(54px + var(--sb));
-    padding-bottom:var(--sb);
-    background:
-      linear-gradient(120deg,rgba(250,252,255,.74),rgba(235,248,255,.70) 48%,rgba(239,250,245,.74)),
-      rgba(245,248,252,.72);
-    border-top:1px solid rgba(255,255,255,.72);
-    box-shadow:0 -16px 36px rgba(31,55,76,.08), inset 0 1px 0 rgba(255,255,255,.72);
-  }
-  html.vercel-standalone .tr{
-    height:54px;
-    padding:0 2px;
-    align-items:center;
-  }
-  html.vercel-standalone .tab{
-    height:auto;
-    justify-content:center;
-    padding:5px 4px;
-  }
-}
 /* ── CARDS (LIQUID GLASS) ────────────────────────────────── */
 .card{background:var(--card);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
   border:1px solid rgba(255,255,255,0.65);border-radius:var(--r20);
