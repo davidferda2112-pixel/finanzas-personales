@@ -203,7 +203,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     height:calc(var(--pwa-nav-visible) + var(--pwa-safe-bottom));
     padding:calc(var(--pwa-safe-bottom) * .18) 2px 0;
     align-items:center;
-    transform:translateY(4px);
+    transform:translateY(0);
   }
   html.vercel-runtime .tab{
     height:var(--pwa-nav-visible);
@@ -430,6 +430,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 @media(max-width:768px){
   html,body,#app{width:100%;max-width:100%;overflow:hidden;}
   .sb{display:none;}.bnv{display:block;}
+  .tr{transform:translateY(-3px);}
   .main,.page,.pc{min-width:0;width:100%;height:100%;min-height:0;}
   .pc{padding:12px 12px calc(60px + var(--sb));}
   .ph{
@@ -1165,6 +1166,14 @@ var CARD_LOGOS={
 // ── HELPERS ──────────────────────────────────────────────────
 function eid(i){return document.getElementById(i);}
 function fmt(n){n=parseFloat(n)||0;return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function moneyVal(v){
+  if(typeof v==='string')v=v.trim().replace(/\s/g,'').replace(',','.');
+  return parseFloat(v)||0;
+}
+function normMoney(v){
+  var n=moneyVal(v);
+  return n?String(n):'';
+}
 function pw(a,m){return m>0?Math.min((a/m)*100,100):0;}
 function st(p,a){if(!a||!p)return'e';var r=a/p;if(r<=0.85)return'ok';if(r<=1)return'warn';return'over';}
 function todayISO(){return new Date().toISOString().split('T')[0];}
@@ -1565,7 +1574,7 @@ function renderBalance(d){
     var subHtml=itemsGrupo.map(function(a){
       return'<div class="bal-edit-row" style="padding-left:20px">'
         +'<div class="bn2" style="font-weight:500;font-size:13px">'+a.nombre+'</div>'
-        +(G.balEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+a.valor+'" onchange="saveBalance(\''+a.codigo+'\',this.value)">'
+        +(G.balEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+a.valor+'" onchange="saveBalance(\''+a.codigo+'\',normMoney(this.value))">'
           :'<div class="bal-val tok2">'+fmt(a.valor)+'</div>')
         +'</div>';
     }).join('');
@@ -1589,7 +1598,7 @@ function renderBalance(d){
     if(p.esGrupo){pasHtml+='<div class="bal-titulo">'+p.nombre+'</div>';}
     else if(p.valor!==0){
       pasHtml+='<div class="bal-edit-row"><div class="bn2">'+p.nombre+'</div>'
-        +(G.balEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+p.valor+'" onchange="saveBalance(\''+p.codigo+'\',this.value)">'
+        +(G.balEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+p.valor+'" onchange="saveBalance(\''+p.codigo+'\',normMoney(this.value))">'
           :'<div class="bal-val tov2">'+fmt(p.valor)+'</div>')+'</div>';
     }
   });
@@ -1932,7 +1941,7 @@ function prepEditSubcats(selected){
 
 function guardarEdicion(){
   if(!G.editTx)return;
-  var monto=parseFloat(eid('e-monto').value);
+  var monto=moneyVal(eid('e-monto').value);
   var sub=eid('e-sub').value,tipo=eid('e-tipo').value;
   if(!monto||monto<=0){showToast('Ingresa un monto válido','err');return;}
   if(!sub){showToast('Selecciona una subcategoría','err');return;}
@@ -2266,13 +2275,12 @@ function prepararSelectorCargoAbono(cargoId){
     actualizarHintCargoAbono();
     return rows;
   }
-  sel.innerHTML=rows.map(function(r){
+  sel.innerHTML='<option value="">Abono general</option>'+rows.map(function(r){
     var label=(r.m.notas||'Cargo')+' · pendiente '+fmt(r.pendiente);
     return'<option value="'+r.m.id+'">'+label+'</option>';
   }).join('');
-  var firstPending=rows.filter(function(r){return r.pendiente>0.009;})[0]||rows[0];
-  var pre=cargoId||G.tdcAbonoCargoId||(firstPending&&firstPending.m.id);
-  if(pre) sel.value=String(pre);
+  var pre=cargoId||G.tdcAbonoCargoId;
+  sel.value=pre?String(pre):'';
   actualizarHintCargoAbono();
   return rows;
 }
@@ -2348,7 +2356,7 @@ function prepTdcSubcats(){
 
 function guardarMovTdc(){
   var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
-  var monto=parseFloat(eid('tdc-monto').value);
+  var monto=moneyVal(eid('tdc-monto').value);
   if(!monto||monto<=0){showToast('Ingresa un monto válido','err');return;}
   var btn=eid('btn-tdc-sv');btn.disabled=true;btn.textContent='Registrando...';
   var params={
@@ -2471,14 +2479,14 @@ function renderModalJapon(d){
   var tram=(d.tramites||[]).map(function(t){
     return'<div class="tram-row"><div><div style="font-size:13px;font-weight:700">'+t.nombre+'</div>'
       +'<div style="font-size:11px;color:var(--t3)">'+fmt(t.presupuesto)+'</div></div>'
-      +'<div class="fr g8">'+(G.japEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+t.actual+'" onchange="saveJap(\''+t.nombre+'\',this.value)">':'')
+      +'<div class="fr g8">'+(G.japEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+t.actual+'" onchange="saveJap(\''+t.nombre+'\',normMoney(this.value))">':'')
       +'<span class="bdg '+(t.pagado?'ok':'warn')+'">'+(t.pagado?'Pagado':'Pendiente')+'</span></div></div>';
   }).join('');
   var items=(d.items||[]).map(function(i){
     var falt=i.faltante||(i.presupuesto-i.actual);
     return'<div class="jap-item"><div class="jn">'+i.nombre+'</div>'
       +'<div class="jv"><span style="color:var(--t3)">'+fmt(i.presupuesto)+'</span>'
-      +(G.japEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+i.actual+'" onchange="saveJap(\''+i.nombre+'\',this.value)">':'<span style="color:var(--ok)">'+fmt(i.actual)+'</span>')
+      +(G.japEdit?'<input class="edit-in" type="number" inputmode="decimal" value="'+i.actual+'" onchange="saveJap(\''+i.nombre+'\',normMoney(this.value))">':'<span style="color:var(--ok)">'+fmt(i.actual)+'</span>')
       +(falt>0?'<span class="bdg over">-'+fmt(falt)+'</span>':'<span class="bdg ok">✓</span>')
       +'</div></div>';
   }).join('');
@@ -2508,7 +2516,7 @@ function saveJap(nombre,valor){
     .actualizarJapon({item:nombre,monto:valor});
 }
 function calcJ(){
-  var m=parseFloat(eid('calc-in').value)||0;
+  var m=moneyVal(eid('calc-in').value);
   if(!m||!G.japon){eid('calc-out').textContent='ingresa un monto';return;}
   var falt=(G.japon.totalPresupuesto||4177)-(G.japon.totalActual||0);
   if(falt<=0){eid('calc-out').textContent='🎌 ¡Meta alcanzada!';return;}
@@ -2592,7 +2600,7 @@ function selTipo(btn){
     +(SUBCATS[t]||[]).map(function(s){return'<option value="'+s+'">'+s+'</option>';}).join('');
 }
 function guardar(){
-  var monto=parseFloat(eid('m-monto').value);
+  var monto=moneyVal(eid('m-monto').value);
   var sub=eid('m-sub').value,fecha=eid('m-fecha').value;
   if(!monto||monto<=0){showToast('Ingresa un monto válido','err');return;}
   if(!sub){showToast('Selecciona una subcategoría','err');return;}
