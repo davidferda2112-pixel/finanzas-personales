@@ -240,8 +240,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 /* Vercel en iPhone: centra la navegacion dentro del safe area real. */
 @media(max-width:768px){
   html.vercel-runtime{
-    --pwa-safe-bottom:max(env(safe-area-inset-bottom,0px),10px);
-    --pwa-nav-visible:54px;
+    --pwa-safe-bottom:max(env(safe-area-inset-bottom,0px),8px);
+    --pwa-nav-visible:46px;
     height:-webkit-fill-available;
     min-height:-webkit-fill-available;
     overflow:hidden;
@@ -264,10 +264,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     }
   }
   html.vercel-runtime .pc{
-    padding-bottom:calc(var(--pwa-nav-visible) + var(--pwa-safe-bottom) + 10px);
+    padding-bottom:calc(var(--pwa-nav-visible) + var(--pwa-safe-bottom) + 8px);
   }
   html.vercel-runtime .bnv{
-    bottom:-10px;
+    bottom:-5px;
     height:calc(var(--pwa-nav-visible) + var(--pwa-safe-bottom));
     min-height:calc(var(--pwa-nav-visible) + var(--pwa-safe-bottom));
     padding-bottom:0;
@@ -291,14 +291,14 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   }
   html.vercel-runtime .tr{
     height:calc(var(--pwa-nav-visible) + var(--pwa-safe-bottom));
-    padding:calc(var(--pwa-safe-bottom) * .28) 2px 0;
+    padding:calc(var(--pwa-safe-bottom) * .18) 2px 0;
     align-items:center;
-    transform:translateY(7px);
+    transform:translateY(4px);
   }
   html.vercel-runtime .tab{
     height:var(--pwa-nav-visible);
     justify-content:center;
-    padding:3px 4px 4px;
+    padding:2px 4px 3px;
   }
 }
 
