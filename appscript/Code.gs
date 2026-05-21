@@ -419,13 +419,15 @@ function registrarMovimientoTarjeta(params){
     var sh=ss.getSheetByName('TDC_App');
     if(!sh){
       sh=ss.insertSheet('TDC_App');
-      sh.appendRow(['ID','Timestamp','Mes','Tarjeta','Tipo','Monto','Fecha','Notas','Origen','RegistroID','Categoria','Subcategoria']);
+      sh.appendRow(['ID','Timestamp','Mes','Tarjeta','Tipo','Monto','Fecha','Notas','Origen','RegistroID','Categoria','Subcategoria','CargoID']);
       sh.setFrozenRows(1);
+    }else if(sh.getLastColumn()<13){
+      sh.getRange(1,13).setValue('CargoID');
     }
     var id=new Date().getTime().toString();
     sh.appendRow([
       id,new Date().toISOString(),mes,tarjeta,tipo,monto,params.fecha||'',params.notas||'',
-      params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||''
+      params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||'',params.cargoId||''
     ]);
     var ultimaFila=sh.getLastRow();
     sh.getRange(ultimaFila,3).setNumberFormat('@STRING@').setValue(mes);
@@ -448,7 +450,7 @@ function getMovimientosTarjeta(mes,tarjeta){
       result.push({
         id:_s(D[i][0]),orden:i,timestamp:_s(D[i][1]),mes:mesFila,tarjeta:_s(D[i][3]),
         tipo:_s(D[i][4]),monto:_n(D[i][5]),fecha:_fmtFechaSimple(D[i][6]),fechaOrden:_fechaMsSimple(D[i][6]),notas:_s(D[i][7]),
-        origen:_s(D[i][8]),registroId:_s(D[i][9]),categoria:_s(D[i][10]),subcategoria:_s(D[i][11])
+        origen:_s(D[i][8]),registroId:_s(D[i][9]),categoria:_s(D[i][10]),subcategoria:_s(D[i][11]),cargoId:_s(D[i][12])
       });
     }
     result.sort(function(a,b){
@@ -463,6 +465,7 @@ function actualizarMovimientoTarjeta(params){
     var ss=getSS();
     var sh=ss.getSheetByName('TDC_App');
     if(!sh) return{ok:false,error:'Hoja TDC_App no encontrada'};
+    if(sh.getLastColumn()<13) sh.getRange(1,13).setValue('CargoID');
     var D=sh.getDataRange().getValues();
     for(var i=1;i<D.length;i++){
       if(String(D[i][0])!==String(params.id)) continue;
@@ -502,9 +505,9 @@ function actualizarMovimientoTarjeta(params){
         }
       }
 
-      sh.getRange(i+1,3,1,10).setValues([[
+      sh.getRange(i+1,3,1,11).setValues([[
         mes,_s(params.tarjeta),tipo,monto,params.fecha||'',params.notas||'',
-        params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||''
+        params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||'',params.cargoId||''
       ]]);
       sh.getRange(i+1,3).setNumberFormat('@STRING@').setValue(mes);
       cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));

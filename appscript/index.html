@@ -729,6 +729,11 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .detail-line span{color:var(--t2)}
 .detail-line strong{text-align:right}
 .detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.detail-actions.three{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.detail-actions.three .btn{min-width:0;padding-left:6px;padding-right:6px}
+.tdc-abono-target{display:none}
+.tdc-abono-target.open{display:block}
+.tdc-target-hint{font-size:11px;color:var(--t2);line-height:1.35;margin-top:-5px;margin-bottom:8px}
 @media(max-width:700px){
   body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue','Inter',sans-serif}
   .page.active{min-height:0}
@@ -1035,6 +1040,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="number" id="tdc-monto" placeholder="0.00" min="0" step="0.01"></div>
     <div class="fg"><div class="fl">Fecha</div><input class="fi" type="date" id="tdc-fecha"></div>
     <div id="tdc-abono-extra" style="display:none">
+      <div class="fg tdc-abono-target" id="tdc-cargo-target-box"><div class="fl">Cargo a abonar</div><select class="fs" id="tdc-cargo-target" onchange="actualizarHintCargoAbono()"></select></div>
+      <div class="tdc-target-hint" id="tdc-cargo-target-hint"></div>
       <div class="fg"><div class="fl">Origen del abono</div><select class="fs" id="tdc-origen" onchange="toggleTdcOrigen()">
         <option value="egreso">Registrar como egreso de mis finanzas</option>
         <option value="externo">Dinero externo / préstamo</option>
@@ -1087,8 +1094,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="mti" id="tdc-cargo-title">Cargo</div>
     <div style="font-size:12px;color:var(--t2);margin-bottom:12px">Detalle del cargo</div>
     <div id="tdc-cargo-body"></div>
-    <div class="detail-actions">
+    <div class="detail-actions three">
       <button class="btn bb bful" id="tdc-cargo-edit">Editar</button>
+      <button class="btn bg2 bful" id="tdc-cargo-pay">Abonar</button>
       <button class="btn br bful" id="tdc-cargo-delete">Eliminar</button>
     </div>
   </div>
@@ -1115,7 +1123,7 @@ var G={
   notifOpen:false,srchOpen:false,
   balEdit:false,japEdit:false,
   tcIdx:0,tdcAnio:2026,tcMesActual:null,
-  tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcExpanded:false,
+  tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcAbonoCargoId:null,tdcExpanded:false,
   calFecha:new Date(),prCats:null,catResumen:null,
   movimientos:[],editTx:null,deleteTx:null,
   histFiltroTipo:'todos',histFiltroCat:'todos',
@@ -2165,15 +2173,22 @@ function renderMovsTdc(){
   var t=G.tarjetas&&G.tarjetas[G.tcIdx];
   var resTdc=t?getResumenTdc(t):{consumos:0,pagos:0,pendiente:0};
   var movs=G.tdcMovs||[],cargos=movs.filter(function(m){return m.tipo==='cargo';});
-  var totalCargo=cargos.reduce(function(a,m){return a+(parseFloat(m.monto)||0);},0);
-  var totalRec=movs.filter(function(m){return m.tipo==='abono';}).reduce(function(a,m){return a+(parseFloat(m.monto)||0);},0);
+  var abonos=movs.filter(function(m){return m.tipo==='abono';});
+  var abonosPorCargo={};
+  abonos.forEach(function(a){
+    var cid=String(a.cargoId||'');
+    if(cid) abonosPorCargo[cid]=(abonosPorCargo[cid]||0)+(parseFloat(a.monto)||0);
+  });
+  var totalRecLegacy=abonos.filter(function(a){return !a.cargoId;}).reduce(function(a,m){return a+(parseFloat(m.monto)||0);},0);
   var rows=[];
   if(cargos.length){
-    var recRestante=totalRec;
+    var recRestante=totalRecLegacy;
     rows=cargos.map(function(m,idx){
       var valor=parseFloat(m.monto)||0;
-      var recogido=Math.min(valor,Math.max(recRestante,0));
-      recRestante-=recogido;
+      var dirigido=Math.min(valor,abonosPorCargo[String(m.id)]||0);
+      var legacy=Math.min(Math.max(valor-dirigido,0),Math.max(recRestante,0));
+      recRestante-=legacy;
+      var recogido=dirigido+legacy;
       var pendiente=Math.max(valor-recogido,0);
       return{idx:idx,m:m,valor:valor,recogido:recogido,pendiente:pendiente,aggregate:false};
     });
@@ -2207,25 +2222,64 @@ function abrirDetalleCargoTdc(idx){
     +'<div class="detail-line"><span>Saldo pendiente</span><strong style="color:'+(r.pendiente>0?'var(--warn)':'var(--t2)')+'">'+fmt(r.pendiente)+'</strong></div>'
     +(r.aggregate?'<div style="margin-top:10px;color:var(--t2);font-size:12px;line-height:1.35">Este resumen viene del historial mensual de la tarjeta en el libro. Para editarlo, registra cargos o abonos desde esta página.</div>':'');
   eid('tdc-cargo-edit').style.display=r.aggregate?'none':'';
+  eid('tdc-cargo-pay').style.display=r.aggregate?'none':'';
   eid('tdc-cargo-delete').style.display=r.aggregate?'none':'';
   eid('tdc-cargo-edit').onclick=function(){if(r.aggregate)return;eid('mov-tdc-cargo-detail').classList.remove('open');editarMovTdc(r.m.id);};
+  eid('tdc-cargo-pay').onclick=function(){if(r.aggregate)return;eid('mov-tdc-cargo-detail').classList.remove('open');abrirMovTdc('abono',r.m.id);};
   eid('tdc-cargo-delete').onclick=function(){if(r.aggregate)return;eid('mov-tdc-cargo-detail').classList.remove('open');eliminarMovTdc(r.m.id);};
   eid('mov-tdc-cargo-detail').classList.add('open');
 }
 
 function toggleMovsTdc(){G.tdcExpanded=!G.tdcExpanded;renderMovsTdc();}
 
-function abrirMovTdc(tipo){
+function getCargoRowsAbonables(){
+  return (G.tdcCargoRows||[]).filter(function(r){return !r.aggregate&&r.m&&r.m.id;});
+}
+
+function prepararSelectorCargoAbono(cargoId){
+  var rows=getCargoRowsAbonables();
+  var box=eid('tdc-cargo-target-box'),sel=eid('tdc-cargo-target');
+  if(!box||!sel)return rows;
+  box.classList.add('open');
+  sel.innerHTML=rows.map(function(r){
+    var label=(r.m.notas||'Cargo')+' · pendiente '+fmt(r.pendiente);
+    return'<option value="'+r.m.id+'">'+label+'</option>';
+  }).join('');
+  var firstPending=rows.filter(function(r){return r.pendiente>0.009;})[0]||rows[0];
+  var pre=cargoId||G.tdcAbonoCargoId||(firstPending&&firstPending.m.id);
+  if(pre) sel.value=String(pre);
+  actualizarHintCargoAbono();
+  return rows;
+}
+
+function actualizarHintCargoAbono(){
+  var sel=eid('tdc-cargo-target'),hint=eid('tdc-cargo-target-hint');
+  if(!sel||!hint)return;
+  var row=getCargoRowsAbonables().filter(function(r){return String(r.m.id)===String(sel.value);})[0];
+  if(!row){hint.textContent='Selecciona el cargo al que quieres aplicar este abono.';return;}
+  hint.innerHTML='Valor '+fmt(row.valor)+' · recogido '+fmt(row.recogido)+' · pendiente <strong style="color:'+(row.pendiente>0?'var(--warn)':'var(--ok)')+'">'+fmt(row.pendiente)+'</strong>';
+}
+
+function abrirMovTdc(tipo,cargoId){
   var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
   G.tdcAccion=tipo;
   G.tdcEditId=null;
+  G.tdcAbonoCargoId=cargoId||null;
   eid('tdc-mov-title').textContent=tipo==='cargo'?'Agregar cargo':'Agregar abono';
   eid('tdc-tarjeta-lbl').value=t.nombre+' · '+(G.tcMesActual||G.mesActual||'');
   eid('tdc-monto').value='';
   eid('tdc-fecha').value=todayISO();
   eid('tdc-notas').value='';
   eid('tdc-abono-extra').style.display=tipo==='abono'?'block':'none';
-  if(tipo==='abono'){eid('tdc-origen').value='egreso';eid('tdc-eg-tipo').value='deuda';prepTdcSubcats();toggleTdcOrigen();}
+  eid('tdc-cargo-target-box').classList.remove('open');
+  eid('tdc-cargo-target-hint').textContent='';
+  if(tipo==='abono'){
+    var rows=prepararSelectorCargoAbono(cargoId);
+    if(!rows.length){showToast('Primero registra un cargo para poder abonarlo','err');return;}
+    var row=rows.filter(function(r){return String(r.m.id)===String(eid('tdc-cargo-target').value);})[0];
+    if(row&&row.pendiente>0) eid('tdc-monto').value=row.pendiente.toFixed(2);
+    eid('tdc-origen').value='egreso';eid('tdc-eg-tipo').value='deuda';prepTdcSubcats();toggleTdcOrigen();
+  }
   eid('mov-tdc').classList.add('open');
   setTimeout(function(){eid('tdc-monto').focus();},250);
 }
@@ -2240,7 +2294,11 @@ function editarMovTdc(id){
   eid('tdc-fecha').value=String(m.fecha||'').split('T')[0];
   eid('tdc-notas').value=m.notas||'';
   eid('tdc-abono-extra').style.display=m.tipo==='abono'?'block':'none';
+  eid('tdc-cargo-target-box').classList.remove('open');
+  eid('tdc-cargo-target-hint').textContent='';
   if(m.tipo==='abono'){
+    G.tdcAbonoCargoId=m.cargoId||null;
+    prepararSelectorCargoAbono(m.cargoId);
     eid('tdc-origen').value=m.origen||'externo';
     eid('tdc-eg-tipo').value=m.categoria||'deuda';
     prepTdcSubcats();
@@ -2274,6 +2332,8 @@ function guardarMovTdc(){
     notas:eid('tdc-notas').value
   };
   if(G.tdcAccion==='abono'){
+    params.cargoId=eid('tdc-cargo-target').value||'';
+    if(!params.cargoId){showToast('Elige el cargo al que vas a abonar','err');btn.disabled=false;btn.textContent='Guardar';return;}
     params.origen=eid('tdc-origen').value;
     if(params.origen==='egreso'){
       params.egresoTipo=eid('tdc-eg-tipo').value;
