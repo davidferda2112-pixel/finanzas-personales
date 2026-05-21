@@ -9,9 +9,9 @@
 <meta name="apple-mobile-web-app-title" content="Jaeger Spend">
 <meta name="theme-color" content="#eaf8ff">
 <link rel="icon" type="image/png" href="/app-icon.png">
-  <link rel="apple-touch-icon" href="/app-icon.png">
+<link rel="apple-touch-icon" href="/app-icon.png">
   <link rel="manifest" href="/site.webmanifest">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script>
 (function () {
   var root = document.documentElement;
@@ -824,6 +824,21 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .tdc-abono-target{display:none}
 .tdc-abono-target.open{display:block}
 .tdc-target-hint{font-size:11px;color:var(--t2);line-height:1.35;margin-top:-5px;margin-bottom:8px}
+.tdc-form-row{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(116px,.75fr);gap:10px;align-items:end}
+.tdc-form-row:not(.has-target){grid-template-columns:1fr}
+.tdc-form-row:not(.has-target) .tdc-date-box{grid-column:1/-1}
+.tdc-form-row.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.tdc-card-field{display:none!important}
+#mov-tdc .msh{overflow-x:hidden}
+#mov-tdc .fi,#mov-tdc .fs{min-width:0;width:100%}
+#mov-tdc .mti{font-size:24px;line-height:1.12}
+@media(max-width:390px){
+  .tdc-form-row{grid-template-columns:minmax(0,1.2fr) minmax(108px,.8fr);gap:8px}
+  .tdc-form-row.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .tdc-form-row .fl{font-size:11px}
+  .tdc-form-row .fi,.tdc-form-row .fs{padding:10px 9px;font-size:13px}
+  #mov-tdc .mti{font-size:21px}
+}
 @media(max-width:700px){
   body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue','Inter',sans-serif}
   .page.active{min-height:0}
@@ -1126,23 +1141,27 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="msh">
     <div class="mhnd"></div>
     <div class="mti" id="tdc-mov-title">Movimiento de tarjeta</div>
-    <div class="fg"><div class="fl">Tarjeta</div><input class="fi" id="tdc-tarjeta-lbl" readonly></div>
+    <div class="fg tdc-card-field"><div class="fl">Tarjeta</div><input class="fi" id="tdc-tarjeta-lbl" readonly></div>
     <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="number" id="tdc-monto" placeholder="0.00" min="0" step="0.01"></div>
-    <div class="fg"><div class="fl">Fecha</div><input class="fi" type="date" id="tdc-fecha"></div>
-    <div id="tdc-abono-extra" style="display:none">
+    <div class="tdc-form-row" id="tdc-cargo-date-row">
       <div class="fg tdc-abono-target" id="tdc-cargo-target-box"><div class="fl">Cargo a abonar</div><select class="fs" id="tdc-cargo-target" onchange="actualizarHintCargoAbono()"></select></div>
-      <div class="tdc-target-hint" id="tdc-cargo-target-hint"></div>
+      <div class="fg tdc-date-box"><div class="fl">Fecha</div><input class="fi" type="date" id="tdc-fecha"></div>
+    </div>
+    <div class="tdc-target-hint" id="tdc-cargo-target-hint"></div>
+    <div id="tdc-abono-extra" style="display:none">
       <div class="fg"><div class="fl">Origen del abono</div><select class="fs" id="tdc-origen" onchange="toggleTdcOrigen()">
         <option value="egreso">Registrar como egreso de mis finanzas</option>
         <option value="externo">Dinero externo / préstamo</option>
       </select></div>
       <div id="tdc-egreso-box">
+        <div class="tdc-form-row two">
         <div class="fg"><div class="fl">Tipo de egreso</div><select class="fs" id="tdc-eg-tipo" onchange="prepTdcSubcats()">
           <option value="deuda">Deuda</option>
           <option value="necesidad">Necesidad</option>
           <option value="deseo">Deseo</option>
         </select></div>
         <div class="fg"><div class="fl">Subcategoría</div><select class="fs" id="tdc-sub"></select></div>
+        </div>
       </div>
     </div>
     <div class="fg"><div class="fl">Notas</div><input class="fi" type="text" id="tdc-notas" placeholder="Opcional"></div>
@@ -2355,17 +2374,19 @@ function abrirMovTdc(tipo,cargoId){
   G.tdcAccion=tipo;
   G.tdcEditId=null;
   G.tdcAbonoCargoId=cargoId||null;
-  eid('tdc-mov-title').textContent=tipo==='cargo'?'Agregar cargo':'Agregar abono';
+  eid('tdc-mov-title').textContent=tipo==='cargo'?'Agregar cargo a '+t.nombre:'Agregar abono a '+t.nombre;
   eid('tdc-tarjeta-lbl').value=t.nombre+' · '+(G.tcMesActual||G.mesActual||'');
   eid('tdc-monto').value='';
   eid('tdc-fecha').value=todayISO();
   eid('tdc-notas').value='';
   eid('tdc-abono-extra').style.display=tipo==='abono'?'block':'none';
   eid('tdc-cargo-target-box').classList.remove('open');
+  eid('tdc-cargo-date-row').classList.remove('has-target');
   eid('tdc-cargo-target-hint').textContent='';
   if(tipo==='abono'){
     var rows=prepararSelectorCargoAbono(cargoId);
     if(!rows.length){showToast('Primero registra un cargo para poder abonarlo','err');return;}
+    eid('tdc-cargo-date-row').classList.add('has-target');
     var row=rows.filter(function(r){return String(r.m.id)===String(eid('tdc-cargo-target').value);})[0];
     if(row&&row.pendiente>0) eid('tdc-monto').value=row.pendiente.toFixed(2);
     eid('tdc-origen').value='egreso';eid('tdc-eg-tipo').value='deuda';prepTdcSubcats();toggleTdcOrigen();
@@ -2378,17 +2399,19 @@ function editarMovTdc(id){
   var m=(G.tdcMovs||[]).filter(function(x){return String(x.id)===String(id);})[0];if(!m)return;
   var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
   G.tdcEditId=id;G.tdcAccion=m.tipo;
-  eid('tdc-mov-title').textContent=m.tipo==='cargo'?'Editar cargo':'Editar abono';
+  eid('tdc-mov-title').textContent=m.tipo==='cargo'?'Editar cargo de '+t.nombre:'Editar abono de '+t.nombre;
   eid('tdc-tarjeta-lbl').value=t.nombre+' · '+(G.tcMesActual||G.mesActual||'');
   eid('tdc-monto').value=m.monto;
   eid('tdc-fecha').value=String(m.fecha||'').split('T')[0];
   eid('tdc-notas').value=m.notas||'';
   eid('tdc-abono-extra').style.display=m.tipo==='abono'?'block':'none';
   eid('tdc-cargo-target-box').classList.remove('open');
+  eid('tdc-cargo-date-row').classList.remove('has-target');
   eid('tdc-cargo-target-hint').textContent='';
   if(m.tipo==='abono'){
     G.tdcAbonoCargoId=m.cargoId||null;
     prepararSelectorCargoAbono(m.cargoId);
+    eid('tdc-cargo-date-row').classList.add('has-target');
     eid('tdc-origen').value=m.origen||'externo';
     eid('tdc-eg-tipo').value=m.categoria||'deuda';
     prepTdcSubcats();
