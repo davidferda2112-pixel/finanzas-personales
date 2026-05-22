@@ -398,13 +398,14 @@ function registrarMovimientoTarjeta(params){
     if(['cargo','abono'].indexOf(tipo)===-1) return{ok:false,error:'Tipo TDC inválido'};
     if(!monto||monto<=0) return{ok:false,error:'Monto inválido'};
     var mes=_normalizarMesNombre(params.mes);
+    var mesRegistro=_normalizarMesNombre(params.mesRegistro||params.mes);
     var tarjeta=_s(params.tarjeta);
     if(['VISA','MC'].indexOf(tarjeta)===-1) return{ok:false,error:'Tarjeta inválida'};
 
     var registroId='';
     if(tipo==='abono'&&params.origen==='egreso'){
       var r=registrarMovimiento({
-        mes:mes,
+        mes:mesRegistro,
         tipo:params.egresoTipo||'deuda',
         categoria:params.egresoTipo||'deuda',
         subcategoria:params.subcategoria||'Prestamos TDC',
@@ -433,6 +434,7 @@ function registrarMovimientoTarjeta(params){
     sh.getRange(ultimaFila,3).setNumberFormat('@STRING@').setValue(mes);
     cDel('flujo');
     cDel('mes_'+mes.replace(/ /g,'_'));
+    cDel('mes_'+mesRegistro.replace(/ /g,'_'));
     return{ok:true,id:id};
   }catch(e){return{ok:false,error:e.toString()};}
 }
@@ -474,6 +476,7 @@ function actualizarMovimientoTarjeta(params){
       var oldOrigen=_s(D[i][8]);
       var oldRegistroId=_s(D[i][9]);
       var mes=_normalizarMesNombre(params.mes||oldMes);
+      var mesRegistro=_normalizarMesNombre(params.mesRegistro||params.mes||oldMes);
       var tipo=_s(params.tipo||oldTipo);
       var monto=parseFloat(String(params.monto).replace(',','.'))||0;
       if(['cargo','abono'].indexOf(tipo)===-1) return{ok:false,error:'Tipo TDC inválido'};
@@ -487,7 +490,7 @@ function actualizarMovimientoTarjeta(params){
       if(tipo==='abono'&&params.origen==='egreso'){
         var movParams={
           id:oldRegistroId,
-          mes:mes,
+          mes:mesRegistro,
           tipo:params.egresoTipo||'deuda',
           categoria:params.egresoTipo||'deuda',
           subcategoria:params.subcategoria||'Prestamos TDC',
@@ -510,7 +513,7 @@ function actualizarMovimientoTarjeta(params){
         params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||'',params.cargoId||''
       ]]);
       sh.getRange(i+1,3).setNumberFormat('@STRING@').setValue(mes);
-      cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));
+      cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));cDel('mes_'+mesRegistro.replace(/ /g,'_'));
       return{ok:true};
     }
     return{ok:false,error:'Movimiento TDC no encontrado'};
