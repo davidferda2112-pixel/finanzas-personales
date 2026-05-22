@@ -575,6 +575,7 @@ function registrarMovimiento(params){
     var ss=getSS();
     var mes=params.mes;
     mes=mes.charAt(0).toUpperCase()+mes.slice(1);
+    var mesCaja=_normalizarMesNombre(params.mesRegistro||_mesDesdeFechaMovimiento(params.fecha)||mes);
 
     // 1. Escribir en hoja Registro
     var reg=ss.getSheetByName('Registro');
@@ -602,6 +603,7 @@ function registrarMovimiento(params){
 
     // 3. Invalidar caché
     cDel('mes_'+mes.replace(/ /g,'_'));
+    if(mesCaja&&mesCaja!==mes) cDel('mes_'+mesCaja.replace(/ /g,'_'));
     cDel('flujo');
 
     // 4. Notificar excesos
