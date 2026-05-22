@@ -776,6 +776,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .hist-order-btn{height:34px;padding:0 12px;border:0;border-radius:12px;background:rgba(255,255,255,.72);color:var(--t1);font:700 12px/1 -apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;box-shadow:0 1px 6px rgba(0,0,0,.06)}
 .date-filter-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
 @media(max-width:390px){.date-filter-grid{grid-template-columns:1fr}.hist-order-btn{padding:0 9px;font-size:11px}}
+#tdc-hist-res.g3c{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px}
+.tdc-hist-kpi{padding:10px 8px!important;min-width:0}
+.tdc-hist-kpi .lup{font-size:10px;line-height:1.05;letter-spacing:.1em}
+.tdc-hist-kpi .amd{font-size:18px;line-height:1.08;white-space:nowrap}
 
 @media(max-width:390px){
   .tdc-form-row{grid-template-columns:minmax(0,1fr) minmax(126px,.58fr);gap:8px}
@@ -1173,7 +1177,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div id="tdc-hist-logo"></div>
     </div>
     <div class="g3c mb14" id="tdc-hist-res"></div>
-    <div class="lup mb10">Cargos del mes</div>
+    <div class="lup mb10">Resumen del mes</div>
     <div class="card cr12" id="tdc-hist-cargos"></div>
   </div>
 </div>
@@ -2661,15 +2665,15 @@ function abrirModalTDC(){
   }
 
   var resumen=getResumenTdc(t);
-  var pagos=resumen.pagos,saldoRotAnt=resumen.saldoRotAnt,pendiente=resumen.pendiente,alDia=resumen.alDia;
+  var debesPagar=resumen.consumos,pagos=resumen.pagos,pendiente=resumen.pendiente;
 
   eid('tdc-hist-res').innerHTML=[
-    {l:'Debes pagar',v:saldoRotAnt,c:'var(--over)'},
-    {l:'Pagado/Rec.',v:pagos,c:'var(--ok)'},
-    {l:alDia?'¡Al día! ✓':'Falta',v:alDia?0:pendiente,c:alDia?'var(--ok)':'var(--warn)'}
+    {l:'Debes pagar',v:debesPagar,c:'var(--over)'},
+    {l:'Valor Recogido',v:pagos,c:'var(--ok)'},
+    {l:'Por recoger',v:pendiente,c:pendiente>0?'var(--warn)':'var(--ok)'}
   ].map(function(c){
-    return'<div class="card p12 cr12"><div class="lup">'+c.l+'</div><div class="amd" style="color:'+c.c+'">'+(c.l==='¡Al día! ✓'?'✓':fmt(c.v))+'</div></div>';
-  }).join('')+(alDia?'<div style="grid-column:span 3;text-align:center;padding:8px;font-size:13px;color:var(--ok);font-weight:700">✅ Estás al día</div>':'');
+    return'<div class="card p12 cr12 tdc-hist-kpi"><div class="lup">'+c.l+'</div><div class="amd" style="color:'+c.c+'">'+fmt(c.v)+'</div></div>';
+  }).join('');
 
   var cargosHtml='';
   hist.forEach(function(f){
