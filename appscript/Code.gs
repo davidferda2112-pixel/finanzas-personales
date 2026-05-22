@@ -404,8 +404,9 @@ function registrarMovimientoTarjeta(params){
     var monto=parseFloat(String(params.monto).replace(',','.'))||0;
     if(['cargo','abono'].indexOf(tipo)===-1) return{ok:false,error:'Tipo TDC inválido'};
     if(!monto||monto<=0) return{ok:false,error:'Monto inválido'};
-    var mes=_normalizarMesNombre(params.mes);
-    var mesRegistro=_normalizarMesNombre(params.mesRegistro||params.mes);
+    var mes=_normalizarMesNombre(params.mesAplica||params.mesAplicado||params.mes);
+    var mesCajaPorFecha=_mesDesdeFechaMovimiento(params.fecha);
+    var mesRegistro=_normalizarMesNombre(params.mesRegistro||mesCajaPorFecha||params.mes);
     var tarjeta=_s(params.tarjeta);
     if(['VISA','MC'].indexOf(tarjeta)===-1) return{ok:false,error:'Tarjeta inválida'};
 
@@ -484,8 +485,9 @@ function actualizarMovimientoTarjeta(params){
       var oldTipo=_s(D[i][4]);
       var oldOrigen=_s(D[i][8]);
       var oldRegistroId=_s(D[i][9]);
-      var mes=_normalizarMesNombre(params.mes||oldMes);
-      var mesRegistro=_normalizarMesNombre(params.mesRegistro||params.mes||oldMes);
+      var mes=_normalizarMesNombre(params.mesAplica||params.mesAplicado||params.mes||oldMes);
+      var mesCajaPorFecha=_mesDesdeFechaMovimiento(params.fecha);
+      var mesRegistro=_normalizarMesNombre(params.mesRegistro||mesCajaPorFecha||params.mes||oldMes);
       var tipo=_s(params.tipo||oldTipo);
       var monto=parseFloat(String(params.monto).replace(',','.'))||0;
       if(['cargo','abono'].indexOf(tipo)===-1) return{ok:false,error:'Tipo TDC inválido'};
