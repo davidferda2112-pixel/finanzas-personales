@@ -2519,16 +2519,12 @@ function renderMovsTdc(){
     var cid=String(a.cargoId||'');
     if(cid) abonosPorCargo[cid]=(abonosPorCargo[cid]||0)+(parseFloat(a.monto)||0);
   });
-  var totalRecLegacy=abonos.filter(function(a){return !a.cargoId;}).reduce(function(a,m){return a+(parseFloat(m.monto)||0);},0);
   var rows=[];
   if(cargos.length){
-    var recRestante=totalRecLegacy;
     rows=cargos.map(function(m,idx){
       var valor=parseFloat(m.monto)||0;
       var dirigido=Math.min(valor,abonosPorCargo[String(m.id)]||0);
-      var legacy=Math.min(Math.max(valor-dirigido,0),Math.max(recRestante,0));
-      recRestante-=legacy;
-      var recogido=dirigido+legacy;
+      var recogido=dirigido;
       var pendiente=Math.max(valor-recogido,0);
       return{idx:idx,m:m,valor:valor,recogido:recogido,pendiente:pendiente,aggregate:false};
     });
