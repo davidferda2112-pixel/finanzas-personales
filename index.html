@@ -860,8 +860,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 #mov-tdc .fi,#mov-tdc .fs{min-width:0;width:100%}
 #mov-tdc .mti{font-size:24px;line-height:1.12}
 .date-filter-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:-2px 0 12px;padding:11px 14px;border:0;border-radius:16px;background:rgba(255,255,255,.72);color:var(--blue);font:700 13px/1 -apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;box-shadow:var(--glass-shadow);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
-.date-filter-float{position:sticky;bottom:calc(var(--th) + var(--sb) + 10px);z-index:20;display:none;margin:10px auto 0;padding:10px 16px;border:0;border-radius:999px;background:rgba(255,255,255,.82);color:var(--blue);font:750 12px/1 -apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.12);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
-.date-filter-float.show{display:flex;align-items:center;justify-content:center}
+.date-filter-float{position:fixed;left:50%;bottom:calc(var(--th) + var(--sb) + 8px);z-index:210;display:flex;align-items:center;justify-content:center;width:max-content;max-width:calc(100vw - 48px);margin:0;padding:9px 16px;border:0;border-radius:999px;background:rgba(255,255,255,.84);color:var(--blue);font:750 12px/1 -apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.12);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);opacity:0;pointer-events:none;transform:translate(-50%,12px);transition:opacity .18s ease,transform .18s ease}
+.date-filter-float.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+@media(min-width:701px){.date-filter-float{display:none!important}}
 .hist-order-btn{height:34px;padding:0 12px;border:0;border-radius:12px;background:rgba(255,255,255,.72);color:var(--t1);font:700 12px/1 -apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;box-shadow:0 1px 6px rgba(0,0,0,.06)}
 .date-filter-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
 @media(max-width:390px){.date-filter-grid{grid-template-columns:1fr}.hist-order-btn{padding:0 9px;font-size:11px}}
@@ -1202,7 +1203,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="mti" id="tdc-mov-title">Movimiento de tarjeta</div>
     <div class="fg tdc-card-field"><div class="fl">Tarjeta</div><input class="fi" id="tdc-tarjeta-lbl" readonly></div>
     <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" id="tdc-monto" placeholder="0.00"></div>
-    <div class="tdc-form-row two">
+    <div class="tdc-form-row two" id="tdc-cargo-date-row">
       <div class="fg tdc-date-box"><div class="fl">Fecha del abono</div><input class="fi" type="date" id="tdc-fecha" onchange="actualizarMesAplicadoDefault()"></div>
       <div class="fg" id="tdc-mes-aplica-box"><div class="fl">Mes al que aplica</div><select class="fs" id="tdc-mes-aplica"></select></div>
     </div>
@@ -1409,6 +1410,9 @@ document.addEventListener('DOMContentLoaded',function(){
   document.querySelectorAll('[data-page]').forEach(function(el){
     el.addEventListener('click',function(){navTo(el.dataset.page);});
   });
+  var histPc=document.querySelector('#page-presupuesto .pc');
+  if(histPc)histPc.addEventListener('scroll',actualizarFloatFechas,{passive:true});
+  window.addEventListener('resize',actualizarFloatFechas);
   eid('m-fecha').value=todayISO();
   init();
 });
@@ -1458,6 +1462,7 @@ function navTo(p){
   if(p==='presupuesto'&&G.mesData) renderPresupuesto(G.mesData);
   if(p==='calendario')             renderCalendario();
   if(p!=='balance'&&p!=='flujo')   G._dirty=false;
+  setTimeout(actualizarFloatFechas,60);
 }
 
 // ── INIT ─────────────────────────────────────────────────────
@@ -2188,9 +2193,19 @@ function ordenarHistorial(txs){
   });
 }
 function actualizarFloatFechas(){
-  var f=eid('date-filter-float');if(!f)return;
-  var active=eid('page-presupuesto')&&eid('page-presupuesto').classList.contains('active');
-  f.classList.toggle('show',active&&(G.movimientos||[]).length>4);
+  var f=eid('date-filter-float');
+  var page=eid('page-presupuesto');
+  var btn=page?page.querySelector('.date-filter-btn'):null;
+  var pc=page?page.querySelector('.pc'):null;
+  if(!f||!page||!btn||!pc)return;
+  if(!page.classList.contains('active')){
+    f.classList.remove('show');
+    return;
+  }
+  var br=btn.getBoundingClientRect();
+  var pr=pc.getBoundingClientRect();
+  var hidden=br.bottom<=pr.top+8;
+  f.classList.toggle('show',hidden&&(G.movimientos||[]).length>4);
 }
 
 function filtrarHistorial(txs){
@@ -2447,6 +2462,18 @@ function getResumenTdc(t){
   return out;
 }
 
+function conceptoTdcEs(valor,esperado){
+  var clean=function(v){
+    return String(v||'').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-z0-9]+/g,'')
+      .trim();
+  };
+  var v=clean(valor),e=clean(esperado);
+  if(e.indexOf('pagos')===0&&e.indexOf('cr')>-1) return v.indexOf('pagos')===0&&v.indexOf('cr')>-1;
+  return v===e;
+}
+
 function getResumenTdc(t){
   var mes=G.tcMesActual||G.mesActual||G.meses[G.meses.length-1];
   var hist=G.tdcAnio===2026?t.historial2026:t.historial2025;
@@ -2459,11 +2486,11 @@ function getResumenTdc(t){
   hist.forEach(function(f){
     var v=f[meses[idx]]||0;
     var vp=f[meses[idxPago]]||0;
-    if(f.concepto==='Consumos') out.consumos=v;
-    if(f.concepto==='Pagos / CrÃ©ditos') out.pagos=vp;
-    if(f.concepto==='Total/ Saldo Rotativo') out.saldoRot=v;
-    if(f.concepto==='Saldo Real') out.saldoReal=v;
-    if(idx>0&&f.concepto==='Total/ Saldo Rotativo') out.saldoRotAnt=f[meses[idx-1]]||0;
+    if(conceptoTdcEs(f.concepto,'Consumos')) out.consumos=v;
+    if(conceptoTdcEs(f.concepto,'Pagos / Créditos')) out.pagos=vp;
+    if(conceptoTdcEs(f.concepto,'Total/ Saldo Rotativo')) out.saldoRot=v;
+    if(conceptoTdcEs(f.concepto,'Saldo Real')) out.saldoReal=v;
+    if(idx>0&&conceptoTdcEs(f.concepto,'Total/ Saldo Rotativo')) out.saldoRotAnt=f[meses[idx-1]]||0;
   });
   var delta=Math.round((out.consumos-out.pagos+Number.EPSILON)*100)/100;
   out.pendiente=delta>0?delta:0;
@@ -2510,7 +2537,7 @@ function renderHistorialTarjeta(){
 
   hist.forEach(function(fila){
     var esSR=fila.concepto==='Saldo Real',esSRot=fila.concepto==='Total/ Saldo Rotativo';
-    var esC=fila.concepto==='Consumos',esP=fila.concepto==='Pagos / Créditos';
+    var esC=conceptoTdcEs(fila.concepto,'Consumos'),esP=conceptoTdcEs(fila.concepto,'Pagos / Créditos');
     html+='<tr style="'+(esSR?'background:rgba(0,122,255,0.03)':esSRot?'background:rgba(255,59,48,0.03)':'')+'">'
       +'<td style="padding:9px 14px;font-weight:'+(esSR||esSRot?'700':'500')+';color:'+(esSR?'var(--blue)':esSRot?'var(--over)':'var(--t1)')+';white-space:nowrap;border-bottom:0.5px solid rgba(0,0,0,0.04);position:sticky;left:0;background:'+(esSR?'rgba(230,242,255,0.95)':esSRot?'rgba(255,235,232,0.95)':'rgba(255,255,255,0.92)')+';z-index:1">'+fila.concepto+'</td>';
     meses.forEach(function(m){
