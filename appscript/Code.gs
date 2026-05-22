@@ -380,6 +380,13 @@ function _normalizarMesNombre(mes){
   return (idx>=0?MESES_NOM[idx]:p[0].charAt(0).toUpperCase()+p[0].slice(1).toLowerCase())+' '+yy;
 }
 
+function _mesDesdeFechaMovimiento(fecha){
+  var ms=_fechaMsSimple(fecha);
+  if(!ms) return '';
+  var d=new Date(ms);
+  return MESES_NOM[d.getMonth()]+' '+String(d.getFullYear()).slice(-2);
+}
+
 function _sumarFilaTdc(hist, concepto, mesCorto, monto){
   if(!monto) return;
   for(var i=0;i<hist.length;i++){
@@ -432,9 +439,11 @@ function registrarMovimientoTarjeta(params){
     ]);
     var ultimaFila=sh.getLastRow();
     sh.getRange(ultimaFila,3).setNumberFormat('@STRING@').setValue(mes);
+    var mesCaja=_mesDesdeFechaMovimiento(params.fecha);
     cDel('flujo');
     cDel('mes_'+mes.replace(/ /g,'_'));
     cDel('mes_'+mesRegistro.replace(/ /g,'_'));
+    if(mesCaja) cDel('mes_'+mesCaja.replace(/ /g,'_'));
     return{ok:true,id:id};
   }catch(e){return{ok:false,error:e.toString()};}
 }
@@ -513,7 +522,9 @@ function actualizarMovimientoTarjeta(params){
         params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||'',params.cargoId||''
       ]]);
       sh.getRange(i+1,3).setNumberFormat('@STRING@').setValue(mes);
+      var mesCaja=_mesDesdeFechaMovimiento(params.fecha);
       cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));cDel('mes_'+mesRegistro.replace(/ /g,'_'));
+      if(mesCaja) cDel('mes_'+mesCaja.replace(/ /g,'_'));
       return{ok:true};
     }
     return{ok:false,error:'Movimiento TDC no encontrado'};
@@ -869,13 +880,16 @@ function _enriquecerConRegistros(d,mes){
     var totalEgrApp=0,totalIngApp=0,sumasPorSub={};
     for(var i=1;i<D.length;i++){
       var mesFila=_s(D[i][2]).replace(/^'+/,'');
-      if(mesFila!==mes) continue;
       var tipo=_s(D[i][3]),sub=_s(D[i][5]),monto=_n(D[i][6]);
+      var mesCaja=_mesDesdeFechaMovimiento(D[i][7])||mesFila;
+      if(mesCaja===mes){
+        if(tipo==='ingreso') totalIngApp+=monto;
+        else totalEgrApp+=monto;
+      }
+      if(mesFila!==mes) continue;
       sumasPorSub[sub]=(sumasPorSub[sub]||0)+monto;
-      if(tipo==='ingreso') totalIngApp+=monto;
-      else totalEgrApp+=monto;
     }
-    if(Object.keys(sumasPorSub).length===0) return d;
+    if(Object.keys(sumasPorSub).length===0&&totalIngApp===0&&totalEgrApp===0) return d;
 
     // Clonar para no mutar el objeto cacheado
     var dc=JSON.parse(JSON.stringify(d));
