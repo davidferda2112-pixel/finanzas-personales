@@ -1323,11 +1323,24 @@ function withTimeout(p,ms,label){
     new Promise(function(resolve){setTimeout(function(){resolve({timeout:true,label:label});},ms);})
   ]);
 }
-function safeTask(p,label){
-  return withTimeout(p,4600,label).catch(function(e){
-    console.warn('Carga parcial '+label,e);
-    return {error:true,label:label};
-  });
+function sleep(ms){return new Promise(function(resolve){setTimeout(resolve,ms);});}
+async function loadStep(label,fn,required){
+  var delays=[0,650,1200],last=null;
+  for(var i=0;i<delays.length;i++){
+    if(delays[i]) await sleep(delays[i]);
+    try{
+      bootText((i?'Reintentando ':'Cargando ')+label+'...');
+      var res=await withTimeout(fn(),7200,label);
+      if(res&&res.timeout) throw new Error('Tiempo agotado');
+      if(!res||res.error||res.ok===false) throw new Error((res&&res.error)||'Respuesta incompleta');
+      return{ok:true,data:res,label:label};
+    }catch(e){
+      last=e;
+      console.warn('Carga '+label+' intento '+(i+1),e);
+    }
+  }
+  if(required) throw new Error('No se pudo cargar '+label);
+  return{ok:false,label:label,error:last};
 }
 
 document.addEventListener('DOMContentLoaded',function(){
@@ -1413,17 +1426,10 @@ function init(){
 }
 
 async function preloadApp(){
-  var finished=false;
-  var watchdog=setTimeout(function(){
-    if(!finished){
-      bootText('Entrando con los datos disponibles...');
-      hideBootLoader();
-    }
-  },5000);
+  var canHide=false,slow=null;
   try{
-    bootText('Cargando meses...');
-    var mesesRes=await withTimeout(gsRun('getMesesDisponibles'),4200,'meses');
-    if(!mesesRes||mesesRes.timeout||!mesesRes.ok)throw new Error('No se pudieron cargar los meses');
+    slow=setTimeout(function(){bootText('Cargando datos, un momento mas...');},5200);
+    var mesesRes=(await loadStep('meses',function(){return gsRun('getMesesDisponibles');},true)).data;
     G.meses=mesesRes.data||[];
     cacheSet('meses',G.meses);
     fillSels(G.meses);
@@ -1434,41 +1440,51 @@ async function preloadApp(){
     var sh=eid('sel-h');if(sh)sh.value=G.mesActual;
     var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
 
-    bootText('Preparando inicio...');
-    var mesDataRes=await withTimeout(gsRun('getMesData',[mes]),4200,'inicio');
-    if(!mesDataRes||mesDataRes.timeout||!mesDataRes.ok)throw new Error('No se pudo cargar '+mes);
+    var mesDataRes=(await loadStep('inicio',function(){return gsRun('getMesData',[mes]);},true)).data;
     G.mesData=mesDataRes;
     cacheSet('mesData_'+mes,mesDataRes);
     renderHome(mesDataRes);
 
-    bootText('Cargando paginas...');
-    await Promise.all([
-      safeTask(gsRun('getMovimientosMes',[mes]).then(function(res){
+    bootText('Preparando paginas...');
+    var tareas=[
+      loadStep('historial',function(){return gsRun('getMovimientosMes',[mes]).then(function(res){
         if(res&&res.ok){G.movimientos=res.data||[];G.movimientosMes=mes;renderHistorialMovimientos();}
-      }),'historial'),
-      safeTask(gsRun('parseTarjetas').then(function(res){
+        return res;
+      });},true),
+      loadStep('tarjetas',function(){return gsRun('parseTarjetas').then(function(res){
         if(res&&res.ok){G.tarjetas=res.tarjetas||[];prepararMesesTarjeta();renderSelectorTarjeta();renderHistorialTarjeta();}
-      }),'tarjetas'),
-      safeTask(gsRun('getFlujoCaja').then(function(res){
+        return res;
+      });},true),
+      loadStep('flujo',function(){return gsRun('getFlujoCaja').then(function(res){
         if(res&&res.ok){G.flujo=res.data;renderFlujo(res.data);}
-      }),'flujo'),
-      safeTask(gsRun('getBalanceGeneral').then(function(res){
+        return res;
+      });},true),
+      loadStep('balance',function(){return gsRun('getBalanceGeneral').then(function(res){
         if(res&&res.ok){G.balance=res;renderBalance(res);}
-      }),'balance'),
-      safeTask(gsRun('getViajeJapon').then(function(res){
+        return res;
+      });},true),
+      loadStep('meta Japon',function(){return gsRun('getViajeJapon').then(function(res){
         if(res&&res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
-      }),'japon'),
-      safeTask(gsRun('getNotificaciones').then(function(res){
+        return res;
+      });},false),
+      loadStep('notificaciones',function(){return gsRun('getNotificaciones').then(function(res){
         if(res&&res.ok)renderNotifs(res.data||[]);
-      }),'notificaciones')
-    ]);
+        return res;
+      });},false)
+    ];
+    var resultados=await Promise.all(tareas);
+    var faltantes=resultados.filter(function(r){return !r.ok;}).map(function(r){return r.label;});
+    if(faltantes.length) console.warn('Modulos opcionales no cargados:',faltantes.join(', '));
+    clearTimeout(slow);
     bootText('Listo');
+    canHide=true;
   }catch(e){
-    showToast('Carga parcial: '+(e.message||e),'err');
+    if(slow)clearTimeout(slow);
+    showToast('No se pudo cargar completo: '+(e.message||e),'err');
+    bootText('Toca recargar la app');
+    return;
   }finally{
-    finished=true;
-    clearTimeout(watchdog);
-    setTimeout(hideBootLoader,180);
+    if(canHide)setTimeout(hideBootLoader,180);
   }
 }
 
