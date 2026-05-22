@@ -822,25 +822,159 @@ function _invalidarMovimientoMes(mes){
 
 function getNotificaciones(){
   try{
-    var sh=getSS().getSheetByName('_NOTIF');
-    if(!sh) return{ok:true,data:[]};
-    var rows=sh.getDataRange().getValues(),r=[];
-    for(var i=1;i<rows.length;i++){
-      if(rows[i][0]) r.push({id:rows[i][0],texto:rows[i][1],fecha:rows[i][2],leida:rows[i][3]});
+    var ss=getSS(), sh=ss.getSheetByName('_NOTIF');
+    var leidas={}, guardadas=[];
+    if(sh){
+      var rows=sh.getDataRange().getValues();
+      for(var i=1;i<rows.length;i++){
+        if(rows[i][0]){
+          leidas[String(rows[i][0])]=!!rows[i][3];
+          guardadas.push({
+            id:String(rows[i][0]),texto:rows[i][1],titulo:rows[i][1],
+            detalle:'',fecha:_fechaNotifISO(rows[i][2]),leida:!!rows[i][3],
+            tipo:'manual',severidad:'info'
+          });
+        }
+      }
     }
-    return{ok:true,data:r};
+    var gen=_generarNotificacionesFinancieras();
+    var todas=guardadas.concat(gen.notificaciones).map(function(n){
+      n.leida=!!leidas[String(n.id)]||!!n.leida;
+      return n;
+    });
+    todas.sort(function(a,b){return _fechaMsSimple(b.fecha)-_fechaMsSimple(a.fecha);});
+    var ahora=new Date().getTime(), semana=7*24*60*60*1000;
+    var pendientes=[],historial=[];
+    todas.forEach(function(n){
+      var ms=_fechaMsSimple(n.fecha)||ahora;
+      if(!n.leida && ahora-ms<=semana) pendientes.push(n);
+      else historial.push(n);
+    });
+    return{ok:true,data:pendientes,pending:pendientes,history:historial,events:gen.eventos};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function _generarNotificacionesFinancieras(){
+  var out=[], eventos=[];
+  var hoy=new Date(), hoyISO=_isoFecha(hoy);
+  var mes=_getMesActual();
+  function add(id,tipo,severidad,titulo,detalle,monto,fecha,page){
+    var n={id:id,tipo:tipo,severidad:severidad||'info',titulo:titulo,detalle:detalle||'',texto:titulo,
+      monto:monto||0,fecha:fecha||hoyISO,page:page||'',leida:false};
+    out.push(n);
+    eventos.push({id:id,tipo:tipo,severidad:severidad||'info',titulo:titulo,detalle:detalle||'',monto:monto||0,fecha:fecha||hoyISO,page:page||''});
+  }
+
+  var md=getMesData(mes);
+  if(md&&md.ok){
+    var vg=md.vistaGeneral||{}, saldo=vg.saldoFinal?_n(vg.saldoFinal.actual):0;
+    if(saldo<30) add('saldo_bajo_'+mes,'saldo','alta','Saldo disponible bajo','Tienes menos de $30 disponibles para sobrevivir la quincena.',saldo,hoyISO,'home');
+
+    var secciones=[{k:'necesidades',n:'Necesidades'},{k:'deseos',n:'Deseos'},{k:'deudas',n:'Deudas'}];
+    secciones.forEach(function(s){
+      var sec=md[s.k]; if(!sec||!sec.items) return;
+      var excedidos=sec.items.filter(function(i){var lim=_n(i.presupuesto||i.prestamo);return lim>0&&_n(i.actual)>lim;});
+      var total=excedidos.reduce(function(a,i){return a+(_n(i.actual)-_n(i.presupuesto||i.prestamo));},0);
+      if(total>0) add('sobregasto_'+mes+'_'+s.k,'presupuesto','media','Sobregasto en '+s.n,excedidos.length+' subcategorias excedidas.',_money(total),hoyISO,'home');
+    });
+
+    var ing=md.ingresos||{}, ingAct=_n(ing.totalActual||(vg.ingresos&&vg.ingresos.actual)), ingPres=_n(ing.totalPresupuesto||(vg.ingresos&&vg.ingresos.presupuesto));
+    if(ingPres>0&&ingAct<ingPres&&hoy.getDate()>=24){
+      add('meta_ingresos_'+mes,'ingresos','media','Meta de ingresos incompleta','Falta '+_fmtMoney(ingPres-ingAct)+' para completar el resumen de ingresos del mes.',_money(ingPres-ingAct),hoyISO,'home');
+    }
+
+    if(hoy.getDate()>=28) add('cierre_mes_'+mes,'cierre','info','Cierre de mes cerca','Revisa saldo, tarjetas y flujo antes de crear el siguiente mes.',0,hoyISO,'home');
+  }
+
+  var td=parseTarjetas();
+  if(td&&td.ok&&td.tarjetas){
+    td.tarjetas.forEach(function(t){
+      var r=_resumenTarjetaMes(t,mes), vence=_fechaPagoTarjeta(mes);
+      if(r.porRecoger>0){
+        add('tdc_pagar_'+t.id+'_'+mes,'tarjeta','alta',t.nombre+': saldo por recoger','Debes recoger '+_fmtMoney(r.porRecoger)+' para cubrir los consumos de '+mes+'.',r.porRecoger,vence,'tarjetas');
+      }else if(r.saldoFavor>0){
+        add('tdc_favor_'+t.id+'_'+mes,'tarjeta','info',t.nombre+': saldo a favor','Tienes '+_fmtMoney(r.saldoFavor)+' a favor en esta tarjeta.',r.saldoFavor,hoyISO,'tarjetas');
+      }
+    });
+  }
+
+  var sh=getSS().getSheetByName('TDC_App');
+  if(sh){
+    var D=sh.getDataRange().getValues();
+    for(var i=1;i<D.length;i++){
+      if(String(D[i][4]).toLowerCase()!=='abono') continue;
+      var mesAp=_normalizarMesNombre(D[i][2]), mesReg=_normalizarMesNombre(D[i][12]||_mesDesdeFechaMovimiento(D[i][1]));
+      if(mesAp&&mesReg&&mesAp!==mesReg){
+        add('abono_futuro_'+String(D[i][0]),'tarjeta','info','Abono aplicado a '+mesAp,'Se descontó de tu saldo en '+mesReg+' y se aplicó a la tarjeta en '+mesAp+'.',_n(D[i][5]),_fechaNotifISO(D[i][1]),'tarjetas');
+      }
+    }
+  }
+  return{notificaciones:out,eventos:eventos};
+}
+
+function _resumenTarjetaMes(t,mesLargo){
+  var mc=_mesLargoACorto(mesLargo), sig=_mesLargoACorto(_mesSiguienteNombre(mesLargo));
+  var hist=t.historial2026||[];
+  function val(c,m){var f=_filaTdc(hist,c);return _n(f[m]);}
+  var consumos=val('Consumos',mc), pagos=val('Pagos / Créditos',sig);
+  var diff=consumos-pagos;
+  return{consumos:consumos,pagos:pagos,porRecoger:Math.max(0,_money(diff)),saldoFavor:diff<0?_money(Math.abs(diff)):0};
+}
+
+function _mesSiguienteNombre(mes){
+  var n=_normalizarMesNombre(mes), p=String(n||'').split(' '), idx=MESES_NOM.indexOf(p[0]), yy=parseInt(p[1],10);
+  if(idx<0||isNaN(yy)) return '';
+  idx++; if(idx>11){idx=0;yy++;}
+  return MESES_NOM[idx]+' '+('0'+yy).slice(-2);
+}
+
+function _fechaPagoTarjeta(mes){
+  var n=_normalizarMesNombre(mes), p=String(n||'').split(' '), idx=MESES_NOM.indexOf(p[0]), yy=parseInt(p[1],10);
+  if(idx<0||isNaN(yy)) return _isoFecha(new Date());
+  var d=new Date(2000+yy,idx+1,18);
+  return _isoFecha(d);
+}
+
+function _isoFecha(d){
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function _fechaNotifISO(v){
+  if(Object.prototype.toString.call(v)==='[object Date]'&&!isNaN(v.getTime())) return _isoFecha(v);
+  var s=String(v||'').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:_isoFecha(new Date());
+}
+
+function _fmtMoney(v){
+  return '$'+_money(v).toFixed(2);
+}
+
+function getHistorialNotificaciones(){
+  try{
+    var r=getNotificaciones();
+    return{ok:true,data:(r.history||[]).concat(r.pending||[])};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function marcarNotificacionesLeidas(ids){
+  try{
+    var ss=getSS(), sh=ss.getSheetByName('_NOTIF');
+    if(!sh){sh=ss.insertSheet('_NOTIF');sh.appendRow(['ID','Texto','Fecha','Leida']);}
+    var rows=sh.getDataRange().getValues(), map={};
+    for(var i=1;i<rows.length;i++){
+      if(rows[i][0]) map[String(rows[i][0])]=i+1;
+    }
+    (ids||[]).forEach(function(id){
+      id=String(id);
+      if(map[id]) sh.getRange(map[id],4).setValue(true);
+      else sh.appendRow([id,id,_isoFecha(new Date()),true]);
+    });
+    return{ok:true};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
 function marcarNotifLeida(id){
-  try{
-    var sh=getSS().getSheetByName('_NOTIF');if(!sh)return{ok:true};
-    var rows=sh.getDataRange().getValues();
-    for(var i=1;i<rows.length;i++){
-      if(String(rows[i][0])===String(id)){sh.getRange(i+1,4).setValue(true);break;}
-    }
-    return{ok:true};
-  }catch(e){return{ok:false,error:e.toString()};}
+  return marcarNotificacionesLeidas([id]);
 }
 
 function crearMesNuevo(nombre){
@@ -1275,7 +1409,9 @@ var API_METHODS = {
   actualizarMovimiento: actualizarMovimiento,
   eliminarMovimiento: eliminarMovimiento,
   getNotificaciones: getNotificaciones,
+  getHistorialNotificaciones: getHistorialNotificaciones,
   marcarNotifLeida: marcarNotifLeida,
+  marcarNotificacionesLeidas: marcarNotificacionesLeidas,
   crearMesNuevo: crearMesNuevo
 };
 

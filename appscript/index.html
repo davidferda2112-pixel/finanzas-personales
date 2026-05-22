@@ -374,6 +374,11 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ni-r:hover{background:rgba(0,0,0,0.02);}
 .nd{width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:4px;}
 .nd.rd{background:var(--t3);}
+.np-lst{max-height:320px;overflow:auto;-webkit-overflow-scrolling:touch;}
+.np-f{padding:10px 12px;background:rgba(255,255,255,.45);border-top:1px solid rgba(0,0,0,.05)}
+.np-all{width:100%;border:0;border-radius:13px;padding:10px 12px;background:rgba(255,255,255,.75);color:var(--blue);font-weight:800;font-size:13px}
+.sev-alta{background:var(--over)}.sev-media{background:var(--warn)}.sev-info{background:var(--blue)}
+.notif-detail{font-size:11px;color:var(--t3);line-height:1.25;margin-top:2px}
 
 /* ── DESGLOSE ────────────────────────────────────────────── */
 .info-btn{width:18px;height:18px;border-radius:50%;background:rgba(0,122,255,0.1);color:var(--blue);
@@ -1009,7 +1014,17 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 <!-- NOTIF -->
 <div class="np" id="np">
   <div class="np-h"><span>Notificaciones</span><button class="btn bsm bgh" onclick="marcarTodas()">Marcar leídas</button></div>
-  <div id="np-l"><div style="padding:18px 15px;font-size:13px;color:var(--t3);text-align:center">Sin notificaciones</div></div>
+  <div id="np-l" class="np-lst"><div style="padding:18px 15px;font-size:13px;color:var(--t3);text-align:center">Sin notificaciones</div></div>
+  <div class="np-f"><button class="np-all" onclick="abrirHistorialNotifs()">Ver todas las notificaciones</button></div>
+</div>
+
+<!-- MODAL HISTORIAL NOTIFICACIONES -->
+<div class="mov" id="mov-notifs" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="msh">
+    <div class="mhnd"></div>
+    <div class="mti">Historial de notificaciones</div>
+    <div id="notifs-all"><div style="padding:18px 15px;font-size:13px;color:var(--t3);text-align:center">Sin notificaciones</div></div>
+  </div>
 </div>
 
 <!-- MODAL MOVIMIENTO -->
@@ -1217,6 +1232,7 @@ var G={
   balance:null,tarjetas:null,japon:null,flujo:null,
   txs:[],tipoModal:null,chFlujo:null,
   notifOpen:false,srchOpen:false,
+  notifs:[],notifHistory:[],notifEvents:[],
   balEdit:false,japEdit:false,
   tcIdx:0,tdcAnio:2026,tcMesActual:null,
   tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcAbonoCargoId:null,tdcExpanded:false,
@@ -1458,8 +1474,8 @@ async function preloadApp(){
       safeTask(gsRun('getViajeJapon').then(function(res){
         if(res&&res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
       }),'japon'),
-      safeTask(gsRun('getNotificaciones').then(function(res){
-        if(res&&res.ok)renderNotifs(res.data||[]);
+      safeTask(gsRun('getNotificaciones',[mes]).then(function(res){
+        if(res&&res.ok)renderNotifs(res);
       }),'notificaciones')
     ]);
     bootText('Listo');
@@ -2764,8 +2780,17 @@ function renderCalendario(){
   eid('cal-lbl').textContent=new Date(anio,mes,1).toLocaleDateString('es-EC',{month:'long',year:'numeric'});
   var pri=new Date(anio,mes,1).getDay(),dias=new Date(anio,mes+1,0).getDate();
   var hoy=new Date(),evDias={};
+  (G.notifEvents||[]).forEach(function(ev){
+    var dt=parseISODate(ev.fecha);if(!dt||dt.getMonth()!==mes||dt.getFullYear()!==anio)return;
+    var dia=dt.getDate();if(!evDias[dia])evDias[dia]=[];evDias[dia].push(ev);
+  });
   if(G.mesData&&G.mesData.deudas){
-    G.mesData.deudas.items.forEach(function(d){if(d.vence&&d.prestamo>0)evDias[parseInt(d.vence)]={nombre:d.nombre,monto:d.prestamo};});
+    G.mesData.deudas.items.forEach(function(deu){
+      if(deu.vence&&deu.prestamo>0){
+        var dia=parseInt(deu.vence);if(!evDias[dia])evDias[dia]=[];
+        evDias[dia].push({titulo:deu.nombre,detalle:'Vencimiento del mes',monto:deu.prestamo,tipo:'deuda',severidad:'media'});
+      }
+    });
   }
   var cells='';
   for(var i=0;i<pri;i++) cells+='<div class="cd empty"></div>';
@@ -2777,34 +2802,54 @@ function renderCalendario(){
   eid('cal-g').innerHTML=cells;
   var evs=Object.keys(evDias);
   eid('cal-evs').innerHTML=evs.length?evs.sort(function(a,b){return a-b;}).map(function(dia){
-    var ev=evDias[dia];
-    return'<div class="ev-row"><div style="width:10px;height:10px;border-radius:50%;background:var(--over);flex-shrink:0"></div>'
-      +'<div style="flex:1"><div style="font-size:14px;font-weight:700">'+ev.nombre+'</div><div style="font-size:11px;color:var(--t3)">Día '+dia+' del mes</div></div>'
-      +'<div class="asm tov2">'+fmt(ev.monto)+'</div></div>';
+    return evDias[dia].map(function(ev){
+      return'<div class="ev-row"><div class="nd sev-'+(ev.severidad||'info')+'"></div>'
+        +'<div style="flex:1"><div style="font-size:14px;font-weight:700">'+(ev.titulo||'Evento')+'</div><div style="font-size:11px;color:var(--t3)">Día '+dia+' · '+(ev.detalle||'')+'</div></div>'
+        +(ev.monto?'<div class="asm tov2">'+fmt(ev.monto)+'</div>':'')+'</div>';
+    }).join('');
   }).join(''):'<div style="color:var(--t3);font-size:13px;padding:12px">Sin vencimientos</div>';
 }
 function calPrev(){G.calFecha=new Date(G.calFecha.getFullYear(),G.calFecha.getMonth()-1,1);renderCalendario();}
 function calNext(){G.calFecha=new Date(G.calFecha.getFullYear(),G.calFecha.getMonth()+1,1);renderCalendario();}
+function parseISODate(v){
+  var p=String(v||'').split('T')[0].split('-');
+  if(p.length!==3)return null;
+  var d=new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10));
+  return isNaN(d.getTime())?null:d;
+}
 
-// ── NOTIFICACIONES ───────────────────────────────────────────
+// NOTIFICACIONES
 function loadNotifs(){
   google.script.run
-    .withSuccessHandler(function(res){if(!res||!res.ok)return;renderNotifs(res.data||[]);})
-    .getNotificaciones();
+    .withSuccessHandler(function(res){if(!res||!res.ok)return;renderNotifs(res);})
+    .getNotificaciones(G.mesActual);
 }
-function renderNotifs(ns){
-  var nl=ns.filter(function(n){return!n.leida;}).length;
+function renderNotifs(res){
+  var ns=Array.isArray(res)?res:(res.pending||res.data||[]);
+  G.notifs=ns;G.notifHistory=(res.history||[]);G.notifEvents=(res.events||[]);
+  var nl=ns.length;
   var b=eid('nb');b.style.display=nl>0?'flex':'none';if(nl>0)b.textContent=nl>9?'9+':nl;
-  eid('np-l').innerHTML=ns.length?ns.slice(-10).reverse().map(function(n){
-    return'<div class="ni-r" onclick="leerN(\''+n.id+'\')"><div class="nd '+(n.leida?'rd':'')+'"></div>'
-      +'<div><div style="font-size:13px;color:var(--t1)">'+n.texto+'</div><div style="font-size:11px;color:var(--t3)">'+n.fecha+'</div></div></div>';
-  }).join(''):'<div style="padding:18px 15px;font-size:13px;color:var(--t3);text-align:center">Sin notificaciones</div>';
+  eid('np-l').innerHTML=ns.length?ns.map(function(n){return notifRow(n,true);}).join(''):'<div style="padding:18px 15px;font-size:13px;color:var(--t3);text-align:center">Sin notificaciones nuevas</div>';
+  if(eid('page-calendario').classList.contains('active'))renderCalendario();
+}
+function notifRow(n,clickable){
+  return'<div class="ni-r" '+(clickable?'onclick="leerN(\''+n.id+'\')"':'')+'><div class="nd sev-'+(n.severidad||'info')+' '+(n.leida?'rd':'')+'"></div>'
+    +'<div style="min-width:0"><div style="font-size:13px;color:var(--t1);font-weight:700">'+(n.titulo||n.texto||'Notificación')+'</div>'
+    +(n.detalle?'<div class="notif-detail">'+n.detalle+'</div>':'')
+    +'<div style="font-size:11px;color:var(--t3);margin-top:3px">'+fmtFecha(n.fecha)+(n.monto?' · '+fmt(n.monto):'')+'</div></div></div>';
 }
 function tgNotif(){G.notifOpen=!G.notifOpen;eid('np').classList.toggle('open',G.notifOpen);}
 function leerN(id){google.script.run.withSuccessHandler(function(){loadNotifs();}).marcarNotifLeida(id);}
-function marcarTodas(){loadNotifs();eid('np').classList.remove('open');G.notifOpen=false;}
+function marcarTodas(){
+  var ids=(G.notifs||[]).map(function(n){return n.id;});
+  google.script.run.withSuccessHandler(function(){loadNotifs();eid('np').classList.remove('open');G.notifOpen=false;}).marcarNotificacionesLeidas(ids);
+}
+function abrirHistorialNotifs(){
+  var all=(G.notifs||[]).concat(G.notifHistory||[]);
+  eid('notifs-all').innerHTML=all.length?all.map(function(n){return notifRow(n,false);}).join(''):'<div style="padding:18px 15px;font-size:13px;color:var(--t3);text-align:center">Sin notificaciones</div>';
+  eid('mov-notifs').classList.add('open');
+}
 
-// ── BÚSQUEDA ──────────────────────────────────────────────────
 function tgSrch(){G.srchOpen=!G.srchOpen;var inp=eid('si');inp.classList.toggle('open',G.srchOpen);if(G.srchOpen)setTimeout(function(){inp.focus();},300);}
 
 // ── MODAL MOVIMIENTO ─────────────────────────────────────────
