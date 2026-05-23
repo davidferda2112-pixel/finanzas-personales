@@ -1372,7 +1372,7 @@ function cacheGet(k){
     var raw=localStorage.getItem('js_'+k);
     if(!raw)return null;
     var obj=JSON.parse(raw);
-    if(!obj||!obj.t||Date.now()-obj.t>10*60*1000)return null;
+    if(!obj||!obj.t||Date.now()-obj.t>12*60*60*1000)return null;
     return obj.v;
   }catch(e){return null;}
 }
@@ -1382,6 +1382,7 @@ function cacheSet(k,v){
 function getMesActual(meses){
   var hoy=new Date();
   var mesHoy=MESES_NOM_JS[hoy.getMonth()]+' '+String(hoy.getFullYear()).slice(-2);
+  if(!meses||!meses.length)return mesHoy;
   for(var i=0;i<meses.length;i++){if(meses[i]===mesHoy)return mesHoy;}
   return meses[meses.length-1];
 }
@@ -1520,7 +1521,7 @@ function init(){
 }
 
 async function preloadApp(){
-  var canHide=false,slow=null;
+  var canHide=false,slow=null,needsInicioBg=false;
   try{
     slow=setTimeout(function(){bootText('Cargando inicio...');},1600);
     var mesesRes=await withTimeout(gsRun('getMesesDisponibles'),1800,'meses');
@@ -1528,7 +1529,7 @@ async function preloadApp(){
       G.meses=mesesRes.data||[];
       cacheSet('meses',G.meses);
     }else if(!G.meses||!G.meses.length){
-      throw new Error('No se pudieron cargar los meses');
+      G.meses=[mesDesdeFechaISO(todayISO())];
     }
     fillSels(G.meses);
     var mes=G.mesActual||getMesActual(G.meses);
@@ -1544,26 +1545,40 @@ async function preloadApp(){
       G.mesData=mesDataRes;
       cacheSet('mesData_'+mes,mesDataRes);
       renderHome(mesDataRes);
-    }else if(!G.mesData){
-      throw new Error('No se pudo cargar inicio');
+    }else{
+      needsInicioBg=true;
+      if(!G.mesData){G.mesData={mes:mes};renderHome(G.mesData);}
     }
     clearTimeout(slow);
     bootText('Listo');
     canHide=true;
-    setTimeout(function(){preloadSecundario(mes,false);},220);
+    setTimeout(function(){if(needsInicioBg)refreshInicioBg(mes);preloadSecundario(mes,false);},220);
   }catch(e){
     if(slow)clearTimeout(slow);
-    if(G.mesData){
-      canHide=true;
-      setTimeout(function(){preloadSecundario(G.mesActual,false);},220);
-      return;
-    }
-    showToast('No se pudo cargar inicio: '+(e.message||e),'err');
-    bootText('Toca recargar la app');
-    return;
+    if(!G.mesActual)G.mesActual=mesDesdeFechaISO(todayISO());
+    if(!G.meses||!G.meses.length)G.meses=[G.mesActual];
+    fillSels(G.meses);
+    if(!G.mesData){G.mesData={mes:G.mesActual};renderHome(G.mesData);}
+    canHide=true;
+    setTimeout(function(){refreshInicioBg(G.mesActual);preloadSecundario(G.mesActual,false);},220);
   }finally{
     if(canHide)setTimeout(hideBootLoader,160);
   }
+}
+
+function refreshInicioBg(mes){
+  mes=mes||G.mesActual;
+  if(!mes)return;
+  gsRun('getMesData',[mes]).then(function(res){
+    if(res&&res.ok!==false&&!res.error){
+      G.mesData=res;
+      cacheSet('mesData_'+mes,res);
+      if(G.mesActual===mes)renderHome(res);
+    }
+  }).catch(function(e){console.warn('inicio bg',e);});
+  gsRun('getMesesDisponibles').then(function(res){
+    if(res&&res.ok&&res.data&&res.data.length){G.meses=res.data;cacheSet('meses',G.meses);fillSels(G.meses);}
+  }).catch(function(e){console.warn('meses bg',e);});
 }
 
 function preloadSecundario(mes,force){
