@@ -612,6 +612,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .cat-bar{height:4px;border-radius:100px;background:rgba(255,255,255,0.18);margin-top:10px;overflow:hidden;}
 .cat-bar-fill{height:100%;border-radius:100px;background:rgba(255,255,255,0.82);transition:width 0.7s cubic-bezier(0.34,1.56,0.64,1);}
 .cat-modal-hdr{font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--t3);}
+#cat-modal-res.g3c{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px}
+#cat-modal-res .card{padding:10px 8px!important;border-radius:16px!important;min-width:0}
+#cat-modal-res .amd{font-size:16px;white-space:nowrap}
 
 /* ── KPI CARDS (liquid glass, clean) ────────────────────── */
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
@@ -1429,64 +1432,81 @@ function init(){
 async function preloadApp(){
   var canHide=false,slow=null;
   try{
-    slow=setTimeout(function(){bootText('Cargando datos, un momento mas...');},5200);
-    var mesesRes=(await loadStep('meses',function(){return gsRun('getMesesDisponibles');},true)).data;
-    G.meses=mesesRes.data||[];
-    cacheSet('meses',G.meses);
+    slow=setTimeout(function(){bootText('Cargando inicio...');},1600);
+    var mesesRes=await withTimeout(gsRun('getMesesDisponibles'),1800,'meses');
+    if(mesesRes&&mesesRes.ok&&mesesRes.data&&mesesRes.data.length){
+      G.meses=mesesRes.data||[];
+      cacheSet('meses',G.meses);
+    }else if(!G.meses||!G.meses.length){
+      throw new Error('No se pudieron cargar los meses');
+    }
     fillSels(G.meses);
-    var mes=getMesActual(G.meses);
+    var mes=G.mesActual||getMesActual(G.meses);
     G.mesActual=mes;
     G.histMes=G.histMes||mes;
     cacheSet('mesActual',mes);
     var sh=eid('sel-h');if(sh)sh.value=G.mesActual;
     var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
 
-    var mesDataRes=(await loadStep('inicio',function(){return gsRun('getMesData',[mes]);},true)).data;
-    G.mesData=mesDataRes;
-    cacheSet('mesData_'+mes,mesDataRes);
-    renderHome(mesDataRes);
-
-    bootText('Preparando paginas...');
-    var tareas=[
-      loadStep('historial',function(){return gsRun('getMovimientosMes',[mes]).then(function(res){
-        if(res&&res.ok){G.movimientos=res.data||[];G.movimientosMes=mes;renderHistorialMovimientos();}
-        return res;
-      });},true),
-      loadStep('tarjetas',function(){return gsRun('parseTarjetas').then(function(res){
-        if(res&&res.ok){G.tarjetas=res.tarjetas||[];prepararMesesTarjeta();renderSelectorTarjeta();renderHistorialTarjeta();}
-        return res;
-      });},true),
-      loadStep('flujo',function(){return gsRun('getFlujoCaja').then(function(res){
-        if(res&&res.ok){G.flujo=res.data;renderFlujo(res.data);}
-        return res;
-      });},true),
-      loadStep('balance',function(){return gsRun('getBalanceGeneral').then(function(res){
-        if(res&&res.ok){G.balance=res;renderBalance(res);}
-        return res;
-      });},true),
-      loadStep('meta Japon',function(){return gsRun('getViajeJapon').then(function(res){
-        if(res&&res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
-        return res;
-      });},false),
-      loadStep('notificaciones',function(){return gsRun('getNotificaciones').then(function(res){
-        if(res&&res.ok)renderNotifs(res.data||[]);
-        return res;
-      });},false)
-    ];
-    var resultados=await Promise.all(tareas);
-    var faltantes=resultados.filter(function(r){return !r.ok;}).map(function(r){return r.label;});
-    if(faltantes.length) console.warn('Modulos opcionales no cargados:',faltantes.join(', '));
+    bootText('Cargando inicio...');
+    var mesDataRes=await withTimeout(gsRun('getMesData',[mes]),2600,'inicio');
+    if(mesDataRes&&mesDataRes.ok!==false&&!mesDataRes.timeout){
+      G.mesData=mesDataRes;
+      cacheSet('mesData_'+mes,mesDataRes);
+      renderHome(mesDataRes);
+    }else if(!G.mesData){
+      throw new Error('No se pudo cargar inicio');
+    }
     clearTimeout(slow);
     bootText('Listo');
     canHide=true;
+    setTimeout(function(){preloadSecundario(mes,false);},220);
   }catch(e){
     if(slow)clearTimeout(slow);
-    showToast('No se pudo cargar completo: '+(e.message||e),'err');
+    if(G.mesData){
+      canHide=true;
+      setTimeout(function(){preloadSecundario(G.mesActual,false);},220);
+      return;
+    }
+    showToast('No se pudo cargar inicio: '+(e.message||e),'err');
     bootText('Toca recargar la app');
     return;
   }finally{
-    if(canHide)setTimeout(hideBootLoader,180);
+    if(canHide)setTimeout(hideBootLoader,160);
   }
+}
+
+function preloadSecundario(mes,force){
+  mes=mes||G.mesActual;
+  if(!mes)return;
+  setTimeout(function(){
+    if(force){G.movimientosMes=null;G.tarjetas=null;G.flujo=null;G.balance=null;G.japon=null;}
+    if(G.movimientosMes!==mes){
+      gsRun('getMovimientosMes',[mes]).then(function(res){
+        if(res&&res.ok){G.movimientos=res.data||[];G.movimientosMes=mes;if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();}
+      }).catch(function(e){console.warn('historial bg',e);});
+    }
+    if(!G.tarjetas){
+      gsRun('parseTarjetas').then(function(res){
+        if(res&&res.ok){G.tarjetas=res.tarjetas||[];prepararMesesTarjeta();renderSelectorTarjeta();renderHistorialTarjeta();}
+      }).catch(function(e){console.warn('tarjetas bg',e);});
+    }
+    if(!G.flujo){
+      gsRun('getFlujoCaja').then(function(res){
+        if(res&&res.ok){G.flujo=res.data;if(eid('page-flujo').classList.contains('active'))renderFlujo(res.data);}
+      }).catch(function(e){console.warn('flujo bg',e);});
+    }
+    if(!G.balance){
+      gsRun('getBalanceGeneral').then(function(res){
+        if(res&&res.ok){G.balance=res;if(eid('page-balance').classList.contains('active'))renderBalance(res);}
+      }).catch(function(e){console.warn('balance bg',e);});
+    }
+    if(!G.japon){
+      gsRun('getViajeJapon').then(function(res){
+        if(res&&res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
+      }).catch(function(e){console.warn('japon bg',e);});
+    }
+  },60);
 }
 
 function fillSels(m){
@@ -2151,10 +2171,10 @@ function confirmarEliminar(){
 }
 
 function refrescarTrasMovimiento(){
-  G.mesData=null;G.histData=null;G.balance=null;G.flujo=null;G._dirty=true;
+  G.mesData=null;G.histData=null;G.balance=null;G.flujo=null;G.tarjetas=null;G._dirty=true;
   cambiarMesInicio(G.mesActual);
   cambiarMesHistorial(G.histMes||G.mesActual);
-  loadNotifs();
+  preloadSecundario(G.mesActual,true);
 }
 
 function abrirModalCat(nombre){
@@ -2884,7 +2904,7 @@ function guardar(){
         setTimeout(function(){
           G.mesData=null;
           cambiarMes(G.mesActual);
-          loadNotifs();
+          preloadSecundario(G.mesActual,true);
           if(eid('page-flujo').classList.contains('active'))  {G.flujo=null;loadFlujo();}
           if(eid('page-balance').classList.contains('active')){G.balance=null;loadBalance();}
         },1200);
