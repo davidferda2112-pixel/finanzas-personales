@@ -1289,6 +1289,9 @@ function cacheGet(k){
 function cacheSet(k,v){
   try{localStorage.setItem('js_'+k,JSON.stringify({t:Date.now(),v:v}));}catch(e){}
 }
+function cacheDel(k){
+  try{localStorage.removeItem('js_'+k);}catch(e){}
+}
 function getMesActual(meses){
   var hoy=new Date();
   var mesHoy=MESES_NOM_JS[hoy.getMonth()]+' '+String(hoy.getFullYear()).slice(-2);
@@ -1736,6 +1739,18 @@ function renderHome(d){
   */
 
   eid('sb-s').textContent=fmt(saldo);
+}
+
+function actualizarSaldoVisiblePorCaja(params){
+  var mesCaja=params.mesRegistro||mesDesdeFechaISO(params.fecha)||G.mesActual;
+  if(!G.mesData||G.mesActual!==mesCaja)return;
+  var vg=G.mesData.vistaGeneral=G.mesData.vistaGeneral||{};
+  var sf=vg.saldoFinal=vg.saldoFinal||{presupuesto:0,actual:0};
+  var monto=parseFloat(String(params.monto||0).replace(',','.'))||0;
+  var delta=params.tipo==='ingreso'?monto:-monto;
+  sf.actual=Math.round(((sf.actual||0)+delta+Number.EPSILON)*100)/100;
+  cacheSet('mesData_'+G.mesActual,G.mesData);
+  renderHome(G.mesData);
 }
 
 function loadHomeJapon(){
@@ -2916,6 +2931,9 @@ function guardar(){
         showSucc();showToast(G.tipoModal==='ahorro'&&mesAplicado!==G.mesActual?'Ahorro aplicado a '+mesAplicado:'Guardado ✓','ok');
         G.txs.push(params);
         G._dirty=true;  // marcar como dirty para invalidar balance/flujo al navegar
+        cacheDel('mesData_'+mesAplicado);
+        cacheDel('mesData_'+mesRegistro);
+        actualizarSaldoVisiblePorCaja(params);
         setTimeout(function(){
           G.mesData=null;
           cambiarMes(G.mesActual);
