@@ -708,14 +708,15 @@ function getDesgloseSub(mes,subcategoria){
 
 function getMovimientosMes(mes){
   try{
+    mes=_normalizarMesNombre(mes);
     var ss=getSS();
     var reg=ss.getSheetByName('Registro');
     if(!reg) return{ok:true,data:[]};
     var D=reg.getDataRange().getValues(),result=[];
     var mesesCaja={};
     for(var i=1;i<D.length;i++){
-      var mesFila=_s(D[i][2]).replace(/^'+/,'');
-      var mesCaja=_mesCajaRegistro(D[i]);
+      var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
+      var mesCaja=_normalizarMesNombre(_mesCajaRegistro(D[i]));
       if(mesFila!==mes) continue;
       mesesCaja[mesCaja]=true;
       result.push({
@@ -737,7 +738,7 @@ function getMovimientosMes(mes){
     Object.keys(mesesCaja).forEach(function(mc){
       var movs=[];
       for(var j=1;j<D.length;j++){
-        var mcFila=_mesCajaRegistro(D[j]);
+        var mcFila=_normalizarMesNombre(_mesCajaRegistro(D[j]));
         if(mcFila!==mc) continue;
         movs.push({
           id:_s(D[j][0]),
@@ -764,6 +765,7 @@ function getMovimientosMes(mes){
 }
 
 function _getSaldoBaseMovimientos(mes){
+  mes=_normalizarMesNombre(mes);
   var d=_parseMes(mes);
   if(d&&d.ok&&d.vistaGeneral&&d.vistaGeneral.saldoFinal) return _n(d.vistaGeneral.saldoFinal.actual);
   return 0;
@@ -918,6 +920,7 @@ function _parseMes(nombre){
 
 function _enriquecerConRegistros(d,mes){
   try{
+    mes=_normalizarMesNombre(mes);
     var ss=getSS();
     var reg=ss.getSheetByName('Registro');
     if(!reg) return d;
@@ -926,9 +929,9 @@ function _enriquecerConRegistros(d,mes){
 
     var totalEgrApp=0,totalIngApp=0,sumasPorSub={};
     for(var i=1;i<D.length;i++){
-      var mesFila=_s(D[i][2]).replace(/^'+/,'');
+      var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
       var tipo=_s(D[i][3]),sub=_s(D[i][5]),monto=_n(D[i][6]);
-      var mesCaja=_mesCajaRegistro(D[i]);
+      var mesCaja=_normalizarMesNombre(_mesCajaRegistro(D[i]));
       if(mesCaja===mes){
         if(tipo==='ingreso') totalIngApp+=monto;
         else totalEgrApp+=monto;
