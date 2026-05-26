@@ -408,7 +408,8 @@ function registrarMovimientoTarjeta(params){
     var registroId='';
     if(tipo==='abono'&&params.origen==='egreso'){
       var r=registrarMovimiento({
-        mes:mesRegistro,
+        mes:mes,
+        mesRegistro:mesRegistro,
         tipo:params.egresoTipo||'deuda',
         categoria:params.egresoTipo||'deuda',
         subcategoria:params.subcategoria||'Prestamos TDC',
@@ -496,7 +497,8 @@ function actualizarMovimientoTarjeta(params){
       if(tipo==='abono'&&params.origen==='egreso'){
         var movParams={
           id:oldRegistroId,
-          mes:mesRegistro,
+          mes:mes,
+          mesRegistro:mesRegistro,
           tipo:params.egresoTipo||'deuda',
           categoria:params.egresoTipo||'deuda',
           subcategoria:params.subcategoria||'Prestamos TDC',

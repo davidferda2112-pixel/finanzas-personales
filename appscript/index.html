@@ -1434,16 +1434,13 @@ function navTo(p){
 // ── INIT ─────────────────────────────────────────────────────
 function init(){
   var cachedMeses=cacheGet('meses');
-  var cachedActual=cacheGet('mesActual');
-  var cachedData=cachedActual?cacheGet('mesData_'+cachedActual):null;
   if(cachedMeses&&cachedMeses.length){
     G.meses=cachedMeses;
     fillSels(G.meses);
-    G.mesActual=cachedActual||getMesActual(G.meses);
+    G.mesActual=getMesActual(G.meses);
     G.histMes=G.histMes||G.mesActual;
     var sh=eid('sel-h');if(sh)sh.value=G.mesActual;
     var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
-    if(cachedData){G.mesData=cachedData;renderHome(cachedData);}
   }
   preloadApp();
 }
@@ -1460,7 +1457,7 @@ async function preloadApp(){
       G.meses=[mesDesdeFechaISO(todayISO())];
     }
     fillSels(G.meses);
-    var mes=G.mesActual||getMesActual(G.meses);
+    var mes=getMesActual(G.meses);
     G.mesActual=mes;
     G.histMes=G.histMes||mes;
     cacheSet('mesActual',mes);
@@ -1480,7 +1477,7 @@ async function preloadApp(){
     clearTimeout(slow);
     bootText('Listo');
     canHide=true;
-    setTimeout(function(){if(needsInicioBg)refreshInicioBg(mes);preloadSecundario(mes,false);},220);
+    setTimeout(function(){refreshInicioBg(mes);preloadSecundario(mes,false);},220);
   }catch(e){
     if(slow)clearTimeout(slow);
     if(!G.mesActual)G.mesActual=mesDesdeFechaISO(todayISO());
