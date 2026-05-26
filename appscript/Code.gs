@@ -711,9 +711,8 @@ function getDesgloseSub(mes,subcategoria){
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
-function getMovimientosMes(mes, modo){
+function getMovimientosMes(mes){
   try{
-    modo=modo==='real'?'real':'mes';
     var ss=getSS();
     var reg=ss.getSheetByName('Registro');
     if(!reg) return{ok:true,data:[]};
@@ -722,9 +721,7 @@ function getMovimientosMes(mes, modo){
     for(var i=1;i<D.length;i++){
       var mesFila=_s(D[i][2]).replace(/^'+/,'');
       var mesCaja=_mesCajaRegistro(D[i]);
-      if(modo==='real'){
-        if(mesCaja!==mes) continue;
-      }else if(mesFila!==mes) continue;
+      if(mesFila!==mes) continue;
       mesesCaja[mesCaja]=true;
       result.push({
         id:_s(D[i][0]),
@@ -742,7 +739,7 @@ function getMovimientosMes(mes, modo){
       });
     }
     var saldosPorId={};
-    if(modo==='real') Object.keys(mesesCaja).forEach(function(mc){
+    Object.keys(mesesCaja).forEach(function(mc){
       var movs=[];
       for(var j=1;j<D.length;j++){
         var mcFila=_mesCajaRegistro(D[j]);
@@ -765,11 +762,9 @@ function getMovimientosMes(mes, modo){
         saldosPorId[t.id]=Math.round((saldo+Number.EPSILON)*100)/100;
       });
     });
-    result.forEach(function(t){
-      if(modo==='real') t.saldoDespues=saldosPorId[t.id];
-    });
+    result.forEach(function(t){t.saldoDespues=saldosPorId[t.id];});
     result.sort(_compararMovimientoVista);
-    return{ok:true,data:result,modo:modo,saldoBase:_getSaldoBaseMovimientos(mes)};
+    return{ok:true,data:result,saldoBase:_getSaldoBaseMovimientos(mes)};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
