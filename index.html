@@ -2997,7 +2997,6 @@ function guardar(){
   if(eid('m-mes-aplica')&&eid('m-mes-aplica').value){
     mesAplicado=eid('m-mes-aplica').value;
   }
-  if(G.tipoModal!=='ahorro') mesRegistro=mesAplicado;
   var params={mes:mesAplicado,mesRegistro:mesRegistro,tipo:G.tipoModal,categoria:G.tipoModal,
     subcategoria:sub,monto:String(monto),fecha:fecha,notas:eid('m-notas').value};
   google.script.run
