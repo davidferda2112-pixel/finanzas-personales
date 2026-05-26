@@ -1032,7 +1032,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="fg"><div class="fl">Subcategoría</div><select class="fs" id="m-sub"><option value="">Selecciona tipo primero</option></select></div>
     <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" id="m-monto" placeholder="0.00"></div>
     <div class="fg"><div class="fl">Fecha</div><input class="fi" type="date" id="m-fecha"></div>
-    <div class="fg" id="m-aplica-box" style="display:none"><div class="fl">Aplicar ahorro a mes</div><select class="fs" id="m-mes-aplica"></select></div>
+    <div class="fg" id="m-aplica-box" style="display:none"><div class="fl" id="m-aplica-label">Registrar en mes</div><select class="fs" id="m-mes-aplica"></select></div>
     <div class="fg"><div class="fl">Notas</div><input class="fi" type="text" id="m-notas" placeholder="Opcional"></div>
     <button class="btn bb bful" id="btn-sv" onclick="guardar()">Guardar</button>
   </div>
@@ -2867,14 +2867,14 @@ function abrirModal(tipo){
   eid('m-fecha').value=todayISO();eid('m-monto').value='';eid('m-notas').value='';
   var aplicaBox=eid('m-aplica-box'),aplicaSel=eid('m-mes-aplica');
   if(aplicaBox&&aplicaSel){
-    aplicaBox.style.display=tipo==='ahorro'?'block':'none';
-    if(tipo==='ahorro'){
-      var meses=(G.meses&&G.meses.length?G.meses.slice():[G.mesActual||mesDesdeFechaISO(todayISO())]).filter(Boolean);
-      var actual=G.mesActual||mesDesdeFechaISO(todayISO());
-      if(meses.indexOf(actual)<0)meses.unshift(actual);
-      aplicaSel.innerHTML=meses.map(function(m){return'<option value="'+m+'">'+m+'</option>';}).join('');
-      aplicaSel.value=actual;
-    }
+    aplicaBox.style.display='block';
+    var lbl=eid('m-aplica-label');
+    if(lbl)lbl.textContent=tipo==='ahorro'?'Aplicar ahorro a mes':'Registrar en mes';
+    var meses=(G.meses&&G.meses.length?G.meses.slice():[G.mesActual||mesDesdeFechaISO(todayISO())]).filter(Boolean);
+    var actual=G.mesActual||mesDesdeFechaISO(todayISO());
+    if(meses.indexOf(actual)<0)meses.unshift(actual);
+    aplicaSel.innerHTML=meses.map(function(m){return'<option value="'+m+'">'+m+'</option>';}).join('');
+    aplicaSel.value=actual;
   }
   document.querySelectorAll('.tb[data-tipo]').forEach(function(b){
     var bt=b.dataset.tipo;
@@ -2904,9 +2904,10 @@ function guardar(){
   var btn=eid('btn-sv');btn.textContent='Guardando…';btn.disabled=true;
   var mesAplicado=G.mesActual;
   var mesRegistro=mesDesdeFechaISO(fecha)||G.mesActual;
-  if(G.tipoModal==='ahorro'&&eid('m-mes-aplica')&&eid('m-mes-aplica').value){
+  if(eid('m-mes-aplica')&&eid('m-mes-aplica').value){
     mesAplicado=eid('m-mes-aplica').value;
   }
+  if(G.tipoModal!=='ahorro') mesRegistro=mesAplicado;
   var params={mes:mesAplicado,mesRegistro:mesRegistro,tipo:G.tipoModal,categoria:G.tipoModal,
     subcategoria:sub,monto:String(monto),fecha:fecha,notas:eid('m-notas').value};
   google.script.run

@@ -581,15 +581,16 @@ function registrarMovimiento(params){
     var reg=ss.getSheetByName('Registro');
     if(!reg){
       reg=ss.insertSheet('Registro');
-      reg.appendRow(['ID','Timestamp','Mes','Tipo','Categoria','Subcategoria','Monto','Fecha','Notas']);
+      reg.appendRow(['ID','Timestamp','Mes','Tipo','Categoria','Subcategoria','Monto','Fecha','Notas','MesCaja']);
       reg.setFrozenRows(1);
     }
+    _asegurarRegistroMesCaja(reg);
     var id=new Date().getTime().toString();
     reg.appendRow([
       id, _nowLocal(), mes, params.tipo, params.categoria,
       params.subcategoria,
       parseFloat(String(params.monto).replace(',','.'))||0,
-      params.fecha, params.notas||''
+      params.fecha, params.notas||'', mesCaja
     ]);
     var ultimaFila=reg.getLastRow();
     reg.getRange(ultimaFila,3).setNumberFormat('@STRING@').setValue(mes);
@@ -611,6 +612,16 @@ function registrarMovimiento(params){
 
     return{ok:true,id:id};
   }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function _asegurarRegistroMesCaja(reg){
+  var lastCol=reg.getLastColumn();
+  if(lastCol<10){
+    reg.getRange(1,10).setValue('MesCaja');
+    return;
+  }
+  var header=_s(reg.getRange(1,10).getValue());
+  if(header!=='MesCaja') reg.getRange(1,10).setValue('MesCaja');
 }
 
 function _actualizarBalanceApp(ss, impactos, monto){
@@ -713,7 +724,8 @@ function getMovimientosMes(mes){
         monto:_n(D[i][6]),
         fecha:_fmtFechaSimple(D[i][7]),
         fechaOrden:_fechaMsSimple(D[i][7]),
-        notas:_s(D[i][8])
+        notas:_s(D[i][8]),
+        mesCaja:_s(D[i][9])
       });
     }
     result.sort(_compararMovimientoAsc);
@@ -759,14 +771,17 @@ function actualizarMovimiento(params){
     var ss=getSS();
     var reg=ss.getSheetByName('Registro');
     if(!reg) return{ok:false,error:'Hoja Registro no encontrada'};
+    _asegurarRegistroMesCaja(reg);
     var D=reg.getDataRange().getValues();
     for(var i=1;i<D.length;i++){
       if(String(D[i][0])!==String(params.id)) continue;
       var oldMes=_s(D[i][2]).replace(/^'+/,'');
+      var oldMesCaja=_normalizarMesNombre(_s(D[i][9])||_mesDesdeFechaMovimiento(D[i][7])||oldMes);
       var oldSub=_s(D[i][5]);
       var oldMonto=_n(D[i][6]);
       var newMes=_s(params.mes||oldMes);
       newMes=newMes.charAt(0).toUpperCase()+newMes.slice(1);
+      var newMesCaja=_normalizarMesNombre(params.mesRegistro||_mesDesdeFechaMovimiento(params.fecha)||newMes);
       var newTipo=_s(params.tipo);
       var newSub=_s(params.subcategoria);
       var newMonto=parseFloat(String(params.monto).replace(',','.'))||0;
@@ -774,18 +789,21 @@ function actualizarMovimiento(params){
       _ajustarImpactoBalanceApp(ss, oldSub, -oldMonto);
       _ajustarImpactoBalanceApp(ss, newSub, newMonto);
 
-      reg.getRange(i+1,3,1,7).setValues([[
+      reg.getRange(i+1,3,1,8).setValues([[
         newMes,
         newTipo,
         _s(params.categoria||newTipo),
         newSub,
         newMonto,
         params.fecha||'',
-        params.notas||''
+        params.notas||'',
+        newMesCaja
       ]]);
       reg.getRange(i+1,3).setNumberFormat('@STRING@').setValue(newMes);
       _invalidarMovimientoMes(oldMes);
       _invalidarMovimientoMes(newMes);
+      _invalidarMovimientoMes(oldMesCaja);
+      _invalidarMovimientoMes(newMesCaja);
       return{ok:true};
     }
     return{ok:false,error:'Movimiento no encontrado'};
@@ -801,11 +819,13 @@ function eliminarMovimiento(id){
     for(var i=1;i<D.length;i++){
       if(String(D[i][0])!==String(id)) continue;
       var mes=_s(D[i][2]).replace(/^'+/,'');
+      var mesCaja=_normalizarMesNombre(_s(D[i][9])||_mesDesdeFechaMovimiento(D[i][7])||mes);
       var sub=_s(D[i][5]);
       var monto=_n(D[i][6]);
       _ajustarImpactoBalanceApp(ss, sub, -monto);
       reg.deleteRow(i+1);
       _invalidarMovimientoMes(mes);
+      _invalidarMovimientoMes(mesCaja);
       return{ok:true};
     }
     return{ok:false,error:'Movimiento no encontrado'};
@@ -885,7 +905,7 @@ function _enriquecerConRegistros(d,mes){
     for(var i=1;i<D.length;i++){
       var mesFila=_s(D[i][2]).replace(/^'+/,'');
       var tipo=_s(D[i][3]),sub=_s(D[i][5]),monto=_n(D[i][6]);
-      var mesCaja=_mesDesdeFechaMovimiento(D[i][7])||mesFila;
+      var mesCaja=_normalizarMesNombre(_s(D[i][9])||_mesDesdeFechaMovimiento(D[i][7])||mesFila);
       if(mesCaja===mes){
         if(tipo==='ingreso') totalIngApp+=monto;
         else totalEgrApp+=monto;
