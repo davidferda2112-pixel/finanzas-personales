@@ -1382,6 +1382,20 @@ function cacheSet(k,v){
 function cacheDel(k){
   try{localStorage.removeItem('js_'+k);}catch(e){}
 }
+function getSaldoData(d){
+  return d&&d.vistaGeneral&&d.vistaGeneral.saldoFinal?parseFloat(d.vistaGeneral.saldoFinal.actual)||0:0;
+}
+function setSaldoData(d,v){
+  d.vistaGeneral=d.vistaGeneral||{};
+  d.vistaGeneral.saldoFinal=d.vistaGeneral.saldoFinal||{presupuesto:0,actual:0};
+  d.vistaGeneral.saldoFinal.actual=Math.round((v+Number.EPSILON)*100)/100;
+}
+function aplicarSaldoEsperado(d,mes){
+  if(!d||!G.saldoEsperado||G.saldoEsperado[mes]===undefined)return d;
+  var esperado=G.saldoEsperado[mes];
+  if(Math.abs(getSaldoData(d)-esperado)>0.005)setSaldoData(d,esperado);
+  return d;
+}
 function getMesActual(meses){
   var hoy=new Date();
   var mesHoy=MESES_NOM_JS[hoy.getMonth()]+' '+String(hoy.getFullYear()).slice(-2);
@@ -1574,6 +1588,7 @@ function refreshInicioBg(mes){
   if(!mes)return;
   gsRun('getMesData',[mes]).then(function(res){
     if(res&&res.ok!==false&&!res.error){
+      res=aplicarSaldoEsperado(res,mes);
       G.mesData=res;
       cacheSet('mesData_'+mes,res);
       if(G.mesActual===mes)renderHome(res);
@@ -1634,6 +1649,7 @@ function cambiarMesInicio(nombre){
   google.script.run
     .withSuccessHandler(function(res){
       if(!res||!res.ok){showToast('Error al cargar '+nombre,'err');return;}
+      res=aplicarSaldoEsperado(res,nombre);
       G.mesData=res;
       cacheSet('mesData_'+nombre,res);
       renderHome(res);
@@ -1834,11 +1850,12 @@ function renderHome(d){
 function actualizarSaldoVisiblePorCaja(params){
   var mesCaja=params.mesRegistro||mesDesdeFechaISO(params.fecha)||G.mesActual;
   if(!G.mesData||G.mesActual!==mesCaja)return;
-  var vg=G.mesData.vistaGeneral=G.mesData.vistaGeneral||{};
-  var sf=vg.saldoFinal=vg.saldoFinal||{presupuesto:0,actual:0};
   var monto=parseFloat(String(params.monto||0).replace(',','.'))||0;
   var delta=params.tipo==='ingreso'?monto:-monto;
-  sf.actual=Math.round(((sf.actual||0)+delta+Number.EPSILON)*100)/100;
+  var saldoNuevo=Math.round((getSaldoData(G.mesData)+delta+Number.EPSILON)*100)/100;
+  setSaldoData(G.mesData,saldoNuevo);
+  G.saldoEsperado=G.saldoEsperado||{};
+  G.saldoEsperado[mesCaja]=saldoNuevo;
   cacheSet('mesData_'+G.mesActual,G.mesData);
   renderHome(G.mesData);
 }
