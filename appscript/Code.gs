@@ -111,11 +111,8 @@ function getMesesDisponibles(){
 
 function getMesData(nombre){
   try{
-    var ck='mes_'+nombre.replace(/ /g,'_');
-    var c=cGet(ck);if(c) return _enriquecerConRegistros(c,nombre);
     var d=_parseMes(nombre);
     if(!d||!d.ok) return d;
-    cPut(ck,d);
     return _enriquecerConRegistros(d,nombre);
   }catch(e){return{ok:false,error:e.toString()};}
 }
@@ -199,9 +196,7 @@ function actualizarBalance(params){
 
 function getFlujoCaja(){
   try{
-    var c=cGet('flujo');if(c) return c;
-    var d=_parseFlujoCaja();if(d&&d.ok) cPut('flujo',d);
-    return d;
+    return _parseFlujoCaja();
   }catch(e){return{ok:false,error:e.toString()};}
 }
 

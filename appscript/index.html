@@ -1279,15 +1279,19 @@ function getCategoriasDetalle(d){
 }
 function cacheGet(k){
   try{
+    if(String(k).indexOf('mesData_')===0)return null;
     var raw=localStorage.getItem('js_'+k);
     if(!raw)return null;
     var obj=JSON.parse(raw);
-    if(!obj||!obj.t||Date.now()-obj.t>12*60*60*1000)return null;
+    if(!obj||!obj.t||Date.now()-obj.t>20*60*1000)return null;
     return obj.v;
   }catch(e){return null;}
 }
 function cacheSet(k,v){
-  try{localStorage.setItem('js_'+k,JSON.stringify({t:Date.now(),v:v}));}catch(e){}
+  try{
+    if(String(k).indexOf('mesData_')===0)return;
+    localStorage.setItem('js_'+k,JSON.stringify({t:Date.now(),v:v}));
+  }catch(e){}
 }
 function cacheDel(k){
   try{localStorage.removeItem('js_'+k);}catch(e){}
