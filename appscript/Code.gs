@@ -717,11 +717,12 @@ function getMovimientosMes(mes){
     var reg=ss.getSheetByName('Registro');
     if(!reg) return{ok:true,data:[]};
     var D=reg.getDataRange().getValues(),result=[];
-    var base=_getSaldoBaseMovimientos(mes);
+    var mesesCaja={};
     for(var i=1;i<D.length;i++){
       var mesFila=_s(D[i][2]).replace(/^'+/,'');
       var mesCaja=_mesCajaRegistro(D[i]);
-      if(mesCaja!==mes) continue;
+      if(mesFila!==mes) continue;
+      mesesCaja[mesCaja]=true;
       result.push({
         id:_s(D[i][0]),
         orden:i,
@@ -737,15 +738,33 @@ function getMovimientosMes(mes){
         notas:_s(D[i][8])
       });
     }
-    result.sort(_compararMovimientoAsc);
-    var saldo=base;
-    result.forEach(function(t){
-      var delta=t.tipo==='ingreso'?t.monto:-t.monto;
-      saldo+=delta;
-      t.saldoDespues=Math.round((saldo+Number.EPSILON)*100)/100;
+    var saldosPorId={};
+    Object.keys(mesesCaja).forEach(function(mc){
+      var movs=[];
+      for(var j=1;j<D.length;j++){
+        var mcFila=_mesCajaRegistro(D[j]);
+        if(mcFila!==mc) continue;
+        movs.push({
+          id:_s(D[j][0]),
+          orden:j,
+          timestamp:_s(D[j][1]),
+          tipo:_s(D[j][3]),
+          monto:_n(D[j][6]),
+          fecha:_fmtFechaSimple(D[j][7]),
+          fechaOrden:_fechaMsSimple(D[j][7])
+        });
+      }
+      movs.sort(_compararMovimientoAsc);
+      var saldo=_getSaldoBaseMovimientos(mc);
+      movs.forEach(function(t){
+        var delta=t.tipo==='ingreso'?t.monto:-t.monto;
+        saldo+=delta;
+        saldosPorId[t.id]=Math.round((saldo+Number.EPSILON)*100)/100;
+      });
     });
+    result.forEach(function(t){t.saldoDespues=saldosPorId[t.id];});
     result.sort(_compararMovimientoVista);
-    return{ok:true,data:result,saldoBase:base};
+    return{ok:true,data:result,saldoBase:_getSaldoBaseMovimientos(mes)};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 

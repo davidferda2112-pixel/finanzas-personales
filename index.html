@@ -1657,7 +1657,7 @@ function cambiarMesHistorial(nombre){
 
 // ── HOME ─────────────────────────────────────────────────────
 function renderHome(d){
-  G.catResumen=getCategoriasDetalle(d);
+  G.homeCatResumen=getCategoriasDetalle(d);
   var vg=d.vistaGeneral||{};
   var saldo=vg.saldoFinal?vg.saldoFinal.actual:0;
   var ing=d.ingresos?d.ingresos.totalActual:(vg.ingresos?vg.ingresos.actual:0);
@@ -2048,7 +2048,7 @@ function renderPresupuesto(d){
   G.histMes=d.mes||G.histMes||G.mesActual;
   var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
   eid('pr-sub').textContent=(d.mes||G.histMes||'-')+' · Registro';
-  G.catResumen=getCategoriasDetalle(d);
+  G.histCatResumen=getCategoriasDetalle(d);
   if(G.movimientosMes===G.histMes)renderHistorialMovimientos();
   else loadMovimientosMes();
 }
@@ -2283,7 +2283,7 @@ function refrescarTrasMovimiento(){
 }
 
 function abrirModalCat(nombre){
-  var source=G.catResumen&&G.catResumen.length?G.catResumen:getCategoriasDetalle(G.mesData);
+  var source=G.homeCatResumen&&G.homeCatResumen.length?G.homeCatResumen:getCategoriasDetalle(G.mesData);
   var cat=source&&source.filter(function(c){return c.t===nombre;})[0];
   if(!cat)return;
   var items=cat.d&&cat.d.items?cat.d.items:[];
