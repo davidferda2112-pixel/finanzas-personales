@@ -589,6 +589,7 @@ function registrarMovimiento(params){
     ]);
     var ultimaFila=reg.getLastRow();
     reg.getRange(ultimaFila,3).setNumberFormat('@STRING@').setValue(mes);
+    reg.getRange(ultimaFila,10).setNumberFormat('@STRING@').setValue(mesCaja);
 
     // 2. Actualizar Balance_App si el ítem tiene impacto en balance
     var monto=parseFloat(String(params.monto).replace(',','.'))||0;
@@ -605,7 +606,8 @@ function registrarMovimiento(params){
     // 4. Notificar excesos
     _checkExceso(ss, params);
 
-    return{ok:true,id:id};
+    SpreadsheetApp.flush();
+    return{ok:true,id:id,mesData:getMesData(mesCaja),mesCaja:mesCaja};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
@@ -613,10 +615,23 @@ function _asegurarRegistroMesCaja(reg){
   var lastCol=reg.getLastColumn();
   if(lastCol<10){
     reg.getRange(1,10).setValue('MesCaja');
-    return;
   }
   var header=_s(reg.getRange(1,10).getValue());
   if(header!=='MesCaja') reg.getRange(1,10).setValue('MesCaja');
+  var lastRow=reg.getLastRow();
+  if(lastRow<=1) return;
+  var rows=reg.getRange(2,1,lastRow-1,10).getValues();
+  var updates=[];
+  var changed=false;
+  for(var i=0;i<rows.length;i++){
+    var mesCaja=_normalizarMesNombre(_s(rows[i][9]));
+    if(!mesCaja){
+      mesCaja=_normalizarMesNombre(_mesDesdeFechaMovimiento(rows[i][7])||_s(rows[i][2]).replace(/^'+/,''));
+      changed=true;
+    }
+    updates.push([mesCaja]);
+  }
+  if(changed) reg.getRange(2,10,updates.length,1).setNumberFormat('@STRING@').setValues(updates);
 }
 
 function _mesCajaRegistro(fila){
@@ -924,6 +939,7 @@ function _enriquecerConRegistros(d,mes){
     var ss=getSS();
     var reg=ss.getSheetByName('Registro');
     if(!reg) return d;
+    _asegurarRegistroMesCaja(reg);
     var D=reg.getDataRange().getValues();
     if(D.length<=1) return d;
 

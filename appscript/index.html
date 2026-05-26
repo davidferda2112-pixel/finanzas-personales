@@ -1305,9 +1305,6 @@ function setSaldoData(d,v){
   d.vistaGeneral.saldoFinal.actual=Math.round((v+Number.EPSILON)*100)/100;
 }
 function aplicarSaldoEsperado(d,mes){
-  if(!d||!G.saldoEsperado||G.saldoEsperado[mes]===undefined)return d;
-  var esperado=G.saldoEsperado[mes];
-  if(Math.abs(getSaldoData(d)-esperado)>0.005)setSaldoData(d,esperado);
   return d;
 }
 function getMesActual(meses){
@@ -1768,8 +1765,6 @@ function actualizarSaldoVisiblePorCaja(params){
   var delta=params.tipo==='ingreso'?monto:-monto;
   var saldoNuevo=Math.round((getSaldoData(G.mesData)+delta+Number.EPSILON)*100)/100;
   setSaldoData(G.mesData,saldoNuevo);
-  G.saldoEsperado=G.saldoEsperado||{};
-  G.saldoEsperado[mesCaja]=saldoNuevo;
   cacheSet('mesData_'+G.mesActual,G.mesData);
   renderHome(G.mesData);
 }
@@ -2955,6 +2950,10 @@ function guardar(){
         cacheDel('mesData_'+mesAplicado);
         cacheDel('mesData_'+mesRegistro);
         actualizarSaldoVisiblePorCaja(params);
+        if(res.mesData&&res.mesData.ok&&G.mesActual===res.mesCaja){
+          G.mesData=res.mesData;
+          renderHome(G.mesData);
+        }
         setTimeout(function(){
           G.mesData=null;
           cambiarMes(G.mesActual);
