@@ -712,20 +712,21 @@ function getMovimientosMes(mes){
     var base=_getSaldoBaseMovimientos(mes);
     for(var i=1;i<D.length;i++){
       var mesFila=_s(D[i][2]).replace(/^'+/,'');
-      if(mesFila!==mes) continue;
+      var mesCaja=_normalizarMesNombre(_s(D[i][9])||_mesDesdeFechaMovimiento(D[i][7])||mesFila);
+      if(mesCaja!==mes) continue;
       result.push({
         id:_s(D[i][0]),
         orden:i,
         timestamp:_s(D[i][1]),
         mes:mesFila,
+        mesCaja:mesCaja,
         tipo:_s(D[i][3]),
         categoria:_s(D[i][4]),
         subcategoria:_s(D[i][5]),
         monto:_n(D[i][6]),
         fecha:_fmtFechaSimple(D[i][7]),
         fechaOrden:_fechaMsSimple(D[i][7]),
-        notas:_s(D[i][8]),
-        mesCaja:_s(D[i][9])
+        notas:_s(D[i][8])
       });
     }
     result.sort(_compararMovimientoAsc);
