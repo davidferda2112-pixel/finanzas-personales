@@ -1307,19 +1307,6 @@ function setSaldoData(d,v){
 function aplicarSaldoEsperado(d,mes){
   return d;
 }
-function reconciliarSaldoConMovimientos(mes,res){
-  if(!res||!res.ok||!G.mesData||G.mesActual!==mes)return;
-  var base=parseFloat(res.saldoBase)||0;
-  var saldo=(res.data||[]).reduce(function(acc,m){
-    var monto=parseFloat(m.monto)||0;
-    return acc+(m.tipo==='ingreso'?monto:-monto);
-  },base);
-  if(Math.abs(getSaldoData(G.mesData)-saldo)>0.005){
-    setSaldoData(G.mesData,saldo);
-    cacheSet('mesData_'+mes,G.mesData);
-    renderHome(G.mesData);
-  }
-}
 function getMesActual(meses){
   var hoy=new Date();
   var mesHoy=MESES_NOM_JS[hoy.getMonth()]+' '+String(hoy.getFullYear()).slice(-2);
@@ -1530,12 +1517,7 @@ function preloadSecundario(mes,force){
     if(force){G.movimientosMes=null;G.tarjetas=null;G.flujo=null;G.balance=null;G.japon=null;}
     if(G.movimientosMes!==mes){
       gsRun('getMovimientosMes',[mes]).then(function(res){
-        if(res&&res.ok){
-          G.movimientos=res.data||[];
-          G.movimientosMes=mes;
-          reconciliarSaldoConMovimientos(mes,res);
-          if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
-        }
+        if(res&&res.ok){G.movimientos=res.data||[];G.movimientosMes=mes;if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();}
       }).catch(function(e){console.warn('historial bg',e);});
     }
     if(!G.tarjetas){
