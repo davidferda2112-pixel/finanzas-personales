@@ -99,7 +99,52 @@ function _getMesIdx(nombre){
   return MESES_NOM.indexOf(partes[0]);
 }
 
+function _mesOrden(nombre){
+  nombre=_normalizarMesNombre(nombre);
+  var p=String(nombre||'').split(' ');
+  if(p.length!==2) return -1;
+  var idx=MESES_NOM.indexOf(p[0]);
+  var yy=parseInt(p[1],10);
+  if(idx<0||isNaN(yy)) return -1;
+  return yy*12+idx;
+}
+
+function _mesAnteriorDisponible(ss,mes){
+  var orden=_mesOrden(mes),best=null,bestOrden=-1;
+  if(orden<0) return null;
+  ss.getSheets().forEach(function(sh){
+    var n=sh.getName();
+    if(ESPECIALES.indexOf(n)!==-1) return;
+    var o=_mesOrden(n);
+    if(o>=0&&o<orden&&o>bestOrden){best=n;bestOrden=o;}
+  });
+  return best;
+}
+
 // ── API PÚBLICA ──────────────────────────────────────────────
+
+function _saldoFinalRealDeMes(ss,mes){
+  try{
+    mes=_normalizarMesNombre(mes);
+    if(!mes) return null;
+    var d=_parseMes(mes);
+    if(!d||!d.ok) return null;
+    var e=_enriquecerConRegistros(d,mes);
+    if(e&&e.vistaGeneral&&e.vistaGeneral.saldoFinal) return _n(e.vistaGeneral.saldoFinal.actual);
+  }catch(err){Logger.log('saldo final real '+mes+': '+err);}
+  return null;
+}
+
+function _saldoSheetConArrastre(ss,mes,vg){
+  vg=vg||{};
+  var saldoSheet=vg.saldoFinal?_n(vg.saldoFinal.actual):0;
+  var saldoInicial=vg.saldoInicial?_n(vg.saldoInicial.actual):null;
+  var prev=_mesAnteriorDisponible(ss,mes);
+  if(!prev||saldoInicial===null) return saldoSheet;
+  var prevSaldo=_saldoFinalRealDeMes(ss,prev);
+  if(prevSaldo===null) return saldoSheet;
+  return prevSaldo+(saldoSheet-saldoInicial);
+}
 
 function getMesesDisponibles(){
   try{
@@ -986,7 +1031,11 @@ function _enriquecerConRegistros(d,mes){
       if(mesFila!==mes) continue;
       sumasPorSub[sub]=(sumasPorSub[sub]||0)+monto;
     }
-    if(Object.keys(sumasPorSub).length===0&&totalIngApp===0&&totalEgrApp===0) return d;
+    var vg0=d.vistaGeneral||{};
+    var saldoSheet=vg0.saldoFinal?vg0.saldoFinal.actual:0;
+    var saldoBase=_saldoSheetConArrastre(ss,mes,vg0);
+    var saldoNecesitaArrastre=Math.abs(_n(saldoBase)-_n(saldoSheet))>0.004;
+    if(Object.keys(sumasPorSub).length===0&&totalIngApp===0&&totalEgrApp===0&&!saldoNecesitaArrastre) return d;
 
     // Clonar para no mutar el objeto cacheado
     var dc=JSON.parse(JSON.stringify(d));
@@ -1021,10 +1070,9 @@ function _enriquecerConRegistros(d,mes){
     }
 
     var vg=dc.vistaGeneral||{};
-    var saldoSheet=vg.saldoFinal?vg.saldoFinal.actual:0;
     dc.vistaGeneral.saldoFinal={
       presupuesto:vg.saldoFinal?vg.saldoFinal.presupuesto:0,
-      actual:saldoSheet+(totalIngApp-totalEgrApp)
+      actual:saldoBase+(totalIngApp-totalEgrApp)
     };
 
     dc.metricas=_recalcularMetricas(dc);

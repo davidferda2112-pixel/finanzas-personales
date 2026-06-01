@@ -123,6 +123,12 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 #page-presupuesto .ph{justify-content:space-between;}
 #page-presupuesto .ph .ph-r{display:flex!important;margin-left:auto;gap:7px;}
 #page-presupuesto .ph .ms{height:34px;min-width:84px;width:auto;max-width:126px;padding:6px 28px 6px 10px;font-size:12px;background:rgba(255,255,255,.72);}
+#page-home .ph{justify-content:space-between;}
+#page-home .ph .ph-r{display:flex!important;margin-left:auto;gap:7px;}
+#page-home .ph .ph-r .si,#page-home .ph .ph-r .ib{display:none!important;}
+#page-home .ph .ms{height:34px;min-width:92px;width:auto;max-width:130px;padding:6px 28px 6px 10px;font-size:12px;background:rgba(255,255,255,.72);}
+#page-balance .ph{justify-content:space-between;}
+#page-balance .ph .ph-r{display:flex!important;margin-left:auto;gap:7px;}
 #page-home .header-logo{display:block!important;}
 .page:not(#page-home) .ph-l{display:flex!important;flex-direction:row!important;align-items:center!important;gap:10px;min-width:0;}
 .header-iso{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 36px;
@@ -1322,6 +1328,12 @@ function setSaldoData(d,v){
   d.vistaGeneral.saldoFinal=d.vistaGeneral.saldoFinal||{presupuesto:0,actual:0};
   d.vistaGeneral.saldoFinal.actual=Math.round((v+Number.EPSILON)*100)/100;
 }
+function mesOrdenNombre(m){
+  var p=String(m||'').split(' ');
+  if(p.length!==2)return -1;
+  var idx=MESES_NOM_JS.indexOf(p[0]),yy=parseInt(p[1],10);
+  return idx<0||isNaN(yy)?-1:yy*12+idx;
+}
 function aplicarSaldoEsperado(d,mes){
   return d;
 }
@@ -1781,7 +1793,9 @@ function renderHome(d){
 
 function actualizarSaldoVisiblePorCaja(params){
   var mesCaja=params.mesRegistro||mesDesdeFechaISO(params.fecha)||G.mesActual;
-  if(!G.mesData||G.mesActual!==mesCaja)return;
+  if(!G.mesData)return;
+  var ordCaja=mesOrdenNombre(mesCaja),ordActual=mesOrdenNombre(G.mesActual);
+  if(G.mesActual!==mesCaja&&!(ordCaja>=0&&ordActual>=0&&ordCaja<ordActual))return;
   var monto=parseFloat(String(params.monto||0).replace(',','.'))||0;
   var delta=params.tipo==='ingreso'?monto:-monto;
   var saldoNuevo=Math.round((getSaldoData(G.mesData)+delta+Number.EPSILON)*100)/100;
