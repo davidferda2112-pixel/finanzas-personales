@@ -28,29 +28,39 @@ function cGet(k){ var r=CacheService.getScriptCache().get(k); return r?JSON.pars
 function cPut(k,d){ CacheService.getScriptCache().put(k,JSON.stringify(d),CACHE_S); }
 function cDel(k){ CacheService.getScriptCache().remove(k); }
 function _nowLocal(){ return Utilities.formatDate(new Date(),'America/Guayaquil','yyyy-MM-dd HH:mm:ss'); }
-function _fmtFechaSimple(v){
+function _pad2(n){ n=parseInt(n,10)||0; return n<10?'0'+n:String(n); }
+function _fechaPartesSimple(v){
   if(Object.prototype.toString.call(v)==='[object Date]'&&!isNaN(v.getTime())){
-    return Utilities.formatDate(v,'America/Guayaquil','dd/MM/yyyy');
+    return {y:v.getUTCFullYear(),m:v.getUTCMonth()+1,d:v.getUTCDate()};
   }
   var s=String(v||'').trim();
-  if(!s) return '';
-  if(s.indexOf('T')>-1) s=s.split('T')[0];
-  var p=s.split('-');
-  if(p.length===3) return p[2]+'/'+p[1]+'/'+p[0];
-  return s;
-}
-function _fechaMsSimple(v){
-  if(Object.prototype.toString.call(v)==='[object Date]'&&!isNaN(v.getTime())) return v.getTime();
-  var s=String(v||'').trim();
-  if(!s) return 0;
+  if(!s) return null;
   if(s.indexOf('T')>-1) s=s.split('T')[0];
   var p=s.indexOf('/')>-1?s.split('/'):s.split('-');
   if(p.length===3){
     var y=p[0].length===4?p[0]:p[2],m=p[0].length===4?p[1]:p[1],d=p[0].length===4?p[2]:p[0];
-    var n=new Date(y+'-'+m+'-'+d+'T00:00:00').getTime();
-    return isNaN(n)?0:n;
+    y=parseInt(y,10);m=parseInt(m,10);d=parseInt(d,10);
+    if(y&&m>=1&&m<=12&&d>=1&&d<=31) return {y:y,m:m,d:d};
   }
-  var n2=new Date(s).getTime();
+  var n=new Date(s);
+  if(!isNaN(n.getTime())) return {y:n.getUTCFullYear(),m:n.getUTCMonth()+1,d:n.getUTCDate()};
+  return null;
+}
+function _fechaISOTexto(v){
+  var p=_fechaPartesSimple(v);
+  return p?(p.y+'-'+_pad2(p.m)+'-'+_pad2(p.d)):_s(v);
+}
+function _fmtFechaSimple(v){
+  var p=_fechaPartesSimple(v);
+  if(p) return _pad2(p.d)+'/'+_pad2(p.m)+'/'+p.y;
+  var s=String(v||'').trim();
+  if(!s) return '';
+  return s;
+}
+function _fechaMsSimple(v){
+  var p=_fechaPartesSimple(v);
+  if(p) return new Date(p.y,p.m-1,p.d,12,0,0).getTime();
+  var n2=new Date(String(v||'')).getTime();
   return isNaN(n2)?0:n2;
 }
 function _st(p,a){
@@ -115,6 +125,13 @@ function getMesData(nombre){
     if(!d||!d.ok) return d;
     return _enriquecerConRegistros(d,nombre);
   }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function _asegurarMesExiste(ss,nombre){
+  nombre=_normalizarMesNombre(nombre);
+  if(!nombre) return{ok:false,error:'Mes invalido'};
+  if(ss.getSheetByName(nombre)) return{ok:true,existe:true};
+  return _crearMes(ss,nombre);
 }
 
 function getBalanceGeneral(){
@@ -376,10 +393,9 @@ function _normalizarMesNombre(mes){
 }
 
 function _mesDesdeFechaMovimiento(fecha){
-  var ms=_fechaMsSimple(fecha);
-  if(!ms) return '';
-  var d=new Date(ms);
-  return MESES_NOM[d.getMonth()]+' '+String(d.getFullYear()).slice(-2);
+  var p=_fechaPartesSimple(fecha);
+  if(!p) return '';
+  return MESES_NOM[p.m-1]+' '+String(p.y).slice(-2);
 }
 
 function _sumarFilaTdc(hist, concepto, mesCorto, monto){
@@ -431,11 +447,12 @@ function registrarMovimientoTarjeta(params){
     }
     var id=new Date().getTime().toString();
     sh.appendRow([
-      id,new Date().toISOString(),mes,tarjeta,tipo,monto,params.fecha||'',params.notas||'',
+      id,new Date().toISOString(),mes,tarjeta,tipo,monto,_fechaISOTexto(params.fecha)||'',params.notas||'',
       params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||'',params.cargoId||''
     ]);
     var ultimaFila=sh.getLastRow();
     sh.getRange(ultimaFila,3).setNumberFormat('@STRING@').setValue(mes);
+    sh.getRange(ultimaFila,7).setNumberFormat('@STRING@').setValue(_fechaISOTexto(params.fecha));
     var mesCaja=_mesDesdeFechaMovimiento(params.fecha);
     cDel('flujo');
     cDel('mes_'+mes.replace(/ /g,'_'));
@@ -517,9 +534,11 @@ function actualizarMovimientoTarjeta(params){
       }
 
       sh.getRange(i+1,3,1,11).setValues([[
-        mes,_s(params.tarjeta),tipo,monto,params.fecha||'',params.notas||'',
+        mes,_s(params.tarjeta),tipo,monto,_fechaISOTexto(params.fecha)||'',params.notas||'',
         params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||'',params.cargoId||''
       ]]);
+      sh.getRange(i+1,3).setNumberFormat('@STRING@').setValue(mes);
+      sh.getRange(i+1,7).setNumberFormat('@STRING@').setValue(_fechaISOTexto(params.fecha));
       sh.getRange(i+1,3).setNumberFormat('@STRING@').setValue(mes);
       var mesCaja=_mesDesdeFechaMovimiento(params.fecha);
       cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));cDel('mes_'+mesRegistro.replace(/ /g,'_'));
@@ -573,6 +592,13 @@ function registrarMovimiento(params){
     var mes=params.mes;
     mes=mes.charAt(0).toUpperCase()+mes.slice(1);
     var mesCaja=_normalizarMesNombre(params.mesRegistro||_mesDesdeFechaMovimiento(params.fecha)||mes);
+    mes=_normalizarMesNombre(mes)||mesCaja;
+    var asegurarAplicado=_asegurarMesExiste(ss,mes);
+    if(!asegurarAplicado.ok) return asegurarAplicado;
+    if(mesCaja&&mesCaja!==mes){
+      var asegurarCaja=_asegurarMesExiste(ss,mesCaja);
+      if(!asegurarCaja.ok) return asegurarCaja;
+    }
 
     // 1. Escribir en hoja Registro
     var reg=ss.getSheetByName('Registro');
@@ -587,10 +613,11 @@ function registrarMovimiento(params){
       id, _nowLocal(), mes, params.tipo, params.categoria,
       params.subcategoria,
       parseFloat(String(params.monto).replace(',','.'))||0,
-      params.fecha, params.notas||'', mesCaja
+      _fechaISOTexto(params.fecha), params.notas||'', mesCaja
     ]);
     var ultimaFila=reg.getLastRow();
     reg.getRange(ultimaFila,3).setNumberFormat('@STRING@').setValue(mes);
+    reg.getRange(ultimaFila,8).setNumberFormat('@STRING@').setValue(_fechaISOTexto(params.fecha));
     reg.getRange(ultimaFila,10).setNumberFormat('@STRING@').setValue(mesCaja);
 
     // 2. Actualizar Balance_App si el ítem tiene impacto en balance
@@ -837,11 +864,13 @@ function actualizarMovimiento(params){
         _s(params.categoria||newTipo),
         newSub,
         newMonto,
-        params.fecha||'',
+        _fechaISOTexto(params.fecha)||'',
         params.notas||'',
         newMesCaja
       ]]);
       reg.getRange(i+1,3).setNumberFormat('@STRING@').setValue(newMes);
+      reg.getRange(i+1,8).setNumberFormat('@STRING@').setValue(_fechaISOTexto(params.fecha));
+      reg.getRange(i+1,10).setNumberFormat('@STRING@').setValue(newMesCaja);
       _invalidarMovimientoMes(oldMes);
       _invalidarMovimientoMes(newMes);
       _invalidarMovimientoMes(oldMesCaja);
@@ -1293,6 +1322,7 @@ function _crearMes(ss,nombre){
     }
   }
   if(!base) return{ok:false,error:'No hay hoja base'};
+  saldoFinal=_saldoFinalRealParaCrearMes(base.getName(),saldoFinal);
   var nueva=base.copyTo(ss);
   nueva.setName(nombre);
   var D2=nueva.getDataRange().getValues();
@@ -1310,6 +1340,19 @@ function _crearMes(ss,nombre){
   }
   for(var k=19;k<26&&k<D2.length;k++){if(_s(D2[k][1])) nueva.getRange(k+1,4).setValue(0);}
   return{ok:true,msg:'Mes creado: '+nombre};
+}
+
+function _saldoFinalRealParaCrearMes(nombreBase,fallback){
+  try{
+    var d=_parseMes(nombreBase);
+    if(d&&d.ok){
+      var e=_enriquecerConRegistros(d,nombreBase);
+      if(e&&e.vistaGeneral&&e.vistaGeneral.saldoFinal){
+        return _n(e.vistaGeneral.saldoFinal.actual);
+      }
+    }
+  }catch(err){Logger.log('saldo real crear mes: '+err);}
+  return _n(fallback);
 }
 // ============================================================
 // API para Vercel - agrega este bloque al final de Code.gs
