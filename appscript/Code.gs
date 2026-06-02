@@ -9,7 +9,7 @@ var MESES_NOM = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
 
 var ESPECIALES = ['Balance General','Flujo TDC Papi','Flujo de Caja',
                   'Viaje a Japón','Registro','TDC_App','TDC_VISA','TDC_MC','_NOTIF',
-                  'Balance_App'];
+                  'Balance_App','_BALANCE_LOG','_BALANCE_DELETED'];
 
 var TDC_DIFERIDOS = {
   VISA: [{nombre:'Diferido Artefacta', inicial:366.68, cuota:30.56, cuotasAlMesBase:3, mesBase:'May 26'}],
@@ -201,6 +201,12 @@ function getBalanceGeneral(){
       });
     }
 
+    var ssBal=getSS();
+    var eliminados=_getBalanceDeletedMap(ssBal);
+    d.activos=d.activos.filter(function(x){return x.esGrupo||!eliminados[x.codigo];});
+    d.pasivos=d.pasivos.filter(function(x){return x.esGrupo||!eliminados[x.codigo];});
+    d.cambios=_getBalanceLog(ssBal,6);
+
     // Sincronizar Efectivo Disponible (10101.05) con saldo real del mes actual
     var mesActual=_getMesActual();
     if(mesActual){
@@ -242,7 +248,7 @@ function getBalanceGeneral(){
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
-function actualizarBalance(params){
+function _actualizarBalanceLegacy(params){
   try{
     var ss=getSS();
     var sh=ss.getSheetByName('Balance General');
@@ -254,6 +260,126 @@ function actualizarBalance(params){
     }
     return{ok:false,error:'Código no encontrado'};
   }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function actualizarBalance(params){
+  try{
+    var ss=getSS();
+    var item=_findBalanceItem(ss,params.codigo);
+    if(!item) return{ok:false,error:'Codigo no encontrado'};
+    var nuevo=_n(params.valor);
+    item.sheet.getRange(item.row,item.col).setValue(nuevo);
+    _appendBalanceLog(ss,{
+      codigo:item.codigo,
+      nombre:item.nombre,
+      tipo:item.tipo,
+      accion:'editar',
+      anterior:item.valor,
+      nuevo:nuevo,
+      nota:params&&params.nota?params.nota:''
+    });
+    return{ok:true};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function eliminarBalanceItem(params){
+  try{
+    var ss=getSS();
+    var item=_findBalanceItem(ss,params.codigo);
+    if(!item) return{ok:false,error:'Codigo no encontrado'};
+    var nota=params&&params.nota?params.nota:'';
+    _balanceDeletedSheet(ss).appendRow([new Date(),item.codigo,item.nombre,item.tipo,nota]);
+    _appendBalanceLog(ss,{
+      codigo:item.codigo,
+      nombre:item.nombre,
+      tipo:item.tipo,
+      accion:'eliminar',
+      anterior:item.valor,
+      nuevo:0,
+      nota:nota
+    });
+    return{ok:true};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function _findBalanceItem(ss,codigo){
+  codigo=_s(codigo);
+  if(!codigo) return null;
+  var sh=ss.getSheetByName('Balance General');
+  if(!sh) return null;
+  var D=sh.getDataRange().getValues();
+  for(var i=0;i<D.length;i++){
+    if(_s(D[i][0])===codigo){
+      return{sheet:sh,row:i+1,col:3,codigo:codigo,nombre:_s(D[i][1]),tipo:'Activo',valor:_n(D[i][2])};
+    }
+    if(_s(D[i][5])===codigo){
+      return{sheet:sh,row:i+1,col:8,codigo:codigo,nombre:_s(D[i][6]),tipo:'Pasivo',valor:_n(D[i][7])};
+    }
+  }
+  return null;
+}
+
+function _balanceLogSheet(ss){
+  var sh=ss.getSheetByName('_BALANCE_LOG');
+  if(!sh){
+    sh=ss.insertSheet('_BALANCE_LOG');
+    sh.appendRow(['Fecha','Codigo','Nombre','Tipo','Accion','Anterior','Nuevo','Nota']);
+  }
+  return sh;
+}
+
+function _balanceDeletedSheet(ss){
+  var sh=ss.getSheetByName('_BALANCE_DELETED');
+  if(!sh){
+    sh=ss.insertSheet('_BALANCE_DELETED');
+    sh.appendRow(['Fecha','Codigo','Nombre','Tipo','Nota']);
+  }
+  return sh;
+}
+
+function _appendBalanceLog(ss,r){
+  _balanceLogSheet(ss).appendRow([
+    new Date(),
+    r.codigo||'',
+    r.nombre||'',
+    r.tipo||'',
+    r.accion||'',
+    _n(r.anterior),
+    _n(r.nuevo),
+    r.nota||''
+  ]);
+}
+
+function _getBalanceDeletedMap(ss){
+  var sh=ss.getSheetByName('_BALANCE_DELETED');
+  var map={};
+  if(!sh) return map;
+  var D=sh.getDataRange().getValues();
+  for(var i=1;i<D.length;i++){
+    var codigo=_s(D[i][1]);
+    if(codigo) map[codigo]=true;
+  }
+  return map;
+}
+
+function _getBalanceLog(ss,limit){
+  var sh=ss.getSheetByName('_BALANCE_LOG');
+  if(!sh) return [];
+  var D=sh.getDataRange().getValues();
+  var out=[];
+  for(var i=D.length-1;i>=1&&out.length<(limit||8);i--){
+    out.push({
+      fecha:D[i][0],
+      codigo:_s(D[i][1]),
+      nombre:_s(D[i][2]),
+      tipo:_s(D[i][3]),
+      accion:_s(D[i][4]),
+      anterior:_n(D[i][5]),
+      nuevo:_n(D[i][6]),
+      nota:_s(D[i][7])
+    });
+  }
+  return out;
 }
 
 function getFlujoCaja(){
@@ -1418,6 +1544,7 @@ var API_METHODS = {
   getMesData: getMesData,
   getBalanceGeneral: getBalanceGeneral,
   actualizarBalance: actualizarBalance,
+  eliminarBalanceItem: eliminarBalanceItem,
   getFlujoCaja: getFlujoCaja,
   getViajeJapon: getViajeJapon,
   actualizarJapon: actualizarJapon,

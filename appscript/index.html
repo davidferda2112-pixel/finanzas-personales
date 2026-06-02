@@ -648,6 +648,16 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .bal-edit-row .bn2{font-size:14px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;}
 .bal-titulo{padding:10px 12px 6px;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--blue);}
 .bal-val{font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:13px;color:var(--t1);}
+.bal-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:138px;}
+.bal-actions .edit-in{width:92px;text-align:right;}
+.bal-del{width:32px;height:32px;border:0;border-radius:10px;background:rgba(255,59,48,.10);color:var(--over);font-weight:800;font-family:inherit;cursor:pointer;}
+.bal-del:active{transform:scale(.96);}
+.bal-log{padding:11px 14px;margin-bottom:12px;}
+.bal-log-title{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;}
+.bal-log-item{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;padding:6px 0;border-top:1px solid rgba(0,0,0,.05);}
+.bal-log-item:first-of-type{border-top:0;}
+.bal-log-item span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2);}
+.bal-log-item strong{white-space:nowrap;}
 .fl-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;background:rgba(255,255,255,0.98);border-radius:20px}
 .fl-table-wrap table{width:100%;border-collapse:collapse;font-size:11px;min-width:760px;background:#fff}
 .fl-table-wrap::-webkit-scrollbar{height:6px}
@@ -1337,12 +1347,12 @@ function mesOrdenNombre(m){
 function aplicarSaldoEsperado(d,mes){
   return d;
 }
-function getMesActual(meses){
+function mesActualCalendario(){
   var hoy=new Date();
-  var mesHoy=MESES_NOM_JS[hoy.getMonth()]+' '+String(hoy.getFullYear()).slice(-2);
-  if(!meses||!meses.length)return mesHoy;
-  for(var i=0;i<meses.length;i++){if(meses[i]===mesHoy)return mesHoy;}
-  return meses[meses.length-1];
+  return MESES_NOM_JS[hoy.getMonth()]+' '+String(hoy.getFullYear()).slice(-2);
+}
+function getMesActual(meses){
+  return mesActualCalendario();
 }
 function showToast(msg,tipo){
   var el=document.createElement('div');el.className='toast '+(tipo||'ok');el.textContent=msg;
@@ -1450,7 +1460,10 @@ function navTo(p){
     if(G._dirty||!G.flujo){G.flujo=null;loadFlujo();}
     else renderFlujo(G.flujo);
   }
-  if(p==='tarjetas'&&!G.tarjetas) loadTarjetas();
+  if(p==='tarjetas'){
+    if(G._dirty||!G.tarjetas){G.tarjetas=null;loadTarjetas();}
+    else{renderSelectorTarjeta();renderHistorialTarjeta();}
+  }
   if(p==='presupuesto'){
     if(G.histData&&G.histData.mes===G.histMes) renderPresupuesto(G.histData);
     else if(G.histMes) cambiarMesHistorial(G.histMes);
@@ -1466,8 +1479,9 @@ function init(){
   var cachedMeses=cacheGet('meses');
   if(cachedMeses&&cachedMeses.length){
     G.meses=cachedMeses;
+    G.mesActual=mesActualCalendario();
+    if(G.meses.indexOf(G.mesActual)<0)G.meses.push(G.mesActual);
     fillSels(G.meses);
-    G.mesActual=getMesActual(G.meses);
     G.histMes=G.histMes||G.mesActual;
     var sh=eid('sel-h');if(sh)sh.value=G.mesActual;
     var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
@@ -1576,7 +1590,74 @@ async function preloadSecundarioReady(mes,force,showProgress){
   return Promise.allSettled(jobs);
 }
 
+var __syncTimer=null,__syncSeq=0;
+function invalidarDatosCompartidos(){
+  G.mesData=null;
+  G.histData=null;
+  G.movimientosMes=null;
+  G.tarjetas=null;
+  G.flujo=null;
+  G.balance=null;
+  G.japon=null;
+  G._dirty=true;
+}
+function syncTrasCambio(opts){
+  opts=opts||{};
+  invalidarDatosCompartidos();
+  if(__syncTimer)clearTimeout(__syncTimer);
+  __syncTimer=setTimeout(function(){
+    var seq=++__syncSeq;
+    var mesInicio=G.mesActual||opts.mes||mesDesdeFechaISO(todayISO());
+    var mesHist=G.histMes||mesInicio;
+    var jobs=[];
+    function ok(res){return res&&res.ok!==false&&!res.error&&!res.timeout;}
+    function job(label,promise,handler){
+      jobs.push(promise.then(function(res){
+        if(seq!==__syncSeq||!ok(res))return;
+        handler(res);
+      }).catch(function(e){console.warn('sync '+label,e);}));
+    }
+    job('meses',withTimeout(gsRun('getMesesDisponibles'),2600,'meses'),function(res){
+      if(res.ok&&res.data&&res.data.length){G.meses=res.data;cacheSet('meses',G.meses);fillSels(G.meses);}
+    });
+    job('inicio',withTimeout(gsRun('getMesData',[mesInicio]),3800,'inicio'),function(res){
+      res=aplicarSaldoEsperado(res,mesInicio);
+      G.mesData=res;
+      cacheSet('mesData_'+mesInicio,res);
+      renderHome(res);
+    });
+    job('historial-data',withTimeout(gsRun('getMesData',[mesHist]),3800,'historial'),function(res){
+      G.histData=res;
+      cacheSet('mesData_'+mesHist,res);
+      if(eid('page-presupuesto').classList.contains('active'))renderPresupuesto(res);
+    });
+    job('movimientos',withTimeout(gsRun('getMovimientosMes',[mesHist]),3800,'movimientos'),function(res){
+      if(res.ok){G.movimientos=res.data||[];G.movimientosMes=mesHist;if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();}
+    });
+    job('tarjetas',withTimeout(gsRun('parseTarjetas'),4300,'tarjetas'),function(res){
+      if(res.ok){G.tarjetas=res.tarjetas||[];prepararMesesTarjeta();renderSelectorTarjeta();if(eid('page-tarjetas').classList.contains('active'))renderHistorialTarjeta();}
+    });
+    job('flujo',withTimeout(gsRun('getFlujoCaja'),4300,'flujo'),function(res){
+      if(res.ok){G.flujo=res.data;if(eid('page-flujo').classList.contains('active'))renderFlujo(res.data);}
+    });
+    job('balance',withTimeout(gsRun('getBalanceGeneral'),4300,'balance'),function(res){
+      if(res.ok){G.balance=res;if(eid('page-balance').classList.contains('active'))renderBalance(res);}
+    });
+    job('japon',withTimeout(gsRun('getViajeJapon'),3200,'japon'),function(res){
+      if(res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
+    });
+    Promise.allSettled(jobs).then(function(){
+      if(seq===__syncSeq)G._dirty=false;
+    });
+  },opts.delay==null?90:opts.delay);
+}
+
 function fillSels(m){
+  m=(m||[]).slice();
+  var mesHoy=mesActualCalendario();
+  if(m.indexOf(mesHoy)<0)m.push(mesHoy);
+  m.sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
+  G.meses=m;
   var h=m.map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('');
   ['sel-h','sel-pr'].forEach(function(id){var el=eid(id);if(el)el.innerHTML=h;});
   eid('btn-nmes').style.display='flex';
@@ -1876,10 +1957,27 @@ function loadBalance(){
     .withFailureHandler(function(e){showToast('Error: '+e,'err');})
     .getBalanceGeneral();
 }
+function renderBalanceLog(items){
+  var el=eid('b-log');
+  if(!el)return;
+  items=items||[];
+  if(!items.length){
+    el.innerHTML='<div class="bal-log-title">Ultimos cambios</div><div style="font-size:12px;color:var(--t3)">Sin cambios registrados</div>';
+    return;
+  }
+  el.innerHTML='<div class="bal-log-title">Ultimos cambios</div>'+items.map(function(x){
+    var accion=x.accion||'cambio';
+    var nombre=x.nombre||x.codigo||'Balance';
+    return'<div class="bal-log-item"><span>'+accion+' - '+nombre+'</span><strong>'+fmt(x.nuevo||0)+'</strong></div>';
+  }).join('');
+}
 function renderBalance(d){
   eid('b-pat').textContent=fmt(d.patrimonioNeto||0);
   eid('b-act-t').textContent=fmt(d.totalActivos||0);
   eid('b-pas-t').textContent=fmt(d.totalPasivos||0);
+  var bpc=eid('page-balance').querySelector('.pc');
+  if(bpc&&!eid('b-log'))bpc.insertAdjacentHTML('afterbegin','<div class="card bal-log" id="b-log"></div>');
+  renderBalanceLog(d.cambios||[]);
 
   var actHtml='',grupoActual=null,itemsGrupo=[];
   function flushGrupo(){
@@ -1887,7 +1985,7 @@ function renderBalance(d){
     var subHtml=itemsGrupo.map(function(a){
       return'<div class="bal-edit-row" style="padding-left:20px">'
         +'<div class="bn2" style="font-weight:500;font-size:13px">'+a.nombre+'</div>'
-        +(G.balEdit?'<input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+a.valor+'" onchange="saveBalance(\''+a.codigo+'\',normMoney(this.value))">'
+        +(G.balEdit?'<div class="bal-actions"><input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+a.valor+'" onchange="saveBalance(\''+a.codigo+'\',normMoney(this.value))"><button class="bal-del" onclick="deleteBalance(\''+a.codigo+'\')">x</button></div>'
           :'<div class="bal-val tok2">'+fmt(a.valor)+'</div>')
         +'</div>';
     }).join('');
@@ -1911,20 +2009,36 @@ function renderBalance(d){
     if(p.esGrupo){pasHtml+='<div class="bal-titulo">'+p.nombre+'</div>';}
     else if(p.valor!==0){
       pasHtml+='<div class="bal-edit-row"><div class="bn2">'+p.nombre+'</div>'
-        +(G.balEdit?'<input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+p.valor+'" onchange="saveBalance(\''+p.codigo+'\',normMoney(this.value))">'
+        +(G.balEdit?'<div class="bal-actions"><input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+p.valor+'" onchange="saveBalance(\''+p.codigo+'\',normMoney(this.value))"><button class="bal-del" onclick="deleteBalance(\''+p.codigo+'\')">x</button></div>'
           :'<div class="bal-val tov2">'+fmt(p.valor)+'</div>')+'</div>';
     }
   });
   eid('b-pas-list').innerHTML=pasHtml;
 }
-function tgBalEdit(){G.balEdit=!G.balEdit;if(G.balance)renderBalance(G.balance);showToast(G.balEdit?'Modo edición ✏️':'Cambios guardados ✓','ok');}
-function saveBalance(codigo,valor){
+function _tgBalEditLegacy(){G.balEdit=!G.balEdit;if(G.balance)renderBalance(G.balance);showToast(G.balEdit?'Modo edición ✏️':'Cambios guardados ✓','ok');}
+function _saveBalanceLegacy(codigo,valor){
   google.script.run
     .withSuccessHandler(function(res){if(res&&res.ok){showToast('Actualizado ✓','ok');G.balance=null;loadBalance();}else showToast('Error','err');})
     .actualizarBalance({codigo:codigo,valor:valor});
 }
 
 // ── FLUJO ─────────────────────────────────────────────────────
+function tgBalEdit(){G.balEdit=!G.balEdit;if(G.balance)renderBalance(G.balance);showToast(G.balEdit?'Modo edicion':'Cambios guardados','ok');}
+function saveBalance(codigo,valor){
+  var nota=prompt('Motivo del cambio:')||'';
+  google.script.run
+    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Actualizado','ok');syncTrasCambio({delay:80});}else showToast('Error','err');})
+    .actualizarBalance({codigo:codigo,valor:valor,nota:nota});
+}
+function deleteBalance(codigo){
+  var nota=prompt('Motivo para eliminar/ocultar:');
+  if(nota===null)return;
+  if(!confirm('Ocultar este activo/pasivo del balance?'))return;
+  google.script.run
+    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Eliminado','ok');syncTrasCambio({delay:80});}else showToast('Error','err');})
+    .eliminarBalanceItem({codigo:codigo,nota:nota||''});
+}
+
 function loadFlujo(){
   google.script.run
     .withSuccessHandler(function(res){if(!res||!res.ok){showToast('Error flujo','err');return;}G.flujo=res.data;renderFlujo(res.data);})
@@ -2252,10 +2366,7 @@ function confirmarEliminar(){
 }
 
 function refrescarTrasMovimiento(){
-  G.mesData=null;G.histData=null;G.balance=null;G.flujo=null;G.tarjetas=null;G._dirty=true;
-  cambiarMesInicio(G.mesActual);
-  cambiarMesHistorial(G.histMes||G.mesActual);
-  preloadSecundario(G.mesActual,true);
+  syncTrasCambio({delay:80});
 }
 
 function abrirModalCat(nombre){
@@ -2732,9 +2843,7 @@ function guardarMovTdc(){
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
       eid('mov-tdc').classList.remove('open');
       showToast(G.tdcEditId?'Transacción actualizada':(G.tdcAccion==='cargo'?'Cargo agregado':'Abono agregado'),'ok');
-      G.tarjetas=null;G.mesData=null;G.balance=null;G.flujo=null;G._dirty=true;
-      loadTarjetas();
-      cambiarMes(G.mesActual);
+      syncTrasCambio({delay:80});
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Registrar';showToast('Error: '+e,'err');});
   if(G.tdcEditId){params.id=G.tdcEditId;runner.actualizarMovimientoTarjeta(params);}
@@ -2756,8 +2865,7 @@ function confirmarEliminarTdc(){
       btn.disabled=false;btn.textContent='Eliminar';
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
       eid('mov-tdc-del').classList.remove('open');showToast('Transacción eliminada','ok');
-      G.tarjetas=null;G.mesData=null;G.balance=null;G.flujo=null;G._dirty=true;
-      loadTarjetas();cambiarMes(G.mesActual);
+      syncTrasCambio({delay:80});
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
     .eliminarMovimientoTarjeta(G.tdcDeleteId);
@@ -3008,13 +3116,7 @@ function guardar(){
           G.mesData=res.mesData;
           renderHome(G.mesData);
         }
-        setTimeout(function(){
-          G.mesData=null;
-          cambiarMes(G.mesActual);
-          preloadSecundario(G.mesActual,true);
-          if(eid('page-flujo').classList.contains('active'))  {G.flujo=null;loadFlujo();}
-          if(eid('page-balance').classList.contains('active')){G.balance=null;loadBalance();}
-        },1200);
+        syncTrasCambio({delay:80});
       }else showToast('Error: '+(res?res.error:'desconocido'),'err');
     })
     .withFailureHandler(function(e){btn.textContent='Guardar';btn.disabled=false;showToast('Error de conexión','err');})
