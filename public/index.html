@@ -408,6 +408,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   transition:border-color 0.15s,box-shadow 0.15s;}
 .fi:focus,.fs:focus{border-color:var(--blue);background:rgba(255,255,255,0.9);box-shadow:0 0 0 3px rgba(0,122,255,0.1);}
 .fi.bn{font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:26px;font-weight:700;text-align:center;background:rgba(255,255,255,0.9);}
+.mov .fi,.mov .fs,.mov input,.mov select,.mov textarea,.edit-in,.calc-row input{font-size:16px;}
+.mov .fi.bn{font-size:26px;}
 .fs option{background:var(--bg2);color:var(--t1);}
 .tsb{display:flex;gap:6px;flex-wrap:wrap;}
 .tb{flex:1;min-width:64px;padding:9px 5px;border-radius:11px;
@@ -898,7 +900,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .tdc-form-row{grid-template-columns:minmax(0,1fr) minmax(126px,.58fr);gap:8px}
   .tdc-form-row.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .tdc-form-row .fl{font-size:11px}
-  .tdc-form-row .fi,.tdc-form-row .fs{padding:10px 9px;font-size:13px}
+  .tdc-form-row .fi,.tdc-form-row .fs{padding:10px 9px;font-size:16px}
   #mov-tdc .mti{font-size:21px}
 }
 @media(max-width:700px){
