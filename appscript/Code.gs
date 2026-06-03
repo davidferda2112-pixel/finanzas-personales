@@ -1792,6 +1792,53 @@ function guardarPinturasMes(params){
   }
 }
 
+function exportarSnapshotSupabase(opts){
+  try{
+    opts=opts||{};
+    var mesesRes=getMesesDisponibles();
+    if(!mesesRes||!mesesRes.ok) return mesesRes||{ok:false,error:'No se pudieron leer los meses'};
+    var meses=mesesRes.data||[];
+    if(opts.meses&&opts.meses.length){
+      var filtro={};
+      opts.meses.forEach(function(m){filtro[_normalizarMesNombre(m)]=true;});
+      meses=meses.filter(function(m){return filtro[_normalizarMesNombre(m)];});
+    }
+    var cards=['VISA','MC'];
+    var out={
+      exportedAt:new Date().toISOString(),
+      source:'apps_script_sheets',
+      mesesDisponibles:mesesRes.data||[],
+      meses:[],
+      balance:getBalanceGeneral(),
+      flujo:getFlujoCaja(),
+      japon:getViajeJapon()
+    };
+    meses.forEach(function(m){
+      var yy=parseInt(String(m).split(' ')[1],10);
+      var anio=isNaN(yy)?(new Date()).getFullYear():2000+yy;
+      var tdcStates=[];
+      cards.forEach(function(card,idx){
+        tdcStates.push({
+          tarjeta:card,
+          state:getTarjetasState({mes:m,idx:idx,anio:anio}),
+          movimientos:getMovimientosTarjeta(m,card)
+        });
+      });
+      out.meses.push({
+        mes:m,
+        anio:anio,
+        mesData:getMesData(m),
+        movimientos:getMovimientosMes(m),
+        tarjetas:tdcStates,
+        pinturas:getPinturasMes(m)
+      });
+    });
+    return{ok:true,data:out};
+  }catch(e){
+    return{ok:false,error:e.toString()};
+  }
+}
+
 // ============================================================
 // API para Vercel - agrega este bloque al final de Code.gs
 // ============================================================
@@ -1814,6 +1861,7 @@ var API_METHODS = {
   actualizarJapon: actualizarJapon,
   getPinturasMes: getPinturasMes,
   guardarPinturasMes: guardarPinturasMes,
+  exportarSnapshotSupabase: exportarSnapshotSupabase,
   parseTarjetas: parseTarjetas,
   getTarjetasState: getTarjetasState,
   registrarMovimientoTarjeta: registrarMovimientoTarjeta,
