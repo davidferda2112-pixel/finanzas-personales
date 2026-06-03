@@ -78,10 +78,16 @@ function doGet(){
 
 // ── HELPERS INTERNOS ────────────────────────────────────────
 
+function _mesCalendarioActual(){
+  var hoy=new Date();
+  var mes=parseInt(Utilities.formatDate(hoy,'America/Guayaquil','M'),10)-1;
+  var yy=Utilities.formatDate(hoy,'America/Guayaquil','yy');
+  return MESES_NOM[mes]+' '+yy;
+}
+
 function _getMesActual(){
   var ss=getSS();
-  var hoy=new Date();
-  var nombre=MESES_NOM[hoy.getMonth()]+' '+String(hoy.getFullYear()).slice(-2);
+  var nombre=_mesCalendarioActual();
   var sh=ss.getSheetByName(nombre);
   if(sh) return nombre;
   var sheets=ss.getSheets();
@@ -567,6 +573,17 @@ function _mesDesdeFechaMovimiento(fecha){
   var p=_fechaPartesSimple(fecha);
   if(!p) return '';
   return MESES_NOM[p.m-1]+' '+String(p.y).slice(-2);
+}
+
+function _mesSiguienteNombre(mes){
+  mes=_normalizarMesNombre(mes);
+  var p=String(mes||'').split(' ');
+  if(p.length<2) return '';
+  var idx=MESES_NOM.indexOf(p[0]),yy=parseInt(p[1],10);
+  if(idx<0||isNaN(yy)) return '';
+  idx++;
+  if(idx>11){idx=0;yy++;}
+  return MESES_NOM[idx]+' '+String(yy).padStart(2,'0');
 }
 
 function _sumarFilaTdc(hist, concepto, mesCorto, monto){
@@ -1528,6 +1545,50 @@ function _saldoFinalRealParaCrearMes(nombreBase,fallback){
   }catch(err){Logger.log('saldo real crear mes: '+err);}
   return _n(fallback);
 }
+
+function getInitialState(opts){
+  try{
+    if(typeof opts==='string') opts={homeMes:opts,histMes:opts};
+    opts=opts||{};
+    var ss=getSS();
+    var homeMes=_normalizarMesNombre(opts.homeMes)||_mesCalendarioActual();
+    if(_mesOrden(homeMes)<0) homeMes=_mesCalendarioActual();
+    var histMes=_normalizarMesNombre(opts.histMes)||homeMes;
+    if(_mesOrden(histMes)<0) histMes=homeMes;
+
+    _asegurarMesExiste(ss,homeMes);
+    if(histMes!==homeMes) _asegurarMesExiste(ss,histMes);
+
+    var mesesRes=getMesesDisponibles();
+    var meses=(mesesRes&&mesesRes.ok&&mesesRes.data)?mesesRes.data:[];
+    if(meses.indexOf(homeMes)<0) meses.push(homeMes);
+    if(meses.indexOf(histMes)<0) meses.push(histMes);
+    meses.sort(function(a,b){return _mesOrden(a)-_mesOrden(b);});
+
+    var out={ok:true,mesActual:homeMes,histMes:histMes,meses:meses};
+    function safe(key,fn){
+      try{out[key]=fn();}
+      catch(e){out[key]={ok:false,error:String(e)};}
+    }
+
+    safe('home',function(){return getMesData(homeMes);});
+    if(histMes===homeMes) out.hist=out.home;
+    else safe('hist',function(){return getMesData(histMes);});
+    safe('movimientos',function(){return getMovimientosMes(histMes);});
+    safe('tarjetas',function(){return parseTarjetas();});
+    if(opts.tdcTarjeta&&opts.tdcMes){
+      var tdcMes=_normalizarMesNombre(opts.tdcMes);
+      var tdcTarjeta=String(opts.tdcTarjeta||'');
+      out.tdcKey=tdcTarjeta+'|'+tdcMes;
+      safe('tdcMovs',function(){return getMovimientosTarjeta(tdcMes,tdcTarjeta);});
+      safe('tdcMovsAplicados',function(){return getMovimientosTarjeta(_mesSiguienteNombre(tdcMes),tdcTarjeta);});
+    }
+    safe('flujo',function(){return getFlujoCaja();});
+    safe('balance',function(){return getBalanceGeneral();});
+    safe('japon',function(){return getViajeJapon();});
+    return out;
+  }catch(e){return{ok:false,error:e.toString()};}
+}
 // ============================================================
 // API para Vercel - agrega este bloque al final de Code.gs
 // ============================================================
@@ -1540,6 +1601,7 @@ function _getApiToken(){
 }
 
 var API_METHODS = {
+  getInitialState: getInitialState,
   getMesesDisponibles: getMesesDisponibles,
   getMesData: getMesData,
   getBalanceGeneral: getBalanceGeneral,

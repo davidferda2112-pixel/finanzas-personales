@@ -996,7 +996,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="page" id="page-balance">
     <div class="ph">
       <div class="ph-l"><div class="ph-t">Balance General</div><div class="ph-s">Activos · Pasivos · Patrimonio</div></div>
-      <div class="ph-r"><div class="ib" onclick="tgBalEdit()" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div></div>
+      <div class="ph-r"><div class="ib" onclick="abrirBalanceLog()" title="Ultimos cambios"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg></div><div class="ib" onclick="tgBalEdit()" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div></div>
     </div>
     <div class="pc">
       <div class="card cs pat-c mb14">
@@ -1316,6 +1316,17 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   </div>
 </div>
 
+<!-- MODAL CAMBIOS BALANCE -->
+<div class="mov" id="mov-bal-log" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="msh" style="max-height:88vh">
+    <div class="mhnd"></div>
+    <div class="mti">Ultimos cambios</div>
+    <div style="font-size:12px;color:var(--t2);margin-bottom:12px">Balance General</div>
+    <div id="bal-log-modal-list"></div>
+    <button class="btn bgh bful" style="margin-top:14px" onclick="eid('mov-bal-log').classList.remove('open')">Cerrar</button>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // ESTADO
@@ -1495,6 +1506,69 @@ async function loadStep(label,fn,required){
   return{ok:false,label:label,error:last};
 }
 
+function stateOk(x){return x&&x.ok!==false&&!x.error&&!x.timeout;}
+function aplicarInitialState(res,opts){
+  opts=opts||{};
+  if(!res||res.ok===false||res.timeout)return false;
+  var homeMes=res.mesActual||opts.homeMes||G.mesActual||mesActualCalendario();
+  var histMes=res.histMes||opts.histMes||G.histMes||homeMes;
+
+  if(res.meses&&res.meses.length){
+    G.meses=res.meses.slice();
+    cacheSet('meses',G.meses);
+  }else if(!G.meses||!G.meses.length){
+    G.meses=[homeMes];
+  }
+  fillSels(G.meses);
+
+  G.mesActual=homeMes;
+  G.histMes=histMes;
+  cacheSet('mesActual',homeMes);
+  var sh=eid('sel-h');if(sh)sh.value=homeMes;
+  var sp=eid('sel-pr');if(sp)sp.value=histMes;
+
+  if(stateOk(res.home)){
+    var home=aplicarSaldoEsperado(res.home,homeMes);
+    G.mesData=home;
+    renderHome(home);
+  }
+  if(stateOk(res.hist)){
+    G.histData=res.hist;
+    if(eid('page-presupuesto').classList.contains('active'))renderPresupuesto(res.hist);
+  }
+  if(stateOk(res.movimientos)){
+    G.movimientos=res.movimientos.data||[];
+    G.movimientosMes=histMes;
+    if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
+  }
+  if(stateOk(res.tarjetas)){
+    G.tarjetas=res.tarjetas.tarjetas||[];
+    prepararMesesTarjeta();
+    if(stateOk(res.tdcMovs)){
+      G.tdcMovs=res.tdcMovs.data||[];
+      G.tdcMovsAplicados=stateOk(res.tdcMovsAplicados)?(res.tdcMovsAplicados.data||[]):[];
+      G._tdcMovsReadyKey=res.tdcKey||'';
+    }
+    renderSelectorTarjeta();
+    if(eid('page-tarjetas').classList.contains('active'))renderHistorialTarjeta();
+  }
+  if(stateOk(res.flujo)){
+    G.flujo=res.flujo.data;
+    if(eid('page-flujo').classList.contains('active'))renderFlujo(G.flujo);
+  }
+  if(stateOk(res.balance)){
+    G.balance=res.balance;
+    if(eid('page-balance').classList.contains('active'))renderBalance(G.balance);
+  }
+  if(stateOk(res.japon)){
+    G.japon=res.japon;
+    paintHomeJapon(res.japon);
+    renderModalJapon(res.japon);
+  }
+  G._dirty=false;
+  return true;
+}
+
 document.addEventListener('DOMContentLoaded',function(){
   hydrateBootLogo();
   prepararHeaders();
@@ -1579,46 +1653,33 @@ function init(){
 }
 
 async function preloadApp(){
-  var canHide=false,slow=null,needsInicioBg=false;
+  var canHide=false,slow=null;
+  var mes=mesActualCalendario();
   try{
-    slow=setTimeout(function(){bootText('Cargando inicio...');},1600);
-    var mesesRes=await withTimeout(gsRun('getMesesDisponibles'),1800,'meses');
-    if(mesesRes&&mesesRes.ok&&mesesRes.data&&mesesRes.data.length){
-      G.meses=mesesRes.data||[];
-      cacheSet('meses',G.meses);
-    }else if(!G.meses||!G.meses.length){
-      G.meses=[mesDesdeFechaISO(todayISO())];
-    }
-    fillSels(G.meses);
-    var mes=getMesActual(G.meses);
+    slow=setTimeout(function(){bootText('Preparando paginas...');},1200);
     G.mesActual=mes;
-    G.histMes=G.histMes||mes;
-    cacheSet('mesActual',mes);
-    var sh=eid('sel-h');if(sh)sh.value=G.mesActual;
-    var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
+    G.histMes=mes;
+    fillSels(G.meses&&G.meses.length?G.meses:[mes]);
+    var sh=eid('sel-h');if(sh)sh.value=mes;
+    var sp=eid('sel-pr');if(sp)sp.value=mes;
 
-    bootText('Cargando inicio...');
-    var mesDataRes=await withTimeout(gsRun('getMesData',[mes]),2600,'inicio');
-    if(mesDataRes&&mesDataRes.ok!==false&&!mesDataRes.timeout){
-      G.mesData=mesDataRes;
-      cacheSet('mesData_'+mes,mesDataRes);
-      renderHome(mesDataRes);
-    }else{
-      needsInicioBg=true;
-      if(!G.mesData){G.mesData={mes:mes};renderHome(G.mesData);}
-    }
+    bootText('Cargando datos...');
+    var initial=await withTimeout(gsRun('getInitialState',[{homeMes:mes,histMes:mes}]),5200,'estado inicial');
+    if(!aplicarInitialState(initial,{homeMes:mes,histMes:mes})) throw new Error('Carga inicial incompleta');
     clearTimeout(slow);
     bootText('Listo');
     canHide=true;
-    setTimeout(function(){refreshInicioBg(mes);preloadSecundario(mes,false);},220);
   }catch(e){
     if(slow)clearTimeout(slow);
-    if(!G.mesActual)G.mesActual=mesDesdeFechaISO(todayISO());
+    console.warn('preload inicial',e);
+    if(!G.mesActual)G.mesActual=mes;
     if(!G.meses||!G.meses.length)G.meses=[G.mesActual];
     fillSels(G.meses);
+    var sh2=eid('sel-h');if(sh2)sh2.value=G.mesActual;
+    var sp2=eid('sel-pr');if(sp2)sp2.value=G.histMes||G.mesActual;
     if(!G.mesData){G.mesData={mes:G.mesActual};renderHome(G.mesData);}
     canHide=true;
-    setTimeout(function(){refreshInicioBg(G.mesActual);preloadSecundario(G.mesActual,false);},220);
+    setTimeout(function(){syncTrasCambio({delay:120,mesInicio:G.mesActual,mesHist:G.histMes||G.mesActual});},220);
   }finally{
     if(canHide)setTimeout(hideBootLoader,160);
   }
@@ -1689,52 +1750,22 @@ function invalidarDatosCompartidos(){
 }
 function syncTrasCambio(opts){
   opts=opts||{};
-  invalidarDatosCompartidos();
+  G._dirty=true;
   if(__syncTimer)clearTimeout(__syncTimer);
   __syncTimer=setTimeout(function(){
     var seq=++__syncSeq;
-    var mesInicio=G.mesActual||opts.mes||mesDesdeFechaISO(todayISO());
-    var mesHist=G.histMes||mesInicio;
-    var jobs=[];
-    function ok(res){return res&&res.ok!==false&&!res.error&&!res.timeout;}
-    function job(label,promise,handler){
-      jobs.push(promise.then(function(res){
-        if(seq!==__syncSeq||!ok(res))return;
-        handler(res);
-      }).catch(function(e){console.warn('sync '+label,e);}));
-    }
-    job('meses',withTimeout(gsRun('getMesesDisponibles'),2600,'meses'),function(res){
-      if(res.ok&&res.data&&res.data.length){G.meses=res.data;cacheSet('meses',G.meses);fillSels(G.meses);}
-    });
-    job('inicio',withTimeout(gsRun('getMesData',[mesInicio]),3800,'inicio'),function(res){
-      res=aplicarSaldoEsperado(res,mesInicio);
-      G.mesData=res;
-      cacheSet('mesData_'+mesInicio,res);
-      renderHome(res);
-    });
-    job('historial-data',withTimeout(gsRun('getMesData',[mesHist]),3800,'historial'),function(res){
-      G.histData=res;
-      cacheSet('mesData_'+mesHist,res);
-      if(eid('page-presupuesto').classList.contains('active'))renderPresupuesto(res);
-    });
-    job('movimientos',withTimeout(gsRun('getMovimientosMes',[mesHist]),3800,'movimientos'),function(res){
-      if(res.ok){G.movimientos=res.data||[];G.movimientosMes=mesHist;if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();}
-    });
-    job('tarjetas',withTimeout(gsRun('parseTarjetas'),4300,'tarjetas'),function(res){
-      if(res.ok){G.tarjetas=res.tarjetas||[];prepararMesesTarjeta();renderSelectorTarjeta();if(eid('page-tarjetas').classList.contains('active'))renderHistorialTarjeta();}
-    });
-    job('flujo',withTimeout(gsRun('getFlujoCaja'),4300,'flujo'),function(res){
-      if(res.ok){G.flujo=res.data;if(eid('page-flujo').classList.contains('active'))renderFlujo(res.data);}
-    });
-    job('balance',withTimeout(gsRun('getBalanceGeneral'),4300,'balance'),function(res){
-      if(res.ok){G.balance=res;if(eid('page-balance').classList.contains('active'))renderBalance(res);}
-    });
-    job('japon',withTimeout(gsRun('getViajeJapon'),3200,'japon'),function(res){
-      if(res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
-    });
-    Promise.allSettled(jobs).then(function(){
-      if(seq===__syncSeq)G._dirty=false;
-    });
+    var mesInicio=opts.mesInicio||opts.mes||G.mesActual||mesActualCalendario();
+    var mesHist=opts.mesHist||G.histMes||mesInicio;
+    var payload={homeMes:mesInicio,histMes:mesHist};
+    var tAct=G.tarjetas&&G.tarjetas[G.tcIdx];
+    if(tAct&&G.tcMesActual){payload.tdcTarjeta=tAct.id;payload.tdcMes=G.tcMesActual;}
+    withTimeout(gsRun('getInitialState',[payload]),opts.timeout||5600,'estado')
+      .then(function(res){
+        if(seq!==__syncSeq)return;
+        if(aplicarInitialState(res,{homeMes:mesInicio,histMes:mesHist}))return;
+        console.warn('sync estado incompleto',res);
+      })
+      .catch(function(e){console.warn('sync estado',e);});
   },opts.delay==null?90:opts.delay);
 }
 
@@ -1757,16 +1788,7 @@ function cambiarMesInicio(nombre){
   G.movimientosMes=null;
   cacheSet('mesActual',nombre);
   var sh=eid('sel-h');if(sh)sh.value=nombre;
-  google.script.run
-    .withSuccessHandler(function(res){
-      if(!res||!res.ok){showToast('Error al cargar '+nombre,'err');return;}
-      res=aplicarSaldoEsperado(res,nombre);
-      G.mesData=res;
-      cacheSet('mesData_'+nombre,res);
-      renderHome(res);
-    })
-    .withFailureHandler(function(e){showToast('Error: '+e,'err');})
-    .getMesData(nombre);
+  syncTrasCambio({delay:0,mesInicio:nombre,mesHist:G.histMes||nombre});
 }
 
 function cambiarMesHistorial(nombre){
@@ -1774,15 +1796,7 @@ function cambiarMesHistorial(nombre){
   G.histMes=nombre;
   G.movimientosMes=null;
   var sp=eid('sel-pr');if(sp)sp.value=nombre;
-  google.script.run
-    .withSuccessHandler(function(res){
-      if(!res||!res.ok){showToast('Error al cargar '+nombre,'err');return;}
-      G.histData=res;
-      cacheSet('mesData_'+nombre,res);
-      renderPresupuesto(res);
-    })
-    .withFailureHandler(function(e){showToast('Error: '+e,'err');})
-    .getMesData(nombre);
+  syncTrasCambio({delay:0,mesInicio:G.mesActual||mesActualCalendario(),mesHist:nombre});
 }
 
 // ── HOME ─────────────────────────────────────────────────────
@@ -2043,8 +2057,8 @@ function loadBalance(){
     .withFailureHandler(function(e){showToast('Error: '+e,'err');})
     .getBalanceGeneral();
 }
-function renderBalanceLog(items){
-  var el=eid('b-log');
+function renderBalanceLog(items,targetId){
+  var el=eid(targetId||'bal-log-modal-list');
   if(!el)return;
   items=items||[];
   if(!items.length){
@@ -2061,9 +2075,6 @@ function renderBalance(d){
   eid('b-pat').textContent=fmt(d.patrimonioNeto||0);
   eid('b-act-t').textContent=fmt(d.totalActivos||0);
   eid('b-pas-t').textContent=fmt(d.totalPasivos||0);
-  var bpc=eid('page-balance').querySelector('.pc');
-  if(bpc&&!eid('b-log'))bpc.insertAdjacentHTML('afterbegin','<div class="card bal-log" id="b-log"></div>');
-  renderBalanceLog(d.cambios||[]);
 
   var actHtml='',grupoActual=null,itemsGrupo=[];
   function flushGrupo(){
@@ -2109,6 +2120,20 @@ function _saveBalanceLegacy(codigo,valor){
 }
 
 // ── FLUJO ─────────────────────────────────────────────────────
+function abrirBalanceLog(){
+  if(G.balance){
+    renderBalanceLog(G.balance.cambios||[],'bal-log-modal-list');
+    eid('mov-bal-log').classList.add('open');
+    return;
+  }
+  renderBalanceLog([],'bal-log-modal-list');
+  eid('mov-bal-log').classList.add('open');
+  google.script.run
+    .withSuccessHandler(function(res){
+      if(res&&res.ok){G.balance=res;renderBalanceLog(res.cambios||[],'bal-log-modal-list');}
+    })
+    .getBalanceGeneral();
+}
 function tgBalEdit(){G.balEdit=!G.balEdit;if(G.balance)renderBalance(G.balance);showToast(G.balEdit?'Modo edicion':'Cambios guardados','ok');}
 function saveBalance(codigo,valor){
   var nota=prompt('Motivo del cambio:')||'';
@@ -2716,6 +2741,7 @@ function renderHistorialTarjeta(){
   });
   html+='</tbody></table>';
   eid('tc-hist').innerHTML='<div class="tc-hist-desktop" style="overflow-x:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:20px">'+html+'</div>';
+  if(G._tdcMovsReadyKey===t.id+'|'+G.tcMesActual){renderMovsTdc();return;}
   loadMovsTdc();
 }
 
@@ -2731,7 +2757,7 @@ function loadMovsTdc(){
     .withSuccessHandler(function(res){
       G.tdcMovs=res&&res.ok?res.data||[]:[];
       google.script.run
-        .withSuccessHandler(function(res2){G.tdcMovsAplicados=res2&&res2.ok?res2.data||[]:[];renderMovsTdc();})
+        .withSuccessHandler(function(res2){G.tdcMovsAplicados=res2&&res2.ok?res2.data||[]:[];G._tdcMovsReadyKey=t.id+'|'+G.tcMesActual;renderMovsTdc();})
         .getMovimientosTarjeta(mesPago,t.id);
     })
     .getMovimientosTarjeta(G.tcMesActual,t.id);
