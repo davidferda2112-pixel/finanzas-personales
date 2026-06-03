@@ -1646,8 +1646,7 @@ function init(){
   var cachedMeses=cacheGet('meses');
   if(cachedMeses&&cachedMeses.length){
     G.meses=cachedMeses;
-    G.mesActual=mesActualCalendario();
-    if(G.meses.indexOf(G.mesActual)<0)G.meses.push(G.mesActual);
+    G.mesActual=getMesActual(G.meses);
     fillSels(G.meses);
     G.histMes=G.histMes||G.mesActual;
     var sh=eid('sel-h');if(sh)sh.value=G.mesActual;
@@ -1827,8 +1826,6 @@ function syncTrasCambio(opts){
 
 function fillSels(m){
   m=(m||[]).slice();
-  var mesHoy=mesActualCalendario();
-  if(m.indexOf(mesHoy)<0)m.push(mesHoy);
   m.sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
   G.meses=m;
   var h=m.map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('');
