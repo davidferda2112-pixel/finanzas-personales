@@ -1324,7 +1324,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="fg"><div class="fl">Monto ($)</div><input class="fi bn" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" id="tdc-monto" placeholder="0.00"></div>
     <div class="tdc-form-row two" id="tdc-cargo-date-row">
       <div class="fg tdc-date-box"><div class="fl">Fecha del abono</div><input class="fi" type="date" id="tdc-fecha" onchange="actualizarMesAplicadoDefault()"></div>
-      <div class="fg" id="tdc-mes-aplica-box"><div class="fl">Mes al que aplica</div><select class="fs" id="tdc-mes-aplica"></select></div>
+      <div class="fg" id="tdc-mes-aplica-box"><div class="fl">Aplicar a Pagos / Créditos</div><select class="fs" id="tdc-mes-aplica" onchange="actualizarHintCargoAbono()"></select></div>
     </div>
     <div class="fg tdc-abono-target" id="tdc-cargo-target-box"><div class="fl">Cargo a abonar</div><select class="fs" id="tdc-cargo-target" onchange="actualizarHintCargoAbono()"></select></div>
     <div class="tdc-target-hint" id="tdc-cargo-target-hint"></div>
@@ -3010,7 +3010,11 @@ function llenarMesAplicadoTdc(valor){
   sel.value=deseado;
 }
 function actualizarMesAplicadoDefault(){
-  if(G.tdcAccion==='abono')llenarMesAplicadoTdc(mesSiguienteNombre(mesDesdeFechaISO(eid('tdc-fecha').value)));
+  if(G.tdcAccion==='abono'){
+    var base=G.tcMesActual||mesDesdeFechaISO(eid('tdc-fecha').value)||G.mesActual;
+    llenarMesAplicadoTdc(mesSiguienteNombre(base));
+    actualizarHintCargoAbono();
+  }
 }
 
 function prepararMesesTarjeta(){
@@ -3290,9 +3294,13 @@ function prepararSelectorCargoAbono(cargoId){
 function actualizarHintCargoAbono(){
   var sel=eid('tdc-cargo-target'),hint=eid('tdc-cargo-target-hint');
   if(!sel||!hint)return;
+  var mesPago=eid('tdc-mes-aplica')?eid('tdc-mes-aplica').value:'';
+  var fecha=eid('tdc-fecha')?eid('tdc-fecha').value:'';
+  var mesCaja=mesDesdeFechaISO(fecha);
+  var base='Sale de caja en '+(mesCaja||'-')+' y se registra en Pagos / Créditos de '+(mesPago||'-')+'. ';
   var row=getCargoRowsAbonables().filter(function(r){return String(r.m.id)===String(sel.value);})[0];
-  if(!row){hint.textContent='Sin cargo asociado: el abono se registrará como abono general de la tarjeta.';return;}
-  hint.innerHTML='Valor '+fmt(row.valor)+' · recogido '+fmt(row.recogido)+' · pendiente <strong style="color:'+(row.pendiente>0?'var(--warn)':'var(--ok)')+'">'+fmt(row.pendiente)+'</strong>';
+  if(!row){hint.textContent=base+'Sin cargo asociado: abono general de la tarjeta.';return;}
+  hint.innerHTML=base+'Valor '+fmt(row.valor)+' · recogido '+fmt(row.recogido)+' · pendiente <strong style="color:'+(row.pendiente>0?'var(--warn)':'var(--ok)')+'">'+fmt(row.pendiente)+'</strong>';
 }
 
 function abrirMovTdc(tipo,cargoId){
@@ -3311,7 +3319,7 @@ function abrirMovTdc(tipo,cargoId){
   eid('tdc-cargo-date-row').classList.remove('has-target');
   eid('tdc-cargo-target-hint').textContent='';
   if(tipo==='abono'){
-    llenarMesAplicadoTdc(mesSiguienteNombre(mesDesdeFechaISO(eid('tdc-fecha').value)));
+    llenarMesAplicadoTdc(mesSiguienteNombre(G.tcMesActual||mesDesdeFechaISO(eid('tdc-fecha').value)||G.mesActual));
     var rows=prepararSelectorCargoAbono(cargoId);
     if(rows.length) eid('tdc-cargo-date-row').classList.add('has-target');
     var row=rows.filter(function(r){return String(r.m.id)===String(eid('tdc-cargo-target').value);})[0];
@@ -3368,8 +3376,12 @@ function guardarMovTdc(){
   var fechaTdc=eid('tdc-fecha').value;
   var mesCajaTdc=mesDesdeFechaISO(fechaTdc)||G.mesActual||G.tcMesActual;
   var mesAplicadoTdc=G.tdcAccion==='abono'
-    ? (eid('tdc-mes-aplica').value||mesSiguienteNombre(mesCajaTdc)||G.tcMesActual||G.mesActual)
+    ? (eid('tdc-mes-aplica').value||mesSiguienteNombre(G.tcMesActual||mesCajaTdc)||G.tcMesActual||G.mesActual)
     : (G.tcMesActual||G.mesActual);
+  if(G.tdcAccion==='abono'&&mesAplicadoTdc===mesCajaTdc){
+    var okSame=confirm('Este abono saldrá de caja en '+mesCajaTdc+' y también se aplicará a Pagos / Créditos de '+mesAplicadoTdc+'. Si estás adelantando el pago del siguiente ciclo, cambia el campo "Aplicar a Pagos / Créditos". ¿Quieres registrarlo así?');
+    if(!okSame){btn.disabled=false;btn.textContent='Registrar';return;}
+  }
   var params={
     mes:mesAplicadoTdc,
     mesAplica:mesAplicadoTdc,
