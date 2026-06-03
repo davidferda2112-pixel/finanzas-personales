@@ -1452,7 +1452,11 @@ function mesActualCalendario(){
   return MESES_NOM_JS[hoy.getMonth()]+' '+String(hoy.getFullYear()).slice(-2);
 }
 function getMesActual(meses){
-  return mesActualCalendario();
+  var cal=mesActualCalendario();
+  meses=(meses||[]).slice();
+  if(meses.indexOf(cal)>=0)return cal;
+  if(meses.length)return meses[meses.length-1];
+  return cal;
 }
 function showToast(msg,tipo){
   var el=document.createElement('div');el.className='toast '+(tipo||'ok');el.textContent=msg;
@@ -1653,35 +1657,57 @@ function init(){
 }
 
 async function preloadApp(){
-  var canHide=false,slow=null;
-  var mes=mesActualCalendario();
+  var canHide=false,slow=null,mes=mesActualCalendario();
   try{
-    slow=setTimeout(function(){bootText('Preparando paginas...');},1200);
+    slow=setTimeout(function(){bootText('Cargando meses...');},1200);
+    bootText('Cargando meses...');
+    var mesesRes=await withTimeout(gsRun('getMesesDisponibles'),6500,'meses');
+    if(!mesesRes||mesesRes.timeout||!mesesRes.ok||!mesesRes.data||!mesesRes.data.length){
+      throw new Error((mesesRes&&mesesRes.error)||'No llegaron los meses del libro');
+    }
+    G.meses=mesesRes.data||[];
+    cacheSet('meses',G.meses);
+    fillSels(G.meses);
+    mes=getMesActual(G.meses);
     G.mesActual=mes;
     G.histMes=mes;
-    fillSels(G.meses&&G.meses.length?G.meses:[mes]);
+    cacheSet('mesActual',mes);
     var sh=eid('sel-h');if(sh)sh.value=mes;
     var sp=eid('sel-pr');if(sp)sp.value=mes;
 
-    bootText('Cargando datos...');
-    var initial=await withTimeout(gsRun('getInitialState',[{homeMes:mes,histMes:mes}]),5200,'estado inicial');
-    if(!aplicarInitialState(initial,{homeMes:mes,histMes:mes})) throw new Error('Carga inicial incompleta');
+    bootText('Cargando inicio...');
+    var mesDataRes=await withTimeout(gsRun('getMesData',[mes]),8500,'inicio');
+    if(!mesDataRes||mesDataRes.timeout||mesDataRes.ok===false||mesDataRes.error){
+      throw new Error((mesDataRes&&mesDataRes.error)||'No llegaron los datos de inicio');
+    }
+    mesDataRes=aplicarSaldoEsperado(mesDataRes,mes);
+    G.mesData=mesDataRes;
+    G.histData=mesDataRes;
+    cacheSet('mesData_'+mes,mesDataRes);
+    renderHome(mesDataRes);
+
+    withTimeout(gsRun('getMovimientosMes',[mes]),5000,'movimientos').then(function(res){
+      if(res&&res.ok){
+        G.movimientos=res.data||[];
+        G.movimientosMes=mes;
+        if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
+      }
+    }).catch(function(e){console.warn('movimientos iniciales',e);});
+
     clearTimeout(slow);
     bootText('Listo');
     canHide=true;
+    setTimeout(function(){preloadSecundario(mes,false);},260);
   }catch(e){
     if(slow)clearTimeout(slow);
     console.warn('preload inicial',e);
-    if(!G.mesActual)G.mesActual=mes;
-    if(!G.meses||!G.meses.length)G.meses=[G.mesActual];
-    fillSels(G.meses);
-    var sh2=eid('sel-h');if(sh2)sh2.value=G.mesActual;
-    var sp2=eid('sel-pr');if(sp2)sp2.value=G.histMes||G.mesActual;
-    if(!G.mesData){G.mesData={mes:G.mesActual};renderHome(G.mesData);}
+    bootText('Error al cargar datos. Recarga la app.');
+    showToast('No se pudo cargar el libro. Recarga la app.','err');
     canHide=true;
-    setTimeout(function(){syncTrasCambio({delay:120,mesInicio:G.mesActual,mesHist:G.histMes||G.mesActual});},220);
   }finally{
-    if(canHide)setTimeout(hideBootLoader,160);
+    if(canHide)setTimeout(function(){
+      if(G.mesData)hideBootLoader();
+    },260);
   }
 }
 
@@ -1756,16 +1782,46 @@ function syncTrasCambio(opts){
     var seq=++__syncSeq;
     var mesInicio=opts.mesInicio||opts.mes||G.mesActual||mesActualCalendario();
     var mesHist=opts.mesHist||G.histMes||mesInicio;
-    var payload={homeMes:mesInicio,histMes:mesHist};
-    var tAct=G.tarjetas&&G.tarjetas[G.tcIdx];
-    if(tAct&&G.tcMesActual){payload.tdcTarjeta=tAct.id;payload.tdcMes=G.tcMesActual;}
-    withTimeout(gsRun('getInitialState',[payload]),opts.timeout||5600,'estado')
-      .then(function(res){
-        if(seq!==__syncSeq)return;
-        if(aplicarInitialState(res,{homeMes:mesInicio,histMes:mesHist}))return;
-        console.warn('sync estado incompleto',res);
-      })
-      .catch(function(e){console.warn('sync estado',e);});
+    var jobs=[];
+    function ok(res){return res&&res.ok!==false&&!res.error&&!res.timeout;}
+    function job(label,promise,handler){
+      jobs.push(promise.then(function(res){
+        if(seq!==__syncSeq||!ok(res))return;
+        handler(res);
+      }).catch(function(e){console.warn('sync '+label,e);}));
+    }
+    job('meses',withTimeout(gsRun('getMesesDisponibles'),3600,'meses'),function(res){
+      if(res.ok&&res.data&&res.data.length){G.meses=res.data;cacheSet('meses',G.meses);fillSels(G.meses);}
+    });
+    job('inicio',withTimeout(gsRun('getMesData',[mesInicio]),5200,'inicio'),function(res){
+      res=aplicarSaldoEsperado(res,mesInicio);
+      G.mesData=res;
+      cacheSet('mesData_'+mesInicio,res);
+      renderHome(res);
+    });
+    job('historial-data',withTimeout(gsRun('getMesData',[mesHist]),5200,'historial'),function(res){
+      G.histData=res;
+      cacheSet('mesData_'+mesHist,res);
+      if(eid('page-presupuesto').classList.contains('active'))renderPresupuesto(res);
+    });
+    job('movimientos',withTimeout(gsRun('getMovimientosMes',[mesHist]),5200,'movimientos'),function(res){
+      if(res.ok){G.movimientos=res.data||[];G.movimientosMes=mesHist;if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();}
+    });
+    job('tarjetas',withTimeout(gsRun('parseTarjetas'),5600,'tarjetas'),function(res){
+      if(res.ok){G.tarjetas=res.tarjetas||[];prepararMesesTarjeta();renderSelectorTarjeta();if(eid('page-tarjetas').classList.contains('active'))renderHistorialTarjeta();}
+    });
+    job('flujo',withTimeout(gsRun('getFlujoCaja'),5600,'flujo'),function(res){
+      if(res.ok){G.flujo=res.data;if(eid('page-flujo').classList.contains('active'))renderFlujo(res.data);}
+    });
+    job('balance',withTimeout(gsRun('getBalanceGeneral'),5600,'balance'),function(res){
+      if(res.ok){G.balance=res;if(eid('page-balance').classList.contains('active'))renderBalance(res);}
+    });
+    job('japon',withTimeout(gsRun('getViajeJapon'),4200,'japon'),function(res){
+      if(res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
+    });
+    Promise.allSettled(jobs).then(function(){
+      if(seq===__syncSeq)G._dirty=false;
+    });
   },opts.delay==null?90:opts.delay);
 }
 
