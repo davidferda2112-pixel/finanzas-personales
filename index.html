@@ -1673,17 +1673,9 @@ async function preloadApp(){
     cacheSet('mesActual',mes);
     var sh=eid('sel-h');if(sh)sh.value=mes;
     var sp=eid('sel-pr');if(sp)sp.value=mes;
-    var movimientosReady=withTimeout(gsRun('getMovimientosMes',[mes]),6500,'movimientos').then(function(res){
-      if(res&&res.ok){
-        G.movimientos=res.data||[];
-        G.movimientosMes=mes;
-        if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
-      }
-    }).catch(function(e){console.warn('movimientos iniciales',e);});
-    var tarjetasReady=cargarTarjetasState({mes:mes,idx:G.tcIdx||0,anio:G.tdcAnio||2026},6500);
 
     bootText('Cargando inicio...');
-    var mesDataRes=await withTimeout(gsRun('getMesData',[mes]),8500,'inicio');
+    var mesDataRes=await withTimeout(gsRun('getMesData',[mes]),12000,'inicio');
     if(!mesDataRes||mesDataRes.timeout||mesDataRes.ok===false||mesDataRes.error){
       throw new Error((mesDataRes&&mesDataRes.error)||'No llegaron los datos de inicio');
     }
@@ -1693,19 +1685,38 @@ async function preloadApp(){
     cacheSet('mesData_'+mes,mesDataRes);
     renderHome(mesDataRes);
 
-    bootText('Preparando historial y tarjetas...');
-    await Promise.allSettled([movimientosReady,tarjetasReady]);
+    bootText('Preparando historial...');
+    await withTimeout(gsRun('getMovimientosMes',[mes]),6500,'movimientos').then(function(res){
+      if(res&&res.ok){
+        G.movimientos=res.data||[];
+        G.movimientosMes=mes;
+        if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
+      }
+    }).catch(function(e){console.warn('movimientos iniciales',e);});
 
     clearTimeout(slow);
     bootText('Listo');
     canHide=true;
-    setTimeout(function(){preloadSecundario(mes,false);},260);
+    setTimeout(function(){
+      cargarTarjetasState({mes:mes,idx:G.tcIdx||0,anio:G.tdcAnio||2026},9000);
+      preloadSecundario(mes,false);
+    },120);
   }catch(e){
     if(slow)clearTimeout(slow);
     console.warn('preload inicial',e);
-    bootText('Error al cargar datos. Recarga la app.');
-    showToast('No se pudo cargar el libro. Recarga la app.','err');
-    canHide=true;
+    var cached=cacheGet('mesData_'+mes);
+    if(cached&&cached.vistaGeneral){
+      G.mesData=cached;
+      G.histData=cached;
+      renderHome(cached);
+      bootText('Cargando con datos guardados...');
+      canHide=true;
+      setTimeout(function(){syncTrasCambio({delay:120,mesInicio:mes,mesHist:mes,timeout:12000});},220);
+    }else{
+      bootText('No se pudo cargar el libro. Revisa conexión y recarga.');
+      showToast('No se pudo cargar el libro. Recarga la app.','err');
+      canHide=false;
+    }
   }finally{
     if(canHide)setTimeout(function(){
       if(G.mesData)hideBootLoader();
@@ -1755,7 +1766,20 @@ function cargarTarjetasState(opts,ms){
       if(!aplicarTarjetasState(res))console.warn('tarjetas incompletas',res);
       return res;
     })
-    .catch(function(e){console.warn('tarjetas state',e);return null;});
+    .catch(function(e){
+      console.warn('tarjetas state',e);
+      return withTimeout(gsRun('parseTarjetas'),ms||5600,'tarjetas base')
+        .then(function(res){
+          if(res&&res.ok){
+            G.tarjetas=res.tarjetas||[];
+            prepararMesesTarjeta();
+            renderSelectorTarjeta();
+            renderHistorialTarjeta();
+          }
+          return res;
+        })
+        .catch(function(err){console.warn('tarjetas fallback',err);return null;});
+    });
 }
 
 async function preloadSecundarioReady(mes,force,showProgress){
