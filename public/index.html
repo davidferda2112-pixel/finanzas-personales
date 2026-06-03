@@ -820,9 +820,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .home-japan-card b{font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:22px;letter-spacing:-.04em}
 .home-japan-progress{height:7px;border-radius:999px;background:rgba(208,222,232,.75);overflow:hidden;margin-top:12px}
 .home-japan-progress i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue),var(--green))}
-.home-paint-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:16px;border-radius:22px;overflow:hidden;position:relative;background:linear-gradient(135deg,rgba(255,255,255,.88),rgba(255,240,252,.68));margin-top:14px}
-.home-paint-card:before{content:"";position:absolute;right:-28px;top:-28px;width:116px;height:116px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(255,149,0,.72),rgba(255,59,48,.26) 58%,transparent 62%)}
-.home-paint-card:after{content:"";position:absolute;left:-26px;bottom:-34px;width:135px;height:86px;border-radius:999px;background:linear-gradient(135deg,rgba(0,122,255,.18),rgba(175,82,222,.22));filter:blur(.2px)}
+.home-paint-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:13px 14px;min-height:78px;border-radius:20px;overflow:hidden;position:relative;background:linear-gradient(135deg,rgba(255,255,255,.9),rgba(255,240,252,.68));margin-top:12px}
+.home-paint-card:before{content:"";position:absolute;right:-24px;top:-34px;width:104px;height:104px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(255,149,0,.72),rgba(255,59,48,.24) 58%,transparent 62%)}
+.home-paint-card:after{content:"";position:absolute;left:-30px;bottom:-42px;width:124px;height:78px;border-radius:999px;background:linear-gradient(135deg,rgba(0,122,255,.16),rgba(175,82,222,.20));filter:blur(.2px)}
 .home-paint-card h3{font-size:16px;letter-spacing:-.02em;position:relative;z-index:1}
 .home-paint-card p{font-size:12px;color:var(--t2);margin-top:4px;position:relative;z-index:1}
 .home-paint-card b{font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:22px;letter-spacing:-.04em;position:relative;z-index:1}
@@ -1526,6 +1526,33 @@ function cacheGetBootHome(mes){
 function cacheSetBootHome(mes,data){
   if(mes&&data&&data.vistaGeneral)cacheSet(bootCacheKey(mes),data);
 }
+function cacheKeyMes(prefix,mes){
+  return prefix+'_'+String(mes||'').replace(/\s+/g,'_');
+}
+function cacheGetMovimientos(mes){
+  var d=cacheGet(cacheKeyMes('movs',mes));
+  return d&&d.mes===mes&&Array.isArray(d.data)?d.data:null;
+}
+function cacheSetMovimientos(mes,data){
+  if(mes&&Array.isArray(data))cacheSet(cacheKeyMes('movs',mes),{mes:mes,data:data});
+}
+function cacheGetPinturas(mes){
+  var d=cacheGet(cacheKeyMes('pinturas',mes));
+  return d&&d.mes===mes?d:null;
+}
+function cacheSetPinturas(mes,data){
+  if(mes&&data)cacheSet(cacheKeyMes('pinturas',mes),Object.assign({},data,{mes:mes}));
+}
+function tarjetasCacheKey(opts){
+  opts=opts||{};
+  return 'tarjetas_'+String(opts.mes||'').replace(/\s+/g,'_')+'_'+(opts.idx||0)+'_'+(opts.anio||2026);
+}
+function cacheGetTarjetas(opts){
+  return cacheGet(tarjetasCacheKey(opts));
+}
+function cacheSetTarjetas(opts,res){
+  if(res&&res.ok!==false)cacheSet(tarjetasCacheKey(opts),res);
+}
 function getSaldoData(d){
   return d&&d.vistaGeneral&&d.vistaGeneral.saldoFinal?parseFloat(d.vistaGeneral.saldoFinal.actual)||0:0;
 }
@@ -1551,6 +1578,7 @@ function getMesActual(meses){
   var cal=mesActualCalendario();
   meses=(meses||[]).slice();
   if(meses.indexOf(cal)>=0)return cal;
+  meses.sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
   if(meses.length)return meses[meses.length-1];
   return cal;
 }
@@ -1748,11 +1776,115 @@ function init(){
     var sh=eid('sel-h');if(sh)sh.value=G.mesActual;
     var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
   }
-  preloadApp();
+  preloadAppFast();
+}
+
+async function preloadAppFast(){
+  var canHide=false,mes=mesActualCalendario(),slow=null,paintedCached=false,cachedMesPainted='';
+  try{
+    slow=setTimeout(function(){bootText('Actualizando datos...');},1200);
+    bootText('Preparando datos...');
+
+    var cachedMeses=G.meses&&G.meses.length?G.meses:(cacheGet('meses')||[]);
+    if(cachedMeses.length){
+      cachedMeses.sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
+      G.meses=cachedMeses;
+      fillSels(G.meses);
+      mes=getMesActual(G.meses);
+    }
+    G.mesActual=mes;
+    G.histMes=G.histMes||mes;
+    var sh=eid('sel-h');if(sh)sh.value=G.mesActual;
+    var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
+
+    var cached=cacheGetBootHome(mes);
+    var last=cacheGet('lastGoodHome');
+    if((!cached||!cached.vistaGeneral)&&last&&last.mes===mes&&last.data)cached=last.data;
+    if(cached&&cached.vistaGeneral){
+      G.mesData=cached;
+      G.histData=cached;
+      renderHome(cached);
+      paintedCached=true;
+      cachedMesPainted=mes;
+      canHide=true;
+      setTimeout(function(){hideBootLoader();},650);
+    }
+
+    var movCache=cacheGetMovimientos(G.histMes);
+    if(movCache){
+      G.movimientos=movCache;
+      G.movimientosMes=G.histMes;
+    }
+    var cardOpts={mes:G.tcMesActual||mes,idx:G.tcIdx||0,anio:G.tdcAnio||2026};
+    var cardCache=cacheGetTarjetas(cardOpts);
+    if(cardCache)aplicarTarjetasState(cardCache,true);
+    var paintCache=cacheGetPinturas(mes);
+    if(paintCache){
+      G.pinturas=paintCache;
+      paintHomePinturas(paintCache);
+    }
+
+    var mesesRes=await withTimeout(gsRun('getMesesDisponibles'),3200,'meses');
+    if(mesesRes&&mesesRes.ok&&mesesRes.data&&mesesRes.data.length){
+      G.meses=mesesRes.data.slice().sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
+      cacheSet('meses',G.meses);
+      fillSels(G.meses);
+      mes=getMesActual(G.meses);
+      G.mesActual=mes;
+      G.histMes=G.histMes||mes;
+      var sh2=eid('sel-h');if(sh2)sh2.value=G.mesActual;
+      var sp2=eid('sel-pr');if(sp2)sp2.value=G.histMes;
+    }
+
+    if(!paintedCached || !G.mesData || cachedMesPainted!==G.mesActual){
+      bootText('Cargando inicio...');
+      var mesDataRes=await withTimeout(gsRun('getMesData',[G.mesActual]),5200,'inicio');
+      if(!mesDataRes||mesDataRes.timeout||mesDataRes.ok===false||mesDataRes.error){
+        throw new Error((mesDataRes&&mesDataRes.error)||'No llegaron los datos de inicio');
+      }
+      mesDataRes=aplicarSaldoEsperado(mesDataRes,G.mesActual);
+      G.mesData=mesDataRes;
+      G.histData=G.histData||mesDataRes;
+      cacheSetBootHome(G.mesActual,mesDataRes);
+      cacheSet('lastGoodHome',{mes:G.mesActual,data:mesDataRes});
+      renderHome(mesDataRes);
+      canHide=true;
+    }
+
+    clearTimeout(slow);
+    bootText('Listo');
+    setTimeout(function(){preloadSecundario(G.mesActual,false);},120);
+  }catch(e){
+    if(slow)clearTimeout(slow);
+    console.warn('preload fast',e);
+    try{
+      var legacy=await preloadAppLegacy(mes);
+      if(legacy){canHide=true;return;}
+    }catch(legacyErr){
+      console.warn('preload legacy',legacyErr);
+    }
+    var fallback=cacheGetBootHome(mes);
+    var lastGood=cacheGet('lastGoodHome');
+    if((!fallback||!fallback.vistaGeneral)&&lastGood&&lastGood.data)fallback=lastGood.data;
+    if(fallback&&fallback.vistaGeneral){
+      G.mesData=fallback;
+      G.histData=fallback;
+      renderHome(fallback);
+      bootText('Entrando con datos guardados...');
+      canHide=true;
+      showToast('Entrando con datos guardados. Actualizando...','ok');
+      setTimeout(function(){refreshInicioBg(G.mesActual||mes);},350);
+    }else{
+      bootText('No se pudo cargar el libro. Revisa conexion y recarga.');
+      showToast('No se pudo cargar el libro. Recarga la app.','err');
+    }
+  }finally{
+    if(canHide)setTimeout(function(){if(G.mesData)hideBootLoader();},260);
+  }
 }
 
 async function preloadApp(){
-  var canHide=false,slow=null,mes=mesActualCalendario();
+  var canHide=false,slow=null,mes=mesActualCalendario(),paintedCached=false;
   try{
     slow=setTimeout(function(){bootText('Preparando datos...');},1200);
     bootText('Preparando datos...');
@@ -1870,18 +2002,25 @@ function refreshInicioBg(mes){
     }
   }).catch(function(e){console.warn('inicio bg',e);});
   gsRun('getMesesDisponibles').then(function(res){
-    if(res&&res.ok&&res.data&&res.data.length){G.meses=res.data;cacheSet('meses',G.meses);fillSels(G.meses);}
+    if(res&&res.ok&&res.data&&res.data.length){G.meses=res.data.slice().sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});cacheSet('meses',G.meses);fillSels(G.meses);}
   }).catch(function(e){console.warn('meses bg',e);});
 }
 
 function cargarMovimientosMesBg(mes){
   mes=mes||G.histMes||G.mesActual;
   if(!mes)return Promise.resolve(null);
+  var cached=cacheGetMovimientos(mes);
+  if(cached&&G.movimientosMes!==mes){
+    G.movimientos=cached;
+    G.movimientosMes=mes;
+    if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
+  }
   return withTimeout(gsRun('getMovimientosMes',[mes]),6500,'movimientos')
     .then(function(res){
       if(res&&res.ok){
         G.movimientos=res.data||[];
         G.movimientosMes=mes;
+        cacheSetMovimientos(mes,G.movimientos);
         if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
       }
       return res;
@@ -1893,7 +2032,7 @@ function preloadSecundario(mes,force){
   preloadSecundarioReady(mes,force,false);
 }
 
-function aplicarTarjetasState(res){
+function aplicarTarjetasState(res,fromCache){
   if(!res||res.ok===false||res.timeout)return false;
   G.tarjetas=res.tarjetas||[];
   G.tcIdx=parseInt(res.tcIdx,10)||0;
@@ -1905,6 +2044,7 @@ function aplicarTarjetasState(res){
   prepararMesesTarjeta();
   renderSelectorTarjeta();
   renderHistorialTarjeta();
+  if(!fromCache)cacheSetTarjetas({mes:G.tcMesActual,idx:G.tcIdx,anio:G.tdcAnio},res);
   return true;
 }
 
@@ -1958,7 +2098,7 @@ async function preloadSecundarioReady(mes,force,showProgress){
     if(res&&res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
   },2200);
   job('pinturas',!G.pinturas||G.pinturas.mes!==mes,function(){return gsRun('getPinturasMes',[mes]);},function(res){
-    if(res&&res.ok){G.pinturas=res.data;paintHomePinturas(res.data);}
+    if(res&&res.ok){G.pinturas=res.data;cacheSetPinturas(mes,res.data);paintHomePinturas(res.data);}
   },2200);
   if(showProgress)bootText('Preparando páginas...');
   return Promise.allSettled(jobs);
@@ -2011,7 +2151,7 @@ function syncTrasCambio(opts){
       if(eid('page-presupuesto').classList.contains('active'))renderPresupuesto(res);
     });
     job('movimientos',withTimeout(gsRun('getMovimientosMes',[mesHist]),5200,'movimientos'),function(res){
-      if(res.ok){G.movimientos=res.data||[];G.movimientosMes=mesHist;if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();}
+      if(res.ok){G.movimientos=res.data||[];G.movimientosMes=mesHist;cacheSetMovimientos(mesHist,G.movimientos);if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();}
     });
     job('tarjetas',withTimeout(gsRun('getTarjetasState',[{mes:G.tcMesActual||mesInicio,idx:G.tcIdx||0,anio:G.tdcAnio||2026}]),5600,'tarjetas'),function(res){
       aplicarTarjetasState(res);
@@ -2026,7 +2166,7 @@ function syncTrasCambio(opts){
       if(res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
     });
     job('pinturas',withTimeout(gsRun('getPinturasMes',[mesInicio]),4200,'pinturas'),function(res){
-      if(res.ok){G.pinturas=res.data;paintHomePinturas(res.data);}
+      if(res.ok){G.pinturas=res.data;cacheSetPinturas(mesInicio,res.data);paintHomePinturas(res.data);}
     });
     Promise.allSettled(jobs).then(function(){
       if(seq===__syncSeq)G._dirty=false;
@@ -2298,8 +2438,10 @@ function paintHomePinturas(data){
 function loadHomePinturas(){
   var mes=G.mesActual||mesActualCalendario();
   if(G.pinturas&&G.pinturas.mes===mes){paintHomePinturas(G.pinturas);return;}
+  var cached=cacheGetPinturas(mes);
+  if(cached){G.pinturas=cached;paintHomePinturas(cached);}
   gsRun('getPinturasMes',[mes]).then(function(res){
-    if(res&&res.ok){G.pinturas=res.data;paintHomePinturas(res.data);}
+    if(res&&res.ok){G.pinturas=res.data;cacheSetPinturas(mes,res.data);paintHomePinturas(res.data);}
   }).catch(function(e){console.warn('pinturas',e);});
 }
 
@@ -2352,10 +2494,14 @@ function abrirModalPinturas(){
   var mes=G.mesActual||mesActualCalendario();
   var modal=eid('mov-pinturas');if(modal)modal.classList.add('open');
   if(G.pinturas&&G.pinturas.mes===mes){renderPinturasModal(G.pinturas);setPinturasEdit(false);return;}
+  var cached=cacheGetPinturas(mes);
+  if(cached){G.pinturas=cached;renderPinturasModal(cached);setPinturasEdit(false);}
+  else{
   renderPinturasModal({mes:mes});
   setPinturasEdit(false);
+  }
   gsRun('getPinturasMes',[mes]).then(function(res){
-    if(res&&res.ok){G.pinturas=res.data;renderPinturasModal(res.data);}
+    if(res&&res.ok){G.pinturas=res.data;cacheSetPinturas(mes,res.data);renderPinturasModal(res.data);}
   }).catch(function(){showToast('Error al cargar pinturas','err');});
 }
 
@@ -2376,6 +2522,7 @@ function guardarPinturas(){
   gsRun('guardarPinturasMes',[data]).then(function(res){
     if(!res||!res.ok){showToast((res&&res.error)||'No se pudo guardar','err');return;}
     G.pinturas=res.data;
+    cacheSetPinturas(res.data.mes||data.mes,res.data);
     renderPinturasModal(res.data);
     setPinturasEdit(false);
     paintHomePinturas(res.data);
@@ -2849,10 +2996,15 @@ function confirmarEliminar(){
     .withSuccessHandler(function(res){
       btn.disabled=false;btn.textContent='Eliminar';
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
-      eid('mov-del').classList.remove('open');showToast('Movimiento eliminado','ok');refrescarTrasMovimiento();
+      eid('mov-del').classList.remove('open');
+      G.movimientos=(G.movimientos||[]).filter(function(t){return String(t.id)!==String(G.deleteTx.id);});
+      cacheSetMovimientos(G.histMes,G.movimientos);
+      renderHistorialMovimientos();
+      showToast('Movimiento eliminado','ok');
+      refrescarTrasMovimiento();
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
-    .eliminarMovimiento(G.deleteTx.id);
+    .eliminarMovimiento({id:G.deleteTx.id,fast:true});
 }
 
 function refrescarTrasMovimiento(){

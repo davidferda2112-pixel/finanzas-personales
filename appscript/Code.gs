@@ -91,10 +91,13 @@ function _getMesActual(){
   var sh=ss.getSheetByName(nombre);
   if(sh) return nombre;
   var sheets=ss.getSheets();
-  var ultimo=null;
+  var ultimo=null,ultimoOrden=-1;
   sheets.forEach(function(s){
     var n=s.getName();
-    if(MESES_NOM.some(function(m){return n.indexOf(m)===0;})) ultimo=n;
+    if(MESES_NOM.some(function(m){return n.indexOf(m)===0;})){
+      var o=_mesOrden(n);
+      if(o>ultimoOrden){ultimo=n;ultimoOrden=o;}
+    }
   });
   return ultimo;
 }
@@ -841,18 +844,20 @@ function registrarMovimiento(params){
       reg.appendRow(['ID','Timestamp','Mes','Tipo','Categoria','Subcategoria','Monto','Fecha','Notas','MesCaja']);
       reg.setFrozenRows(1);
     }
-    _asegurarRegistroMesCaja(reg);
+    if(reg.getLastColumn()<10 || _s(reg.getRange(1,10).getValue())!=='MesCaja'){
+      _asegurarRegistroMesCaja(reg);
+    }
     var id=new Date().getTime().toString();
-    reg.appendRow([
+    var ultimaFila=reg.getLastRow()+1;
+    reg.getRange(ultimaFila,1,1,10).setValues([[
       id, _nowLocal(), mes, params.tipo, params.categoria,
       params.subcategoria,
       parseFloat(String(params.monto).replace(',','.'))||0,
       _fechaISOTexto(params.fecha), params.notas||'', mesCaja
-    ]);
-    var ultimaFila=reg.getLastRow();
-    reg.getRange(ultimaFila,3).setNumberFormat('@STRING@').setValue(mes);
-    reg.getRange(ultimaFila,8).setNumberFormat('@STRING@').setValue(_fechaISOTexto(params.fecha));
-    reg.getRange(ultimaFila,10).setNumberFormat('@STRING@').setValue(mesCaja);
+    ]]);
+    reg.getRange(ultimaFila,3).setNumberFormat('@STRING@');
+    reg.getRange(ultimaFila,8).setNumberFormat('@STRING@');
+    reg.getRange(ultimaFila,10).setNumberFormat('@STRING@');
 
     // 2. Actualizar Balance_App si el ítem tiene impacto en balance
     var monto=parseFloat(String(params.monto).replace(',','.'))||0;
@@ -867,7 +872,7 @@ function registrarMovimiento(params){
     cDel('flujo');
 
     // 4. Notificar excesos
-    _checkExceso(ss, params);
+    if(!params.fast) _checkExceso(ss, params);
 
     SpreadsheetApp.flush();
     if(params.fast) return{ok:true,id:id,mesCaja:mesCaja};
@@ -1234,8 +1239,14 @@ function actualizarMovimiento(params){
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
-function eliminarMovimiento(id){
+function eliminarMovimiento(input){
   try{
+    var fast=false;
+    var id=input;
+    if(input&&typeof input==='object'){
+      id=input.id;
+      fast=!!input.fast;
+    }
     var ss=getSS();
     var reg=ss.getSheetByName('Registro');
     if(!reg) return{ok:false,error:'Hoja Registro no encontrada'};
@@ -1251,6 +1262,7 @@ function eliminarMovimiento(id){
       _invalidarMovimientoMes(mes);
       _invalidarMovimientoMes(mesCaja);
       SpreadsheetApp.flush();
+      if(fast) return{ok:true,mesCaja:mesCaja};
       return{ok:true,mesData:getMesData(mesCaja),mesCaja:mesCaja};
     }
     return{ok:false,error:'Movimiento no encontrado'};
@@ -1788,7 +1800,7 @@ function guardarPinturasMes(params){
     if(row) sh.getRange(row,1,1,values.length).setValues([values]);
     else sh.appendRow(values);
     calc.mes=mes;
-    cDel('mes_'+mes);
+    cDel('mes_'+mes.replace(/ /g,'_'));
     return {ok:true,data:calc};
   }catch(e){
     return {ok:false,error:e.toString()};
@@ -1847,9 +1859,15 @@ function getInitialState(opts){
     opts=opts||{};
     var mesesRes=getMesesDisponibles();
     if(!mesesRes||!mesesRes.ok) return mesesRes||{ok:false,error:'No se pudieron leer los meses'};
-    var meses=mesesRes.data||[];
-    var homeMes=_normalizarMesNombre(opts.homeMes||_mesCalendarioActual());
-    if(meses.indexOf(homeMes)<0) homeMes=meses.length?meses[meses.length-1]:homeMes;
+    var meses=(mesesRes.data||[]).slice().sort(function(a,b){return _mesOrden(a)-_mesOrden(b);});
+    var calendario=_normalizarMesNombre(_mesCalendarioActual());
+    var actualSheet=_normalizarMesNombre(_getMesActual()||calendario);
+    var homeMes=_normalizarMesNombre(opts.homeMes||actualSheet||calendario);
+    if(meses.indexOf(homeMes)<0){
+      if(meses.indexOf(calendario)>=0) homeMes=calendario;
+      else if(meses.indexOf(actualSheet)>=0) homeMes=actualSheet;
+      else homeMes=meses.length?meses[meses.length-1]:homeMes;
+    }
     var histMes=_normalizarMesNombre(opts.histMes||homeMes);
     if(meses.indexOf(histMes)<0) histMes=homeMes;
     var cardMes=_normalizarMesNombre(opts.cardMes||homeMes);
