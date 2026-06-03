@@ -710,6 +710,11 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 #cat-modal-res.g3c{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px}
 #cat-modal-res .card{padding:10px 8px!important;border-radius:16px!important;min-width:0}
 #cat-modal-res .amd{font-size:16px;white-space:nowrap}
+.cat-manage-btn{height:34px;padding:0 12px;border:0;border-radius:13px;background:rgba(255,255,255,.78);color:var(--blue);font:800 12px/1 -apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;box-shadow:0 8px 22px rgba(0,122,255,.12)}
+.cat-manage-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:5px;border-radius:16px;background:rgba(255,255,255,.6);box-shadow:inset 0 0 0 1px rgba(255,255,255,.6);margin-bottom:12px}
+.cat-manage-tabs button{height:36px;border:0;border-radius:12px;background:transparent;color:var(--t2);font-weight:800}
+.cat-manage-tabs button.active{background:#fff;color:var(--blue);box-shadow:0 7px 18px rgba(0,0,0,.08)}
+.cat-manage-note{font-size:12px;color:var(--t2);line-height:1.35;margin:-2px 0 12px}
 
 /* ── KPI CARDS (liquid glass, clean) ────────────────────── */
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
@@ -1152,11 +1157,36 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <div class="mti" id="cat-modal-title" style="margin-bottom:2px">Categoría</div>
         <div style="font-size:12px;color:var(--t2)" id="cat-modal-sub">–</div>
       </div>
-      <div id="cat-modal-badge"></div>
+      <div class="fr g8">
+        <button class="cat-manage-btn" onclick="abrirGestorCat()">Gestionar</button>
+        <div id="cat-modal-badge"></div>
+      </div>
     </div>
     <div class="g3c mb14" id="cat-modal-res"></div>
     <div class="lup mb10">Detalle</div>
     <div id="cat-modal-tabla"></div>
+  </div>
+</div>
+
+<!-- MODAL GESTION ITEMS CATEGORIA -->
+<div class="mov" id="mov-cat-manage" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="msh" style="max-height:88vh">
+    <div class="mhnd"></div>
+    <div class="mti" id="cat-manage-title">Gestionar items</div>
+    <div class="cat-manage-note" id="cat-manage-sub">Mes seleccionado</div>
+    <div class="cat-manage-tabs">
+      <button id="cat-mode-add" onclick="setCatManageMode('agregar')">Agregar</button>
+      <button id="cat-mode-edit" onclick="setCatManageMode('editar')">Editar</button>
+      <button id="cat-mode-del" onclick="setCatManageMode('eliminar')">Eliminar</button>
+    </div>
+    <div class="fg" id="cat-item-row"><div class="fl">Item</div><select class="fs" id="cat-item-select" onchange="catManageSelectItem()"></select></div>
+    <div class="fg" id="cat-name-row"><div class="fl">Nombre</div><input class="fi" id="cat-item-name" type="text" placeholder="Nombre del item"></div>
+    <div class="fg" id="cat-budget-row"><div class="fl" id="cat-budget-label">Presupuesto</div><input class="fi bn" id="cat-item-budget" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0.00"></div>
+    <div class="cat-manage-note" id="cat-manage-note"></div>
+    <div class="fr g8">
+      <button class="btn bgh bful" onclick="eid('mov-cat-manage').classList.remove('open')">Cancelar</button>
+      <button class="btn bb bful" id="cat-manage-save" onclick="guardarGestorCat()">Guardar</button>
+    </div>
   </div>
 </div>
 
@@ -1342,6 +1372,7 @@ var G={
   tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcAbonoCargoId:null,tdcExpanded:false,
   tdcMovsAplicados:[],
   calFecha:new Date(),prCats:null,catResumen:null,
+  catManage:null,
   movimientos:[],movimientosMes:null,editTx:null,deleteTx:null,
   histFiltroTipo:'todos',histFiltroCat:'todos',histOrden:'recientes',histFechaIni:'',histFechaFin:'',
   _dirty:false  // flag: se activó después de guardar
@@ -1685,19 +1716,11 @@ async function preloadApp(){
     cacheSet('mesData_'+mes,mesDataRes);
     renderHome(mesDataRes);
 
-    bootText('Preparando historial...');
-    await withTimeout(gsRun('getMovimientosMes',[mes]),6500,'movimientos').then(function(res){
-      if(res&&res.ok){
-        G.movimientos=res.data||[];
-        G.movimientosMes=mes;
-        if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
-      }
-    }).catch(function(e){console.warn('movimientos iniciales',e);});
-
     clearTimeout(slow);
     bootText('Listo');
     canHide=true;
     setTimeout(function(){
+      cargarMovimientosMesBg(mes);
       cargarTarjetasState({mes:mes,idx:G.tcIdx||0,anio:G.tdcAnio||2026},9000);
       preloadSecundario(mes,false);
     },120);
@@ -1738,6 +1761,21 @@ function refreshInicioBg(mes){
   gsRun('getMesesDisponibles').then(function(res){
     if(res&&res.ok&&res.data&&res.data.length){G.meses=res.data;cacheSet('meses',G.meses);fillSels(G.meses);}
   }).catch(function(e){console.warn('meses bg',e);});
+}
+
+function cargarMovimientosMesBg(mes){
+  mes=mes||G.histMes||G.mesActual;
+  if(!mes)return Promise.resolve(null);
+  return withTimeout(gsRun('getMovimientosMes',[mes]),6500,'movimientos')
+    .then(function(res){
+      if(res&&res.ok){
+        G.movimientos=res.data||[];
+        G.movimientosMes=mes;
+        if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
+      }
+      return res;
+    })
+    .catch(function(e){console.warn('movimientos bg',e);return null;});
 }
 
 function preloadSecundario(mes,force){
@@ -1795,9 +1833,7 @@ async function preloadSecundarioReady(mes,force,showProgress){
     }).catch(function(e){console.warn('preload '+label,e);}));
   }
   if(showProgress)bootText('Preparando historial...');
-  job('historial',G.movimientosMes!==mes,function(){return gsRun('getMovimientosMes',[mes]);},function(res){
-    if(res&&res.ok){G.movimientos=res.data||[];G.movimientosMes=mes;if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();}
-  },2400);
+  job('historial',G.movimientosMes!==mes,function(){return cargarMovimientosMesBg(mes);},function(){},2400);
   job('tarjetas',!G.tarjetas,function(){return gsRun('getTarjetasState',[{mes:G.tcMesActual||mes,idx:G.tcIdx||0,anio:G.tdcAnio||2026}]);},function(res){
     aplicarTarjetasState(res);
   },2600);
@@ -2589,6 +2625,7 @@ function abrirModalCat(nombre){
   var source=G.homeCatResumen&&G.homeCatResumen.length?G.homeCatResumen:getCategoriasDetalle(G.mesData);
   var cat=source&&source.filter(function(c){return c.t===nombre;})[0];
   if(!cat)return;
+  G.catManage={categoria:nombre,modo:'agregar',items:(cat.d&&cat.d.items?cat.d.items:[])};
   var items=cat.d&&cat.d.items?cat.d.items:[];
   var tot=cat.d?(cat.d.total||cat.d.totalCalculado||0):0;
   var totP=items.reduce(function(a,x){return a+(x.presupuesto||x.prestamo||0);},0);
@@ -2631,6 +2668,99 @@ function abrirModalCat(nombre){
 }
 
 // ── TARJETAS ─────────────────────────────────────────────────
+function catItemsActuales(){
+  var nombre=G.catManage&&G.catManage.categoria;
+  var source=G.homeCatResumen&&G.homeCatResumen.length?G.homeCatResumen:getCategoriasDetalle(G.mesData);
+  var cat=source&&source.filter(function(c){return c.t===nombre;})[0];
+  return cat&&cat.d&&cat.d.items?cat.d.items:[];
+}
+
+function abrirGestorCat(){
+  if(!G.catManage||!G.catManage.categoria)return;
+  G.catManage.modo=G.catManage.modo||'agregar';
+  G.catManage.items=catItemsActuales();
+  eid('cat-manage-title').textContent='Gestionar '+G.catManage.categoria;
+  eid('cat-manage-sub').textContent=(G.mesActual||'Mes actual')+' - agrega, edita o elimina items del mes';
+  renderGestorCat();
+  eid('mov-cat-manage').classList.add('open');
+}
+
+function setCatManageMode(modo){
+  if(!G.catManage)return;
+  G.catManage.modo=modo;
+  renderGestorCat();
+}
+
+function renderGestorCat(){
+  if(!G.catManage)return;
+  var modo=G.catManage.modo||'agregar';
+  ['add','edit','del'].forEach(function(k){
+    var map={add:'agregar',edit:'editar',del:'eliminar'};
+    var b=eid('cat-mode-'+k);if(b)b.classList.toggle('active',map[k]===modo);
+  });
+  var items=(G.catManage.items||[]).filter(function(x){return x&&x.nombre;});
+  var sel=eid('cat-item-select');
+  sel.innerHTML=items.map(function(x){return'<option value="'+String(x.nombre).replace(/"/g,'&quot;')+'">'+x.nombre+'</option>';}).join('');
+  eid('cat-item-row').style.display=modo==='agregar'?'none':'block';
+  eid('cat-name-row').style.display=modo==='eliminar'?'none':'block';
+  eid('cat-budget-row').style.display=modo==='eliminar'?'none':'block';
+  eid('cat-manage-save').textContent=modo==='eliminar'?'Eliminar':(modo==='editar'?'Guardar':'Agregar');
+  eid('cat-manage-save').className='btn '+(modo==='eliminar'?'br':'bb')+' bful';
+  eid('cat-budget-label').textContent=G.catManage.categoria==='Deudas'?'Prestamo':'Presupuesto';
+  eid('cat-manage-note').textContent=modo==='eliminar'
+    ?'Solo se puede eliminar un item sin movimientos. Si tiene actividad, primero cambia o elimina esos movimientos.'
+    :'El cambio aplica al mes seleccionado en Inicio.';
+  if(modo==='agregar'){
+    eid('cat-item-name').value='';
+    eid('cat-item-budget').value='';
+  }else{
+    catManageSelectItem();
+  }
+}
+
+function catManageSelectItem(){
+  if(!G.catManage)return;
+  var name=eid('cat-item-select').value;
+  var item=(G.catManage.items||[]).filter(function(x){return x.nombre===name;})[0]||{};
+  eid('cat-item-name').value=item.nombre||'';
+  eid('cat-item-budget').value=(item.presupuesto||item.prestamo||0)||'';
+}
+
+function guardarGestorCat(){
+  if(!G.catManage)return;
+  var modo=G.catManage.modo||'agregar';
+  var params={
+    accion:modo,
+    mes:G.mesActual||mesActualCalendario(),
+    categoria:G.catManage.categoria,
+    oldNombre:eid('cat-item-select').value||'',
+    nombre:eid('cat-item-name').value.trim(),
+    presupuesto:normMoney(eid('cat-item-budget').value)
+  };
+  if(modo!=='eliminar'&&!params.nombre){showToast('Escribe el nombre del item','err');return;}
+  if(modo!=='agregar'&&!params.oldNombre){showToast('Selecciona un item','err');return;}
+  var btn=eid('cat-manage-save'),old=btn.textContent;
+  btn.disabled=true;btn.textContent='Guardando...';
+  gsRun('gestionarItemCategoria',[params])
+    .then(function(res){
+      btn.disabled=false;btn.textContent=old;
+      if(!res||!res.ok){showToast((res&&res.error)||'Error al guardar','err');return;}
+      if(res.mesData){
+        G.mesData=res.mesData;
+        cacheSet('mesData_'+params.mes,res.mesData);
+        renderHome(res.mesData);
+      }
+      eid('mov-cat-manage').classList.remove('open');
+      abrirModalCat(params.categoria);
+      showToast('Item actualizado','ok');
+      syncTrasCambio({delay:120,mesInicio:params.mes,mesHist:G.histMes||params.mes});
+    })
+    .catch(function(e){
+      btn.disabled=false;btn.textContent=old;
+      showToast('Error: '+e,'err');
+    });
+}
+
 function loadTarjetas(){
   cargarTarjetasState({mes:G.tcMesActual||G.mesActual,idx:G.tcIdx||0,anio:G.tdcAnio||2026},6500)
     .then(function(res){if(!res||res.ok===false)showToast('Error tarjetas','err');});

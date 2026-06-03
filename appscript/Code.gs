@@ -977,13 +977,11 @@ function getMovimientosMes(mes){
     var reg=ss.getSheetByName('Registro');
     if(!reg) return{ok:true,data:[]};
     var D=reg.getDataRange().getValues(),result=[];
-    var mesesCaja={};
+    var mesesCaja={}, filas=[];
     for(var i=1;i<D.length;i++){
       var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
       var mesCaja=_normalizarMesNombre(_mesCajaRegistro(D[i]));
-      if(mesFila!==mes) continue;
-      mesesCaja[mesCaja]=true;
-      result.push({
+      var item={
         id:_s(D[i][0]),
         orden:i,
         timestamp:_s(D[i][1]),
@@ -996,24 +994,15 @@ function getMovimientosMes(mes){
         fecha:_fmtFechaSimple(D[i][7]),
         fechaOrden:_fechaMsSimple(D[i][7]),
         notas:_s(D[i][8])
-      });
+      };
+      filas.push(item);
+      if(mesFila!==mes) continue;
+      mesesCaja[mesCaja]=true;
+      result.push(item);
     }
     var saldosPorId={};
     Object.keys(mesesCaja).forEach(function(mc){
-      var movs=[];
-      for(var j=1;j<D.length;j++){
-        var mcFila=_normalizarMesNombre(_mesCajaRegistro(D[j]));
-        if(mcFila!==mc) continue;
-        movs.push({
-          id:_s(D[j][0]),
-          orden:j,
-          timestamp:_s(D[j][1]),
-          tipo:_s(D[j][3]),
-          monto:_n(D[j][6]),
-          fecha:_fmtFechaSimple(D[j][7]),
-          fechaOrden:_fechaMsSimple(D[j][7])
-        });
-      }
+      var movs=filas.filter(function(x){return x.mesCaja===mc;});
       movs.sort(_compararMovimientoAsc);
       var saldo=_getSaldoBaseMovimientos(mc);
       movs.forEach(function(t){
@@ -1025,6 +1014,133 @@ function getMovimientosMes(mes){
     result.forEach(function(t){t.saldoDespues=saldosPorId[t.id];});
     result.sort(_compararMovimientoVista);
     return{ok:true,data:result,saldoBase:_getSaldoBaseMovimientos(mes)};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function _catDistribConfig(categoria,mes){
+  categoria=_s(categoria);
+  var key=categoria.toLowerCase();
+  var esDic25=_normalizarMesNombre(mes)==='Diciembre 25';
+  if(key==='necesidades') return{categoria:'Necesidades',nameCol:6,budgetCol:7,actualCol:8,sobranteCol:9,width:4,label:'Presupuesto'};
+  if(key==='deseos')      return{categoria:'Deseos',nameCol:11,budgetCol:12,actualCol:13,sobranteCol:14,width:4,label:'Presupuesto'};
+  if(key==='deudas')      return esDic25
+    ?{categoria:'Deudas',nameCol:16,budgetCol:18,actualCol:19,sobranteCol:0,width:4,label:'Prestamo'}
+    :{categoria:'Deudas',nameCol:16,budgetCol:17,actualCol:18,sobranteCol:0,width:3,label:'Prestamo'};
+  if(key==='ahorros')     return{categoria:'Ahorros',nameCol:2,budgetCol:3,actualCol:4,sobranteCol:0,width:3,label:'Presupuesto'};
+  return null;
+}
+
+function _catDistribBlock(sh,cfg){
+  var D=sh.getDataRange().getValues();
+  var i,start,total;
+  if(cfg.categoria==='Necesidades'){
+    for(i=0;i<D.length;i++){
+      if(_s(D[i][6])==='Presupuesto'&&_s(D[i][7])==='Actual'){start=i+2;break;}
+    }
+    for(i=start-1;i<D.length;i++){if(_s(D[i][5])==='Total'){total=i+1;break;}}
+  }else if(cfg.categoria==='Deseos'){
+    for(i=0;i<D.length;i++){
+      if(_s(D[i][11])==='Presupuesto'&&_s(D[i][12])==='Actual'){start=i+2;break;}
+    }
+    for(i=start-1;i<D.length;i++){if(_s(D[i][10])==='Total'){total=i+1;break;}}
+  }else if(cfg.categoria==='Deudas'){
+    for(i=0;i<D.length;i++){
+      if((_s(D[i][16])==='Prestamo'||_s(D[i][16])==='Vence')&&(_s(D[i][17])==='Actual'||_s(D[i][17])==='Prestamo')){start=i+2;break;}
+    }
+    for(i=start-1;i<D.length;i++){if(_s(D[i][15])==='Total'){total=i+1;break;}}
+  }else if(cfg.categoria==='Ahorros'){
+    for(i=0;i<D.length;i++){
+      if(_s(D[i][1])==='Ahorros'&&i>=26){start=i+2;break;}
+    }
+    for(i=start-1;i<D.length;i++){if(_s(D[i][1])==='Total'){total=i+1;break;}}
+  }
+  if(!start||!total||total<=start) throw new Error('No se encontro el bloque de '+cfg.categoria);
+  return{data:D,startRow:start,totalRow:total};
+}
+
+function _findCatDistribRow(block,cfg,nombre){
+  nombre=_s(nombre).toLowerCase();
+  for(var r=block.startRow;r<block.totalRow;r++){
+    if(_s(block.data[r-1][cfg.nameCol-1]).toLowerCase()===nombre) return r;
+  }
+  return 0;
+}
+
+function _updateRegistroSubcategoriaMes(ss,mes,oldNombre,newNombre){
+  var reg=ss.getSheetByName('Registro');
+  if(!reg) return 0;
+  var D=reg.getDataRange().getValues(),count=0;
+  for(var i=1;i<D.length;i++){
+    var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
+    if(mesFila===mes&&_s(D[i][5])===oldNombre){
+      reg.getRange(i+1,6).setValue(newNombre);
+      count++;
+    }
+  }
+  return count;
+}
+
+function gestionarItemCategoria(params){
+  try{
+    params=params||{};
+    var ss=getSS();
+    var mes=_normalizarMesNombre(params.mes);
+    var accion=_s(params.accion||params.action).toLowerCase();
+    var categoria=_s(params.categoria);
+    var nombre=_s(params.nombre);
+    var oldNombre=_s(params.oldNombre||params.item);
+    var valor=_n(params.presupuesto);
+    if(!mes) return{ok:false,error:'Mes invalido'};
+    if(!accion) return{ok:false,error:'Accion invalida'};
+    var sh=ss.getSheetByName(mes);
+    if(!sh) return{ok:false,error:'Hoja no encontrada: '+mes};
+    var cfg=_catDistribConfig(categoria,mes);
+    if(!cfg) return{ok:false,error:'Categoria no soportada: '+categoria};
+    var block=_catDistribBlock(sh,cfg);
+
+    if(accion==='agregar'||accion==='add'){
+      if(!nombre) return{ok:false,error:'Escribe el nombre del item'};
+      if(_findCatDistribRow(block,cfg,nombre)) return{ok:false,error:'Ese item ya existe'};
+      var row=block.totalRow;
+      sh.insertRowsBefore(row,1);
+      var src=Math.max(block.startRow,row-1);
+      if(src&&src!==row){
+        sh.getRange(src,cfg.nameCol,1,cfg.width).copyTo(sh.getRange(row,cfg.nameCol,1,cfg.width),SpreadsheetApp.CopyPasteType.PASTE_FORMAT,false);
+      }
+      sh.getRange(row,cfg.nameCol).setValue(nombre);
+      sh.getRange(row,cfg.budgetCol).setValue(valor);
+      sh.getRange(row,cfg.actualCol).setValue(0);
+      if(cfg.sobranteCol) sh.getRange(row,cfg.sobranteCol).setValue(valor);
+    }else if(accion==='editar'||accion==='edit'){
+      if(!oldNombre) return{ok:false,error:'Selecciona el item a editar'};
+      if(!nombre) return{ok:false,error:'Escribe el nuevo nombre'};
+      var erow=_findCatDistribRow(block,cfg,oldNombre);
+      if(!erow) return{ok:false,error:'Item no encontrado'};
+      if(nombre.toLowerCase()!==oldNombre.toLowerCase()&&_findCatDistribRow(block,cfg,nombre)) return{ok:false,error:'Ya existe un item con ese nombre'};
+      sh.getRange(erow,cfg.nameCol).setValue(nombre);
+      sh.getRange(erow,cfg.budgetCol).setValue(valor);
+      if(cfg.sobranteCol){
+        var actual=_n(sh.getRange(erow,cfg.actualCol).getValue());
+        sh.getRange(erow,cfg.sobranteCol).setValue(valor-actual);
+      }
+      if(nombre!==oldNombre) _updateRegistroSubcategoriaMes(ss,mes,oldNombre,nombre);
+    }else if(accion==='eliminar'||accion==='delete'){
+      if(!oldNombre) return{ok:false,error:'Selecciona el item a eliminar'};
+      var drow=_findCatDistribRow(block,cfg,oldNombre);
+      if(!drow) return{ok:false,error:'Item no encontrado'};
+      var data=getMesData(mes);
+      var sec={Necesidades:data.necesidades,Deseos:data.deseos,Deudas:data.deudas,Ahorros:data.ahorros}[cfg.categoria];
+      var item=null;
+      if(sec&&sec.items){
+        sec.items.forEach(function(x){if(_s(x.nombre).toLowerCase()===oldNombre.toLowerCase()) item=x;});
+      }
+      if(item&&_n(item.actual)>0) return{ok:false,error:'No se puede eliminar un item con movimientos. Edita el presupuesto o cambia sus movimientos primero.'};
+      sh.deleteRows(drow,1);
+    }else{
+      return{ok:false,error:'Accion no soportada'};
+    }
+
+    return{ok:true,mesData:getMesData(mes)};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
@@ -1607,6 +1723,7 @@ var API_METHODS = {
   eliminarMovimientoTarjeta: eliminarMovimientoTarjeta,
   registrarMovimiento: registrarMovimiento,
   getDesgloseSub: getDesgloseSub,
+  gestionarItemCategoria: gestionarItemCategoria,
   getMovimientosMes: getMovimientosMes,
   actualizarMovimiento: actualizarMovimiento,
   eliminarMovimiento: eliminarMovimiento,
