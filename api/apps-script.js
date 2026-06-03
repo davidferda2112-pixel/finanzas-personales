@@ -1,5 +1,6 @@
 const READ_TTL_MS = {
   getMesesDisponibles: 5 * 60 * 1000,
+  getInitialState: 15 * 1000,
   getMesData: 18 * 1000,
   getMovimientosMes: 18 * 1000,
   getTarjetasState: 18 * 1000,
@@ -30,7 +31,6 @@ const WRITE_METHODS = new Set([
 ]);
 
 const STALE_MAX_MS = 10 * 60 * 1000;
-const READ_TIMEOUT_MS = 9500;
 
 function getCache() {
   if (!globalThis.__jaegerAppsScriptCache) {
@@ -121,23 +121,15 @@ module.exports = async function handler(req, res) {
       return res.status(200).send(cached);
     }
 
-    const controller = READ_TTL_MS[body.fn] ? new AbortController() : null;
-    const timer = controller ? setTimeout(() => controller.abort(), READ_TIMEOUT_MS) : null;
-    let upstream;
-    try {
-      upstream = await fetch(appsScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        signal: controller ? controller.signal : undefined,
-        body: JSON.stringify({
-          token,
-          fn: body.fn,
-          args
-        })
-      });
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
+    const upstream = await fetch(appsScriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        token,
+        fn: body.fn,
+        args
+      })
+    });
 
     const text = await upstream.text();
     if (!upstream.ok) {

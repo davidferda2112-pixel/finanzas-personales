@@ -1754,48 +1754,39 @@ function init(){
 async function preloadApp(){
   var canHide=false,slow=null,mes=mesActualCalendario();
   try{
-    slow=setTimeout(function(){bootText('Cargando meses...');},1200);
-    bootText('Cargando meses...');
-    var mesesRes=await withTimeout(gsRun('getMesesDisponibles'),6500,'meses');
-    if(mesesRes&&mesesRes.ok&&mesesRes.data&&mesesRes.data.length){
-      G.meses=mesesRes.data||[];
-      cacheSet('meses',G.meses);
-    }else{
-      console.warn('meses fallback',mesesRes);
-      G.meses=(G.meses&&G.meses.length)?G.meses:(cacheGet('meses')||[]);
-      if(!G.meses.length)G.meses=[mes];
+    slow=setTimeout(function(){bootText('Preparando datos...');},1200);
+    bootText('Preparando datos...');
+    var initial=await withTimeout(gsRun('getInitialState',[{
+      homeMes:mes,
+      histMes:mes,
+      cardMes:mes,
+      cardIdx:G.tcIdx||0,
+      cardYear:G.tdcAnio||2026
+    }]),18000,'estado inicial');
+    if(!initial||initial.timeout||initial.ok===false||initial.error){
+      throw new Error((initial&&initial.error)||'No llegó el estado inicial');
     }
-    fillSels(G.meses);
-    mes=getMesActual(G.meses);
-    G.mesActual=mes;
-    G.histMes=mes;
-    cacheSet('mesActual',mes);
-    var sh=eid('sel-h');if(sh)sh.value=mes;
-    var sp=eid('sel-pr');if(sp)sp.value=mes;
-
-    bootText('Cargando inicio...');
-    var mesDataRes=await withTimeout(gsRun('getMesData',[mes]),12000,'inicio');
-    if(!mesDataRes||mesDataRes.timeout||mesDataRes.ok===false||mesDataRes.error){
-      throw new Error((mesDataRes&&mesDataRes.error)||'No llegaron los datos de inicio');
+    aplicarInitialState(initial,{homeMes:initial.mesActual||mes,histMes:initial.histMes||initial.mesActual||mes});
+    mes=G.mesActual||initial.mesActual||mes;
+    if(G.mesData){
+      cacheSetBootHome(mes,G.mesData);
+      cacheSet('lastGoodHome',{mes:mes,data:G.mesData});
     }
-    mesDataRes=aplicarSaldoEsperado(mesDataRes,mes);
-    G.mesData=mesDataRes;
-    G.histData=mesDataRes;
-    cacheSetBootHome(mes,mesDataRes);
-    cacheSet('lastGoodHome',{mes:mes,data:mesDataRes});
-    renderHome(mesDataRes);
-
     clearTimeout(slow);
     bootText('Listo');
     canHide=true;
     setTimeout(function(){
-      cargarMovimientosMesBg(mes);
-      cargarTarjetasState({mes:mes,idx:G.tcIdx||0,anio:G.tdcAnio||2026},9000);
       preloadSecundario(mes,false);
     },120);
   }catch(e){
     if(slow)clearTimeout(slow);
     console.warn('preload inicial',e);
+    try{
+      var legacy=await preloadAppLegacy(mes);
+      if(legacy){canHide=true;return;}
+    }catch(legacyErr){
+      console.warn('preload legacy',legacyErr);
+    }
     if((!G.meses||!G.meses.length)){
       G.meses=cacheGet('meses')||[mes];
       fillSels(G.meses);
@@ -1829,6 +1820,41 @@ async function preloadApp(){
       if(G.mesData)hideBootLoader();
     },260);
   }
+}
+
+async function preloadAppLegacy(mes){
+  bootText('Cargando inicio...');
+  var mesesRes=await withTimeout(gsRun('getMesesDisponibles'),6500,'meses');
+  if(mesesRes&&mesesRes.ok&&mesesRes.data&&mesesRes.data.length){
+    G.meses=mesesRes.data||[];
+    cacheSet('meses',G.meses);
+  }else{
+    G.meses=(G.meses&&G.meses.length)?G.meses:(cacheGet('meses')||[]);
+    if(!G.meses.length)G.meses=[mes];
+  }
+  fillSels(G.meses);
+  mes=getMesActual(G.meses);
+  G.mesActual=mes;
+  G.histMes=mes;
+  cacheSet('mesActual',mes);
+  var sh=eid('sel-h');if(sh)sh.value=mes;
+  var sp=eid('sel-pr');if(sp)sp.value=mes;
+  var mesDataRes=await withTimeout(gsRun('getMesData',[mes]),12000,'inicio');
+  if(!mesDataRes||mesDataRes.timeout||mesDataRes.ok===false||mesDataRes.error){
+    throw new Error((mesDataRes&&mesDataRes.error)||'No llegaron los datos de inicio');
+  }
+  mesDataRes=aplicarSaldoEsperado(mesDataRes,mes);
+  G.mesData=mesDataRes;
+  G.histData=mesDataRes;
+  cacheSetBootHome(mes,mesDataRes);
+  cacheSet('lastGoodHome',{mes:mes,data:mesDataRes});
+  renderHome(mesDataRes);
+  setTimeout(function(){
+    cargarMovimientosMesBg(mes);
+    cargarTarjetasState({mes:mes,idx:G.tcIdx||0,anio:G.tdcAnio||2026},9000);
+    preloadSecundario(mes,false);
+  },120);
+  return true;
 }
 
 function refreshInicioBg(mes){
@@ -3390,7 +3416,8 @@ function guardarMovTdc(){
     tipo:G.tdcAccion,
     monto:String(monto),
     fecha:fechaTdc,
-    notas:eid('tdc-notas').value
+    notas:eid('tdc-notas').value,
+    fast:true
   };
   if(G.tdcAccion==='abono'){
     params.cargoId=eid('tdc-cargo-target').value||'';
@@ -3675,7 +3702,7 @@ function guardar(){
     mesAplicado=eid('m-mes-aplica').value;
   }
   var params={mes:mesAplicado,mesRegistro:mesRegistro,tipo:G.tipoModal,categoria:G.tipoModal,
-    subcategoria:sub,monto:String(monto),fecha:fecha,notas:eid('m-notas').value};
+    subcategoria:sub,monto:String(monto),fecha:fecha,notas:eid('m-notas').value,fast:true};
   google.script.run
     .withSuccessHandler(function(res){
       btn.textContent='Guardar';btn.disabled=false;eid('mov').classList.remove('open');

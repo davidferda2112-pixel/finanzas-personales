@@ -651,7 +651,8 @@ function registrarMovimientoTarjeta(params){
         subcategoria:params.subcategoria||'Prestamos TDC',
         monto:String(monto),
         fecha:params.fecha,
-        notas:(params.notas?params.notas+' · ':'')+'Abono '+tarjeta
+        notas:(params.notas?params.notas+' · ':'')+'Abono '+tarjeta,
+        fast:true
       });
       if(!r||!r.ok) return r;
       registroId=r.id||'';
@@ -681,7 +682,7 @@ function registrarMovimientoTarjeta(params){
     cDel('mes_'+mesRegistro.replace(/ /g,'_'));
     if(mesCaja) cDel('mes_'+mesCaja.replace(/ /g,'_'));
     SpreadsheetApp.flush();
-    if(!mesDataCaja&&tipo==='abono'&&params.origen==='egreso') mesDataCaja=getMesData(mesCajaRespuesta);
+    if(!params.fast&&!mesDataCaja&&tipo==='abono'&&params.origen==='egreso') mesDataCaja=getMesData(mesCajaRespuesta);
     return{ok:true,id:id,registroId:registroId,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes};
   }catch(e){return{ok:false,error:e.toString()};}
 }
@@ -745,7 +746,8 @@ function actualizarMovimientoTarjeta(params){
           subcategoria:params.subcategoria||'Prestamos TDC',
           monto:String(monto),
           fecha:params.fecha,
-          notas:(params.notas?params.notas+' · ':'')+'Abono '+_s(params.tarjeta)
+          notas:(params.notas?params.notas+' · ':'')+'Abono '+_s(params.tarjeta),
+          fast:true
         };
         if(oldRegistroId&&oldOrigen==='egreso'){
           var up=actualizarMovimiento(movParams);
@@ -772,7 +774,7 @@ function actualizarMovimientoTarjeta(params){
       cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));cDel('mes_'+mesRegistro.replace(/ /g,'_'));
       if(mesCaja) cDel('mes_'+mesCaja.replace(/ /g,'_'));
       SpreadsheetApp.flush();
-      if(tipo==='abono'&&params.origen==='egreso'&&!mesDataCaja) mesDataCaja=getMesData(mesCajaRespuesta);
+      if(!params.fast&&tipo==='abono'&&params.origen==='egreso'&&!mesDataCaja) mesDataCaja=getMesData(mesCajaRespuesta);
       return{ok:true,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes};
     }
     return{ok:false,error:'Movimiento TDC no encontrado'};
@@ -868,6 +870,7 @@ function registrarMovimiento(params){
     _checkExceso(ss, params);
 
     SpreadsheetApp.flush();
+    if(params.fast) return{ok:true,id:id,mesCaja:mesCaja};
     return{ok:true,id:id,mesData:getMesData(mesCaja),mesCaja:mesCaja};
   }catch(e){return{ok:false,error:e.toString()};}
 }
@@ -1839,6 +1842,46 @@ function exportarSnapshotSupabase(opts){
   }
 }
 
+function getInitialState(opts){
+  try{
+    opts=opts||{};
+    var mesesRes=getMesesDisponibles();
+    if(!mesesRes||!mesesRes.ok) return mesesRes||{ok:false,error:'No se pudieron leer los meses'};
+    var meses=mesesRes.data||[];
+    var homeMes=_normalizarMesNombre(opts.homeMes||_mesCalendarioActual());
+    if(meses.indexOf(homeMes)<0) homeMes=meses.length?meses[meses.length-1]:homeMes;
+    var histMes=_normalizarMesNombre(opts.histMes||homeMes);
+    if(meses.indexOf(histMes)<0) histMes=homeMes;
+    var cardMes=_normalizarMesNombre(opts.cardMes||homeMes);
+    if(meses.indexOf(cardMes)<0) cardMes=homeMes;
+    var cardIdx=parseInt(opts.cardIdx,10);
+    if(isNaN(cardIdx)) cardIdx=0;
+    var cardYear=parseInt(opts.cardYear,10)||((new Date()).getFullYear());
+    var homeData=getMesData(homeMes);
+    var histData=histMes===homeMes?homeData:getMesData(histMes);
+    var out={
+      ok:true,
+      generatedAt:new Date().toISOString(),
+      meses:meses,
+      mesActual:homeMes,
+      histMes:histMes,
+      home:homeData,
+      hist:histData,
+      movimientos:getMovimientosMes(histMes),
+      tarjetas:getTarjetasState({mes:cardMes,idx:cardIdx,anio:cardYear}),
+      pinturas:getPinturasMes(homeMes)
+    };
+    if(opts.includeSecondary){
+      out.flujo=getFlujoCaja();
+      out.balance=getBalanceGeneral();
+      out.japon=getViajeJapon();
+    }
+    return out;
+  }catch(e){
+    return{ok:false,error:e.toString()};
+  }
+}
+
 // ============================================================
 // API para Vercel - agrega este bloque al final de Code.gs
 // ============================================================
@@ -1862,6 +1905,7 @@ var API_METHODS = {
   getPinturasMes: getPinturasMes,
   guardarPinturasMes: guardarPinturasMes,
   exportarSnapshotSupabase: exportarSnapshotSupabase,
+  getInitialState: getInitialState,
   parseTarjetas: parseTarjetas,
   getTarjetasState: getTarjetasState,
   registrarMovimientoTarjeta: registrarMovimientoTarjeta,
