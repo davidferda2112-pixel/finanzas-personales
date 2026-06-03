@@ -1154,8 +1154,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="mhnd"></div>
     <div class="fb mb14">
       <div>
-        <div class="mti" id="cat-modal-title" style="margin-bottom:2px">Categoría</div>
-        <div style="font-size:12px;color:var(--t2)" id="cat-modal-sub">–</div>
+        <div class="mti" id="cat-modal-title" style="margin-bottom:0">Categoría</div>
       </div>
       <div class="fr g8">
         <button class="cat-manage-btn" onclick="abrirGestorCat()">Gestionar</button>
@@ -2633,7 +2632,6 @@ function abrirModalCat(nombre){
   var s2=cat.aho?(tot>=totP?'ok':(tot>=totP*0.85?'warn':'over')):st(totP,tot);
 
   eid('cat-modal-title').textContent=({'Necesidades':'🏠','Deseos':'🎮','Deudas':'💳','Ahorros':'🏦'}[nombre]||'')+' '+nombre;
-  eid('cat-modal-sub').textContent=fmt(tot)+' de '+fmt(totP)+' presupuestado';
   eid('cat-modal-badge').innerHTML='<span class="bdg '+(s2==='ok'?'ok':s2==='warn'?'warn':'over')+'">'+(s2==='ok'?'En objetivo':s2==='warn'?'Cerca':'Excedido')+'</span>';
 
   eid('cat-modal-res').innerHTML=[
