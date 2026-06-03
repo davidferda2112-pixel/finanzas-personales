@@ -641,7 +641,7 @@ function registrarMovimientoTarjeta(params){
     var tarjeta=_s(params.tarjeta);
     if(['VISA','MC'].indexOf(tarjeta)===-1) return{ok:false,error:'Tarjeta inválida'};
 
-    var registroId='';
+    var registroId='',mesDataCaja=null,mesCajaRespuesta=mesRegistro;
     if(tipo==='abono'&&params.origen==='egreso'){
       var r=registrarMovimiento({
         mes:mes,
@@ -655,6 +655,8 @@ function registrarMovimientoTarjeta(params){
       });
       if(!r||!r.ok) return r;
       registroId=r.id||'';
+      mesDataCaja=r.mesData||null;
+      mesCajaRespuesta=r.mesCaja||mesRegistro;
     }
 
     var sh=ss.getSheetByName('TDC_App');
@@ -678,7 +680,9 @@ function registrarMovimientoTarjeta(params){
     cDel('mes_'+mes.replace(/ /g,'_'));
     cDel('mes_'+mesRegistro.replace(/ /g,'_'));
     if(mesCaja) cDel('mes_'+mesCaja.replace(/ /g,'_'));
-    return{ok:true,id:id};
+    SpreadsheetApp.flush();
+    if(!mesDataCaja&&tipo==='abono'&&params.origen==='egreso') mesDataCaja=getMesData(mesCajaRespuesta);
+    return{ok:true,id:id,registroId:registroId,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
@@ -726,7 +730,7 @@ function actualizarMovimientoTarjeta(params){
       if(['cargo','abono'].indexOf(tipo)===-1) return{ok:false,error:'Tipo TDC inválido'};
       if(!monto||monto<=0) return{ok:false,error:'Monto inválido'};
 
-      var registroId=oldRegistroId;
+      var registroId=oldRegistroId,mesDataCaja=null,mesCajaRespuesta=mesRegistro;
       if(oldRegistroId&&!(tipo==='abono'&&params.origen==='egreso')){
         eliminarMovimiento(oldRegistroId);
         registroId='';
@@ -746,10 +750,14 @@ function actualizarMovimientoTarjeta(params){
         if(oldRegistroId&&oldOrigen==='egreso'){
           var up=actualizarMovimiento(movParams);
           if(!up||!up.ok) return up;
+          mesDataCaja=up.mesData||null;
+          mesCajaRespuesta=up.mesCaja||mesRegistro;
         }else{
           var cr=registrarMovimiento(movParams);
           if(!cr||!cr.ok) return cr;
           registroId=cr.id||'';
+          mesDataCaja=cr.mesData||null;
+          mesCajaRespuesta=cr.mesCaja||mesRegistro;
         }
       }
 
@@ -763,7 +771,9 @@ function actualizarMovimientoTarjeta(params){
       var mesCaja=_mesDesdeFechaMovimiento(params.fecha);
       cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));cDel('mes_'+mesRegistro.replace(/ /g,'_'));
       if(mesCaja) cDel('mes_'+mesCaja.replace(/ /g,'_'));
-      return{ok:true};
+      SpreadsheetApp.flush();
+      if(tipo==='abono'&&params.origen==='egreso'&&!mesDataCaja) mesDataCaja=getMesData(mesCajaRespuesta);
+      return{ok:true,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes};
     }
     return{ok:false,error:'Movimiento TDC no encontrado'};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -779,10 +789,12 @@ function eliminarMovimientoTarjeta(id){
       if(String(D[i][0])!==String(id)) continue;
       var mes=_s(D[i][2]).replace(/^'+/,'');
       var registroId=_s(D[i][9]);
-      if(registroId) eliminarMovimiento(registroId);
+      var del=null;
+      if(registroId) del=eliminarMovimiento(registroId);
       sh.deleteRow(i+1);
       cDel('flujo');cDel('mes_'+mes.replace(/ /g,'_'));
-      return{ok:true};
+      SpreadsheetApp.flush();
+      return{ok:true,mesData:del&&del.mesData?del.mesData:null,mesCaja:del&&del.mesCaja?del.mesCaja:null};
     }
     return{ok:false,error:'Movimiento TDC no encontrado'};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -1212,7 +1224,8 @@ function actualizarMovimiento(params){
       _invalidarMovimientoMes(newMes);
       _invalidarMovimientoMes(oldMesCaja);
       _invalidarMovimientoMes(newMesCaja);
-      return{ok:true};
+      SpreadsheetApp.flush();
+      return{ok:true,mesData:getMesData(newMesCaja),mesCaja:newMesCaja};
     }
     return{ok:false,error:'Movimiento no encontrado'};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -1234,7 +1247,8 @@ function eliminarMovimiento(id){
       reg.deleteRow(i+1);
       _invalidarMovimientoMes(mes);
       _invalidarMovimientoMes(mesCaja);
-      return{ok:true};
+      SpreadsheetApp.flush();
+      return{ok:true,mesData:getMesData(mesCaja),mesCaja:mesCaja};
     }
     return{ok:false,error:'Movimiento no encontrado'};
   }catch(e){return{ok:false,error:e.toString()};}

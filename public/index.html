@@ -3394,7 +3394,18 @@ function guardarMovTdc(){
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
       eid('mov-tdc').classList.remove('open');
       showToast(G.tdcEditId?'Transacción actualizada':(G.tdcAccion==='cargo'?'Cargo agregado':'Abono agregado'),'ok');
-      syncTrasCambio({delay:80});
+      var mesCajaRes=res.mesCaja||mesCajaTdc;
+      if(G.tdcAccion==='abono'&&params.origen==='egreso'){
+        if(res.mesData&&res.mesData.ok&&G.mesActual===mesCajaRes){
+          G.mesData=res.mesData;
+          cacheSetBootHome(mesCajaRes,res.mesData);
+          cacheSet('lastGoodHome',{mes:mesCajaRes,data:res.mesData});
+          renderHome(G.mesData);
+        }else if(!G.tdcEditId){
+          actualizarSaldoVisiblePorCaja({tipo:'egreso',monto:monto,fecha:fechaTdc,mesRegistro:mesCajaTdc});
+        }
+      }
+      syncTrasCambio({delay:80,mesInicio:mesCajaRes,mesHist:G.histMes||mesCajaRes});
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Registrar';showToast('Error: '+e,'err');});
   if(G.tdcEditId){params.id=G.tdcEditId;runner.actualizarMovimientoTarjeta(params);}
@@ -3416,7 +3427,13 @@ function confirmarEliminarTdc(){
       btn.disabled=false;btn.textContent='Eliminar';
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
       eid('mov-tdc-del').classList.remove('open');showToast('Transacción eliminada','ok');
-      syncTrasCambio({delay:80});
+      if(res.mesData&&res.mesData.ok&&res.mesCaja&&G.mesActual===res.mesCaja){
+        G.mesData=res.mesData;
+        cacheSetBootHome(res.mesCaja,res.mesData);
+        cacheSet('lastGoodHome',{mes:res.mesCaja,data:res.mesData});
+        renderHome(G.mesData);
+      }
+      syncTrasCambio({delay:80,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual});
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
     .eliminarMovimientoTarjeta(G.tdcDeleteId);
