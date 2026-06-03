@@ -810,9 +810,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background:var(--card);border:1px solid rgba(255,255,255,0.65);margin-bottom:7px;}
 
 /* ── ING CARD ────────────────────────────────────────────── */
-.ing-card-wrap{background:rgba(255,255,255,0.7);backdrop-filter:blur(28px);
-  border:1px solid rgba(255,255,255,0.72);border-radius:var(--r16);padding:14px;margin-bottom:14px;
-  box-shadow:var(--glass-shadow);}
+.ing-card-wrap{margin-bottom:14px;}
 .home-month-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px;}
 .home-japan-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:16px;border-radius:22px;overflow:hidden;position:relative;background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(230,247,255,.72));margin-top:14px}
 .tokb{color:var(--blue)!important}
@@ -822,6 +820,24 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .home-japan-card b{font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:22px;letter-spacing:-.04em}
 .home-japan-progress{height:7px;border-radius:999px;background:rgba(208,222,232,.75);overflow:hidden;margin-top:12px}
 .home-japan-progress i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue),var(--green))}
+.home-paint-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:16px;border-radius:22px;overflow:hidden;position:relative;background:linear-gradient(135deg,rgba(255,255,255,.88),rgba(255,240,252,.68));margin-top:14px}
+.home-paint-card:before{content:"";position:absolute;right:-28px;top:-28px;width:116px;height:116px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(255,149,0,.72),rgba(255,59,48,.26) 58%,transparent 62%)}
+.home-paint-card:after{content:"";position:absolute;left:-26px;bottom:-34px;width:135px;height:86px;border-radius:999px;background:linear-gradient(135deg,rgba(0,122,255,.18),rgba(175,82,222,.22));filter:blur(.2px)}
+.home-paint-card h3{font-size:16px;letter-spacing:-.02em;position:relative;z-index:1}
+.home-paint-card p{font-size:12px;color:var(--t2);margin-top:4px;position:relative;z-index:1}
+.home-paint-card b{font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:22px;letter-spacing:-.04em;position:relative;z-index:1}
+.home-wide{grid-column:1/-1}
+.paint-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.paint-edit-btn{width:38px;height:38px;border:0;border-radius:13px;background:rgba(255,255,255,.8);box-shadow:0 4px 14px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;color:var(--blue)}
+.paint-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.paint-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.paint-box{padding:12px 8px;border-radius:16px;background:rgba(255,255,255,.74);border:1px solid rgba(255,255,255,.78);box-shadow:0 4px 16px rgba(0,0,0,.045);min-width:0}
+.paint-box .lup{font-size:9px;line-height:1.1}
+.paint-box .amd{font-size:18px;line-height:1.08;white-space:nowrap}
+.paint-input{width:100%;border:0;background:transparent;text-align:center;font:750 20px/1.1 -apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;color:var(--t1);outline:none}
+.paint-sold{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 14px;margin-bottom:12px;border-radius:18px;background:linear-gradient(135deg,rgba(0,122,255,.13),rgba(175,82,222,.12));border:1px solid rgba(255,255,255,.75)}
+.paint-sold span{font-size:13px;font-weight:700;color:var(--t2)}
+.paint-sold b{font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:24px;letter-spacing:-.04em;color:var(--blue)}
 .quick-kpi{cursor:pointer}
 .quick-kpi:active{transform:scale(.985)}
 .quick-kpi .kpi-num{font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-weight:700;font-size:23px;letter-spacing:-.04em;display:block}
@@ -1202,6 +1218,44 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   </div>
 </div>
 
+<!-- MODAL PINTURAS -->
+<div class="mov" id="mov-pinturas" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="msh" style="max-height:88vh">
+    <div class="mhnd"></div>
+    <div class="paint-modal-head">
+      <div>
+        <div class="mti" style="margin-bottom:2px">Pinturas del Mes</div>
+        <div style="font-size:12px;color:var(--t2)" id="paint-modal-mes">Mes actual</div>
+      </div>
+      <button class="paint-edit-btn" id="paint-edit-btn" onclick="editarPinturas()" aria-label="Editar pinturas">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </button>
+    </div>
+    <div class="lup mb8">Stock</div>
+    <div class="paint-grid">
+      <div class="paint-box"><div class="lup">Inicial</div><div class="amd" id="paint-v-inicial">0</div><input class="paint-input" id="paint-inicial" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" oninput="calcPinturasUI()" style="display:none"></div>
+      <div class="paint-box"><div class="lup">Agregado</div><div class="amd" id="paint-v-agregado">0</div><input class="paint-input" id="paint-agregado" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" oninput="calcPinturasUI()" style="display:none"></div>
+      <div class="paint-box"><div class="lup">Actual</div><div class="amd" id="paint-v-actual">0</div><input class="paint-input" id="paint-actual" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" oninput="calcPinturasUI()" style="display:none"></div>
+    </div>
+    <div class="paint-sold"><span>Pinturas vendidas</span><b id="paint-vendidas">0</b></div>
+    <div class="lup mb8">Detalle</div>
+    <div class="paint-grid two">
+      <div class="paint-box"><div class="lup">Autoconsumo</div><div class="amd" id="paint-v-auto">0</div><input class="paint-input" id="paint-auto" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" oninput="calcPinturasUI()" style="display:none"></div>
+      <div class="paint-box"><div class="lup">Con descuento</div><div class="amd" id="paint-v-desc">0</div><input class="paint-input" id="paint-desc" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" oninput="calcPinturasUI()" style="display:none"></div>
+    </div>
+    <div class="lup mb8">Resultado</div>
+    <div class="paint-grid">
+      <div class="paint-box"><div class="lup">Vendidas</div><div class="amd" id="paint-r-vendidas">0</div></div>
+      <div class="paint-box"><div class="lup">Ingresos</div><div class="amd tok2" id="paint-r-ingresos">$0.00</div></div>
+      <div class="paint-box"><div class="lup">Utilidad</div><div class="amd tokb" id="paint-r-utilidad">$0.00</div></div>
+    </div>
+    <div class="fr g8" id="paint-actions" style="display:none;margin-top:14px">
+      <button class="btn bgh bful" onclick="cancelarPinturas()">Cancelar</button>
+      <button class="btn bb bful" id="paint-save" onclick="guardarPinturas()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL FILTRO FECHAS HISTORIAL -->
 <div class="mov" id="mov-date-filter" onclick="if(event.target===this)this.classList.remove('open')">
@@ -1365,10 +1419,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 var G={
   meses:[],mesActual:null,mesData:null,
   histMes:null,histData:null,
-  balance:null,tarjetas:null,japon:null,flujo:null,
+  balance:null,tarjetas:null,japon:null,pinturas:null,flujo:null,
   txs:[],tipoModal:null,chFlujo:null,
   notifOpen:false,srchOpen:false,
-  balEdit:false,japEdit:false,
+  balEdit:false,japEdit:false,pintEdit:false,
   tcIdx:0,tdcAnio:2026,tcMesActual:null,
   tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcAbonoCargoId:null,tdcExpanded:false,
   tdcMovsAplicados:[],
@@ -1824,7 +1878,7 @@ function cargarTarjetasState(opts,ms){
 async function preloadSecundarioReady(mes,force,showProgress){
   mes=mes||G.mesActual;
   if(!mes)return [];
-  if(force){G.movimientosMes=null;G.tarjetas=null;G.flujo=null;G.balance=null;G.japon=null;}
+  if(force){G.movimientosMes=null;G.tarjetas=null;G.flujo=null;G.balance=null;G.japon=null;G.pinturas=null;}
   var jobs=[];
   function job(label,condition,promiseFactory,handler,ms){
     if(!condition)return;
@@ -1847,6 +1901,9 @@ async function preloadSecundarioReady(mes,force,showProgress){
   job('japon',!G.japon,function(){return gsRun('getViajeJapon');},function(res){
     if(res&&res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
   },2200);
+  job('pinturas',!G.pinturas||G.pinturas.mes!==mes,function(){return gsRun('getPinturasMes',[mes]);},function(res){
+    if(res&&res.ok){G.pinturas=res.data;paintHomePinturas(res.data);}
+  },2200);
   if(showProgress)bootText('Preparando páginas...');
   return Promise.allSettled(jobs);
 }
@@ -1860,6 +1917,7 @@ function invalidarDatosCompartidos(){
   G.flujo=null;
   G.balance=null;
   G.japon=null;
+  G.pinturas=null;
   G._dirty=true;
 }
 function syncTrasCambio(opts){
@@ -1906,6 +1964,9 @@ function syncTrasCambio(opts){
     });
     job('japon',withTimeout(gsRun('getViajeJapon'),4200,'japon'),function(res){
       if(res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
+    });
+    job('pinturas',withTimeout(gsRun('getPinturasMes',[mesInicio]),4200,'pinturas'),function(res){
+      if(res.ok){G.pinturas=res.data;paintHomePinturas(res.data);}
     });
     Promise.allSettled(jobs).then(function(){
       if(seq===__syncSeq)G._dirty=false;
@@ -2055,11 +2116,12 @@ function renderHome(d){
   eid('h-cats').innerHTML='<div class="cat-grid">'
     +cats.map(function(cat){
       var pct=cat.meta>0?Math.min((cat.v/cat.meta)*100,100):0;
+      var pctIng=ing>0?Math.round((cat.v/ing)*100):0;
       var s2=cat.aho?(cat.v>=cat.meta?'ok':(cat.v>=cat.meta*0.85?'warn':'over')):st(cat.meta,cat.v);
       var sob=cat.meta-cat.v;
       return'<div class="cat-card" style="background:'+cat.grad+'" onclick="abrirModalCat(\''+cat.t+'\')">'
         +'<div><div class="cat-ic">'+cat.ic+'</div>'
-        +'<div class="cat-name">'+cat.t+'</div>'
+        +'<div class="cat-name">'+cat.t+' '+pctIng+'% de tus ingresos</div>'
         +'<div class="cat-amt">'+fmt(cat.v)+'</div>'
         +'<div class="cat-sub">'+(s2==='over'&&!cat.aho?'↑ '+fmt(Math.abs(sob))+' excedido':s2==='ok'?'✓ en objetivo':fmt(Math.abs(sob))+' de margen')+'</div>'
         +'</div>'
@@ -2069,8 +2131,7 @@ function renderHome(d){
         +'</div>'
         +'<div class="cat-bar"><div class="cat-bar-fill" style="width:'+pct+'%"></div></div>'
         +'</div></div>';
-    }).join('')+'</div><div id="home-japan-card" class="home-japan-card card tap-target" onclick="abrirModalJapon()"><div><h3>Meta Japón</h3><p>Toca para revisar progreso</p><div class="home-japan-progress"><i style="width:0%"></i></div></div><div style="text-align:right;position:relative;z-index:1"><b class="tok2">$0.00</b><p style="font-size:12px;color:var(--t2)">0%</p></div></div>';
-  loadHomeJapon();
+    }).join('')+'</div>';
 
   // ── Optimizando / Sobrepasando ────────────────────────────
   var todos=(d.necesidades?d.necesidades.items:[]).concat(d.deseos?d.deseos.items:[]);
@@ -2084,7 +2145,11 @@ function renderHome(d){
     +'</div>'
     +'<div class="card lc quick-kpi" onclick="abrirModalKpi(\'sobregasto\')"><div class="lup mb4">Sobregasto</div>'
     +'<span class="kpi-num '+(totalSobregasto>0?'tov2':'tok2')+'">'+fmt(totalSobregasto)+'</span><div class="kpi-caption">'+(mal.length?mal.length+' subcategorías excedidas':'todo en orden')+'</div>'
-    +'</div>';
+    +'</div>'
+    +'<div id="home-paint-card" class="home-paint-card home-wide card tap-target" onclick="abrirModalPinturas()"><div><h3>Pinturas del Mes</h3><p>Toca para revisar ventas</p></div><div style="text-align:right;position:relative;z-index:1"><b class="tokb">$0.00</b><p>0 vendidas</p></div></div>'
+    +'<div id="home-japan-card" class="home-japan-card home-wide card tap-target" onclick="abrirModalJapon()"><div><h3>Meta Jap&oacute;n</h3><p>Toca para revisar progreso</p><div class="home-japan-progress"><i style="width:0%"></i></div></div><div style="text-align:right;position:relative;z-index:1"><b class="tok2">$0.00</b><p style="font-size:12px;color:var(--t2)">0%</p></div></div>';
+  loadHomePinturas();
+  loadHomeJapon();
 
   G.kpiAhorro=bien;
   G.kpiSobregasto=mal;
@@ -2146,6 +2211,117 @@ function paintHomeJapon(res){
   var pct=Math.min(res.porcentaje||0,100);
   el.innerHTML='<div><h3>Meta Japón</h3><p>Toca para revisar progreso</p><div class="home-japan-progress"><i style="width:'+pct+'%"></i></div></div>'
     +'<div style="text-align:right;position:relative;z-index:1"><b class="tok2">'+fmt(res.totalActual||0)+'</b><p style="font-size:12px;color:var(--t2)">'+(res.porcentaje||0).toFixed(1)+'%</p></div>';
+}
+
+function calcPinturasData(raw){
+  raw=raw||{};
+  var inicial=Math.max(0,moneyVal(raw.stockInicial));
+  var agregado=Math.max(0,moneyVal(raw.stockAgregado));
+  var actual=Math.max(0,moneyVal(raw.stockActual));
+  var autoconsumo=Math.max(0,moneyVal(raw.autoconsumo));
+  var descuento=Math.max(0,moneyVal(raw.descuento));
+  var vendidas=Math.max(0,inicial+agregado-actual);
+  var ingresos=Math.round(((6.5*vendidas)-(2*autoconsumo)-(0.5*descuento)+Number.EPSILON)*100)/100;
+  var costo=Math.round((4.5*vendidas+Number.EPSILON)*100)/100;
+  var utilidad=Math.round((ingresos-costo+Number.EPSILON)*100)/100;
+  return{mes:raw.mes||G.mesActual||mesActualCalendario(),stockInicial:inicial,stockAgregado:agregado,stockActual:actual,autoconsumo:autoconsumo,descuento:descuento,vendidas:vendidas,ingresos:ingresos,costo:costo,utilidad:utilidad};
+}
+
+function paintHomePinturas(data){
+  var el=eid('home-paint-card');if(!el)return;
+  data=calcPinturasData(data||G.pinturas||{});
+  el.innerHTML='<div><h3>Pinturas del Mes</h3><p>'+Math.round(data.vendidas||0)+' vendidas</p></div>'
+    +'<div style="text-align:right;position:relative;z-index:1"><b class="tokb">'+fmt(data.ingresos||0)+'</b><p style="font-size:12px;color:var(--t2)">Utilidad '+fmt(data.utilidad||0)+'</p></div>';
+}
+
+function loadHomePinturas(){
+  var mes=G.mesActual||mesActualCalendario();
+  if(G.pinturas&&G.pinturas.mes===mes){paintHomePinturas(G.pinturas);return;}
+  gsRun('getPinturasMes',[mes]).then(function(res){
+    if(res&&res.ok){G.pinturas=res.data;paintHomePinturas(res.data);}
+  }).catch(function(e){console.warn('pinturas',e);});
+}
+
+function setPinturasEdit(on){
+  G.pintEdit=!!on;
+  ['inicial','agregado','actual','auto','desc'].forEach(function(k){
+    var v=eid('paint-v-'+k),inp=eid('paint-'+k);
+    if(v)v.style.display=on?'none':'block';
+    if(inp)inp.style.display=on?'block':'none';
+  });
+  if(eid('paint-actions'))eid('paint-actions').style.display=on?'flex':'none';
+  if(eid('paint-edit-btn'))eid('paint-edit-btn').style.display=on?'none':'flex';
+}
+
+function renderPinturasModal(data){
+  data=calcPinturasData(data||{});
+  G.pinturasDraft=data;
+  if(eid('paint-modal-mes'))eid('paint-modal-mes').textContent=data.mes;
+  var map=[['inicial','stockInicial'],['agregado','stockAgregado'],['actual','stockActual'],['auto','autoconsumo'],['desc','descuento']];
+  map.forEach(function(pair){
+    var short=pair[0],key=pair[1],val=data[key]||0;
+    var v=eid('paint-v-'+short),inp=eid('paint-'+short);
+    if(v)v.textContent=String(val);
+    if(inp)inp.value=val?String(val):'';
+  });
+  if(eid('paint-vendidas'))eid('paint-vendidas').textContent=String(data.vendidas||0);
+  if(eid('paint-r-vendidas'))eid('paint-r-vendidas').textContent=String(data.vendidas||0);
+  if(eid('paint-r-ingresos'))eid('paint-r-ingresos').textContent=fmt(data.ingresos||0);
+  if(eid('paint-r-utilidad'))eid('paint-r-utilidad').textContent=fmt(data.utilidad||0);
+}
+
+function calcPinturasUI(){
+  var data=calcPinturasData({
+    mes:G.mesActual||mesActualCalendario(),
+    stockInicial:eid('paint-inicial')?eid('paint-inicial').value:0,
+    stockAgregado:eid('paint-agregado')?eid('paint-agregado').value:0,
+    stockActual:eid('paint-actual')?eid('paint-actual').value:0,
+    autoconsumo:eid('paint-auto')?eid('paint-auto').value:0,
+    descuento:eid('paint-desc')?eid('paint-desc').value:0
+  });
+  G.pinturasDraft=data;
+  if(eid('paint-vendidas'))eid('paint-vendidas').textContent=String(data.vendidas||0);
+  if(eid('paint-r-vendidas'))eid('paint-r-vendidas').textContent=String(data.vendidas||0);
+  if(eid('paint-r-ingresos'))eid('paint-r-ingresos').textContent=fmt(data.ingresos||0);
+  if(eid('paint-r-utilidad'))eid('paint-r-utilidad').textContent=fmt(data.utilidad||0);
+  return data;
+}
+
+function abrirModalPinturas(){
+  var mes=G.mesActual||mesActualCalendario();
+  var modal=eid('mov-pinturas');if(modal)modal.classList.add('open');
+  if(G.pinturas&&G.pinturas.mes===mes){renderPinturasModal(G.pinturas);setPinturasEdit(false);return;}
+  renderPinturasModal({mes:mes});
+  setPinturasEdit(false);
+  gsRun('getPinturasMes',[mes]).then(function(res){
+    if(res&&res.ok){G.pinturas=res.data;renderPinturasModal(res.data);}
+  }).catch(function(){showToast('Error al cargar pinturas','err');});
+}
+
+function editarPinturas(){
+  setPinturasEdit(true);
+  setTimeout(function(){var inp=eid('paint-inicial');if(inp)inp.focus();},80);
+}
+
+function cancelarPinturas(){
+  renderPinturasModal(G.pinturas||{mes:G.mesActual||mesActualCalendario()});
+  setPinturasEdit(false);
+}
+
+function guardarPinturas(){
+  var data=calcPinturasUI();
+  if(data.autoconsumo+data.descuento>data.vendidas){showToast('Detalle supera pinturas vendidas','err');return;}
+  var btn=eid('paint-save');if(btn)btn.disabled=true;
+  gsRun('guardarPinturasMes',[data]).then(function(res){
+    if(!res||!res.ok){showToast((res&&res.error)||'No se pudo guardar','err');return;}
+    G.pinturas=res.data;
+    renderPinturasModal(res.data);
+    setPinturasEdit(false);
+    paintHomePinturas(res.data);
+    showToast('Pinturas actualizadas','ok');
+  }).catch(function(e){
+    showToast(e&&e.message?e.message:'Error al guardar','err');
+  }).finally(function(){if(btn)btn.disabled=false;});
 }
 
 function abrirModalKpi(tipo){

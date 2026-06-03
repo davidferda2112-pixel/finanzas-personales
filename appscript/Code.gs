@@ -9,7 +9,7 @@ var MESES_NOM = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
 
 var ESPECIALES = ['Balance General','Flujo TDC Papi','Flujo de Caja',
                   'Viaje a Japón','Registro','TDC_App','TDC_VISA','TDC_MC','_NOTIF',
-                  'Balance_App','_BALANCE_LOG','_BALANCE_DELETED'];
+                  'Balance_App','_BALANCE_LOG','_BALANCE_DELETED','PINTURAS'];
 
 var TDC_DIFERIDOS = {
   VISA: [{nombre:'Diferido Artefacta', inicial:366.68, cuota:30.56, cuotasAlMesBase:3, mesBase:'May 26'}],
@@ -1695,6 +1695,89 @@ function _saldoFinalRealParaCrearMes(nombreBase,fallback){
   return _n(fallback);
 }
 
+function _pinturasSheet(ss){
+  var sh=ss.getSheetByName('PINTURAS');
+  if(!sh){
+    sh=ss.insertSheet('PINTURAS');
+    sh.appendRow(['Mes','Stock inicial','Stock agregado','Stock actual','Autoconsumo','Con descuento','Actualizado']);
+    sh.setFrozenRows(1);
+  }else if(sh.getLastRow()<1){
+    sh.appendRow(['Mes','Stock inicial','Stock agregado','Stock actual','Autoconsumo','Con descuento','Actualizado']);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function _calcPinturas(r){
+  var inicial=Math.max(0,_n(r.stockInicial));
+  var agregado=Math.max(0,_n(r.stockAgregado));
+  var actual=Math.max(0,_n(r.stockActual));
+  var autoconsumo=Math.max(0,_n(r.autoconsumo));
+  var descuento=Math.max(0,_n(r.descuento));
+  var vendidas=Math.max(0,inicial+agregado-actual);
+  var ingresos=_money((6.5*vendidas)-(2*autoconsumo)-(0.5*descuento));
+  var costo=_money(4.5*vendidas);
+  var utilidad=_money(ingresos-costo);
+  return {
+    stockInicial:inicial,
+    stockAgregado:agregado,
+    stockActual:actual,
+    autoconsumo:autoconsumo,
+    descuento:descuento,
+    vendidas:_money(vendidas),
+    ingresos:ingresos,
+    costo:costo,
+    utilidad:utilidad
+  };
+}
+
+function getPinturasMes(mes){
+  try{
+    mes=_s(mes)||_getMesActual();
+    var ss=getSS(),sh=_pinturasSheet(ss),D=sh.getDataRange().getValues();
+    var raw={stockInicial:0,stockAgregado:0,stockActual:0,autoconsumo:0,descuento:0};
+    for(var i=1;i<D.length;i++){
+      if(_s(D[i][0])===mes){
+        raw={stockInicial:D[i][1],stockAgregado:D[i][2],stockActual:D[i][3],autoconsumo:D[i][4],descuento:D[i][5]};
+        break;
+      }
+    }
+    var calc=_calcPinturas(raw);
+    calc.mes=mes;
+    return {ok:true,data:calc};
+  }catch(e){
+    return {ok:false,error:e.toString()};
+  }
+}
+
+function guardarPinturasMes(params){
+  try{
+    params=params||{};
+    var mes=_s(params.mes)||_getMesActual();
+    var raw={
+      stockInicial:_n(params.stockInicial),
+      stockAgregado:_n(params.stockAgregado),
+      stockActual:_n(params.stockActual),
+      autoconsumo:_n(params.autoconsumo),
+      descuento:_n(params.descuento)
+    };
+    var calc=_calcPinturas(raw);
+    if(calc.autoconsumo+calc.descuento>calc.vendidas){
+      return {ok:false,error:'Autoconsumo y descuento no pueden superar las pinturas vendidas.'};
+    }
+    var ss=getSS(),sh=_pinturasSheet(ss),D=sh.getDataRange().getValues(),row=0;
+    for(var i=1;i<D.length;i++){if(_s(D[i][0])===mes){row=i+1;break;}}
+    var values=[mes,calc.stockInicial,calc.stockAgregado,calc.stockActual,calc.autoconsumo,calc.descuento,_nowLocal()];
+    if(row) sh.getRange(row,1,1,values.length).setValues([values]);
+    else sh.appendRow(values);
+    calc.mes=mes;
+    cDel('mes_'+mes);
+    return {ok:true,data:calc};
+  }catch(e){
+    return {ok:false,error:e.toString()};
+  }
+}
+
 // ============================================================
 // API para Vercel - agrega este bloque al final de Code.gs
 // ============================================================
@@ -1715,6 +1798,8 @@ var API_METHODS = {
   getFlujoCaja: getFlujoCaja,
   getViajeJapon: getViajeJapon,
   actualizarJapon: actualizarJapon,
+  getPinturasMes: getPinturasMes,
+  guardarPinturasMes: guardarPinturasMes,
   parseTarjetas: parseTarjetas,
   getTarjetasState: getTarjetasState,
   registrarMovimientoTarjeta: registrarMovimientoTarjeta,
