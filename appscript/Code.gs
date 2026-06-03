@@ -539,6 +539,38 @@ function _idxMesCorto(mesCorto){
   return abbr.indexOf(String(mesCorto||'').split(' ')[0]);
 }
 
+function getTarjetasState(opts){
+  try{
+    opts=opts||{};
+    var parsed=parseTarjetas();
+    if(!parsed||!parsed.ok) return parsed;
+    var tarjetas=parsed.tarjetas||[];
+    var idx=parseInt(opts.idx,10);
+    if(isNaN(idx)||idx<0||idx>=tarjetas.length) idx=0;
+    var anio=parseInt(opts.anio,10)||2026;
+    var t=tarjetas[idx]||tarjetas[0];
+    var mes=_normalizarMesNombre(opts.mes)||_mesCalendarioActual();
+    if(t){
+      var meses=(anio===2026?t.meses2026:t.meses2025)||[];
+      var cortos=meses.map(function(m){
+        var p=String(m||'').split(' ');
+        var mi=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'].indexOf(p[0]);
+        return (mi>=0?MESES_NOM[mi]:p[0])+' '+p[1];
+      });
+      if(cortos.length&&cortos.indexOf(mes)<0) mes=cortos[cortos.length-1];
+    }
+    var out={ok:true,tarjetas:tarjetas,tcIdx:idx,tdcAnio:anio,tcMesActual:mes,tdcMovs:[],tdcMovsAplicados:[]};
+    if(t&&t.id){
+      var movs=getMovimientosTarjeta(mes,t.id);
+      out.tdcMovs=movs&&movs.ok?(movs.data||[]):[];
+      var movsAplicados=getMovimientosTarjeta(_mesSiguienteNombre(mes),t.id);
+      out.tdcMovsAplicados=movsAplicados&&movsAplicados.ok?(movsAplicados.data||[]):[];
+      out.tdcKey=t.id+'|'+mes;
+    }
+    return out;
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
 function _tdcMoney(v){
   var n=Math.round((_n(v)+Number.EPSILON)*100)/100;
   return Math.abs(n)<0.005?0:n;
@@ -998,8 +1030,9 @@ function getMovimientosMes(mes){
 
 function _getSaldoBaseMovimientos(mes){
   mes=_normalizarMesNombre(mes);
+  var ss=getSS();
   var d=_parseMes(mes);
-  if(d&&d.ok&&d.vistaGeneral&&d.vistaGeneral.saldoFinal) return _n(d.vistaGeneral.saldoFinal.actual);
+  if(d&&d.ok) return _n(_saldoSheetConArrastre(ss,mes,d.vistaGeneral||{}));
   return 0;
 }
 
@@ -1567,6 +1600,7 @@ var API_METHODS = {
   getViajeJapon: getViajeJapon,
   actualizarJapon: actualizarJapon,
   parseTarjetas: parseTarjetas,
+  getTarjetasState: getTarjetasState,
   registrarMovimientoTarjeta: registrarMovimientoTarjeta,
   getMovimientosTarjeta: getMovimientosTarjeta,
   actualizarMovimientoTarjeta: actualizarMovimientoTarjeta,
