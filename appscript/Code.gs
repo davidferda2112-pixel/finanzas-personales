@@ -1084,7 +1084,7 @@ function getMovimientosMes(mes){
     var reg=ss.getSheetByName('Registro');
     if(!reg) return{ok:true,data:[]};
     var D=reg.getDataRange().getValues(),result=[];
-    var mesesCaja={}, filas=[];
+    var mesesCaja={}, filasPorCaja={};
     for(var i=1;i<D.length;i++){
       var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
       var mesCaja=_normalizarMesNombre(_mesCajaRegistro(D[i]));
@@ -1102,14 +1102,17 @@ function getMovimientosMes(mes){
         fechaOrden:_fechaMsSimple(D[i][7]),
         notas:_s(D[i][8])
       };
-      filas.push(item);
+      if(mesCaja){
+        if(!filasPorCaja[mesCaja]) filasPorCaja[mesCaja]=[];
+        filasPorCaja[mesCaja].push(item);
+      }
       if(mesFila!==mes) continue;
       mesesCaja[mesCaja]=true;
       result.push(item);
     }
     var saldosPorId={};
     Object.keys(mesesCaja).forEach(function(mc){
-      var movs=filas.filter(function(x){return x.mesCaja===mc;});
+      var movs=(filasPorCaja[mc]||[]).slice();
       movs.sort(_compararMovimientoAsc);
       var saldo=_getSaldoBaseMovimientos(mc);
       movs.forEach(function(t){

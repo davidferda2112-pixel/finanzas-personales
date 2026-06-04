@@ -1619,6 +1619,57 @@ function withTimeout(p,ms,label){
     new Promise(function(resolve){setTimeout(function(){resolve({timeout:true,label:label});},ms);})
   ]);
 }
+function pickRealMes(meses,preferido){
+  meses=(meses||[]).slice().sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
+  var cal=mesActualCalendario();
+  if(meses.indexOf(preferido)>=0)return preferido;
+  if(meses.indexOf(cal)>=0)return cal;
+  if(meses.length)return meses[meses.length-1];
+  return preferido||cal;
+}
+async function cargarBootDirectoReal(homeMes,histMes){
+  homeMes=homeMes||mesActualCalendario();
+  histMes=histMes||homeMes;
+  bootText('Reintentando carga directa...');
+
+  var mesesRes=await withTimeout(gsRun('getMesesDisponibles'),5200,'meses directos');
+  var meses=(G.meses&&G.meses.length)?G.meses.slice():[];
+  if(mesesRes&&mesesRes.ok&&Array.isArray(mesesRes.data)&&mesesRes.data.length){
+    meses=mesesRes.data.slice();
+    cacheSet('meses',meses);
+  }
+  if(!meses.length)meses=[homeMes];
+  if(meses.indexOf(homeMes)<0)meses.push(homeMes);
+  if(histMes&&meses.indexOf(histMes)<0)meses.push(histMes);
+  homeMes=pickRealMes(meses,homeMes);
+  histMes=pickRealMes(meses,histMes||homeMes);
+
+  G.meses=meses.slice().sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
+  fillSels(G.meses);
+  G.mesActual=homeMes;
+  G.histMes=histMes;
+  var sh=eid('sel-h');if(sh)sh.value=homeMes;
+  var sp=eid('sel-pr');if(sp)sp.value=histMes;
+
+  bootText('Cargando inicio real...');
+  var homeP=withTimeout(gsRun('getMesData',[homeMes]),7600,'inicio directo');
+  var histP=histMes===homeMes?homeP:withTimeout(gsRun('getMesData',[histMes]),7600,'historial directo');
+  var movP=withTimeout(gsRun('getMovimientosMes',[histMes]),7600,'movimientos directos');
+  var paintP=withTimeout(gsRun('getPinturasMes',[homeMes]),3600,'pinturas directas').catch(function(){return null;});
+  var pair=await Promise.all([homeP,histP,movP,paintP]);
+  if(!stateOk(pair[0]))throw new Error('No llegaron datos reales de inicio');
+  if(!stateOk(pair[2]))throw new Error('No llegaron movimientos reales');
+  return{
+    ok:true,
+    meses:G.meses,
+    mesActual:homeMes,
+    histMes:histMes,
+    home:pair[0],
+    hist:stateOk(pair[1])?pair[1]:pair[0],
+    movimientos:pair[2],
+    pinturas:stateOk(pair[3])?pair[3]:null
+  };
+}
 function sleep(ms){return new Promise(function(resolve){setTimeout(resolve,ms);});}
 async function loadStep(label,fn,required){
   var delays=[0,650,1200],last=null;
@@ -1821,7 +1872,7 @@ function init(){
 }
 
 async function preloadAppFast(){
-  var canHide=false,mes=mesActualCalendario(),slow=null;
+  var canHide=false,mes=mesActualCalendario(),slow=null,boot=null,bootErr=null;
   try{
     slow=setTimeout(function(){bootText('Leyendo datos reales...');},1200);
     bootText('Conectando con el libro...');
@@ -1840,30 +1891,40 @@ async function preloadAppFast(){
     cacheSet('mesActual',G.mesActual);
 
     bootText('Cargando inicio e historial...');
-    var boot=await withTimeout(gsRun('getBootState',[{
-      homeMes:G.mesActual,
-      histMes:G.histMes||G.mesActual
-    }]),10500,'estado inicial');
-    if(!boot||boot.timeout||boot.ok===false||boot.error){
-      throw new Error((boot&&boot.error)||'No llegaron los datos iniciales');
+    try{
+      boot=await withTimeout(gsRun('getBootState',[{
+        homeMes:G.mesActual,
+        histMes:G.histMes||G.mesActual
+      }]),6200,'estado inicial');
+      if(!boot||boot.timeout||boot.ok===false||boot.error){
+        throw new Error((boot&&boot.error)||'No llegaron los datos iniciales');
+      }
+    }catch(primaryErr){
+      bootErr=primaryErr;
+      console.warn('boot rapido fallo, usando carga directa',primaryErr);
+      boot=await cargarBootDirectoReal(G.mesActual,G.histMes||G.mesActual);
     }
     aplicarInitialState(boot,{homeMes:boot.mesActual||G.mesActual,histMes:boot.histMes||G.histMes});
     if(G.mesData){
       cacheSetBootHome(G.mesActual,G.mesData);
       cacheSet('lastGoodHome',{mes:G.mesActual,data:G.mesData});
     }
+    if(!G.mesData)throw new Error('Estado inicial sin datos de inicio');
     canHide=true;
 
     clearTimeout(slow);
+    bootText('Preparando tarjetas...');
+    var tarjetasInicial=cargarTarjetasState({mes:G.tcMesActual||G.mesActual,idx:G.tcIdx||0,anio:G.tdcAnio||2026},6500);
+    await withTimeout(tarjetasInicial,2200,'tarjetas iniciales').catch(function(){return null;});
     bootText('Listo');
     setTimeout(function(){
-      cargarTarjetasState({mes:G.tcMesActual||G.mesActual,idx:G.tcIdx||0,anio:G.tdcAnio||2026},6500);
+      if(!G.tarjetas)cargarTarjetasState({mes:G.tcMesActual||G.mesActual,idx:G.tcIdx||0,anio:G.tdcAnio||2026},6500);
       preloadSecundario(G.mesActual,false);
     },120);
   }catch(e){
     if(slow)clearTimeout(slow);
-    console.warn('preload fast',e);
-    bootText('No pude cargar datos reales. Revisa conexion y abre la app otra vez.');
+    console.warn('preload fast',e,bootErr);
+    bootText('No pude cargar datos reales. Revisa conexion y recarga.');
     showToast('No pude cargar datos reales. No uses valores guardados.','err');
   }finally{
     if(canHide)setTimeout(function(){if(G.mesData)hideBootLoader();},260);
@@ -1906,6 +1967,10 @@ async function preloadApp(){
     }catch(legacyErr){
       console.warn('preload legacy',legacyErr);
     }
+    bootText('No se pudo cargar el libro. Revisa conexion y recarga.');
+    showToast('No se pudo cargar el libro. Recarga la app.','err');
+    canHide=false;
+    return;
     if((!G.meses||!G.meses.length)){
       G.meses=cacheGet('meses')||[mes];
       fillSels(G.meses);
@@ -2207,8 +2272,10 @@ function cambiarMesInicio(nombre){
   });
 }
 
+var __histMesSeq=0;
 function cambiarMesHistorial(nombre){
   if(!nombre)return;
+  var seq=++__histMesSeq;
   G.histMes=nombre;
   G.movimientosMes=null;
   var sp=eid('sel-pr');if(sp)sp.value=nombre;
@@ -2216,9 +2283,10 @@ function cambiarMesHistorial(nombre){
     eid('tx-list').innerHTML='<div class="empty-state">Cargando movimientos de '+nombre+'...</div>';
   }
   Promise.all([
-    gsRun('getMesData',[nombre]).catch(function(e){return{ok:false,error:e};}),
-    gsRun('getMovimientosMes',[nombre]).catch(function(e){return{ok:false,error:e};})
+    withTimeout(gsRun('getMesData',[nombre]),8200,'mes historial').catch(function(e){return{ok:false,error:e};}),
+    withTimeout(gsRun('getMovimientosMes',[nombre]),8200,'movimientos historial').catch(function(e){return{ok:false,error:e};})
   ]).then(function(pair){
+    if(seq!==__histMesSeq||G.histMes!==nombre)return;
     var mesData=pair[0],movs=pair[1];
     if(movs&&movs.ok){
       G.movimientos=movs.data||[];
@@ -2234,6 +2302,10 @@ function cambiarMesHistorial(nombre){
     }else{
       showToast('No pude cargar movimientos de '+nombre,'err');
     }
+  }).catch(function(e){
+    if(seq!==__histMesSeq)return;
+    console.warn('historial mes',e);
+    showToast('No pude cargar '+nombre,'err');
   });
 }
 
