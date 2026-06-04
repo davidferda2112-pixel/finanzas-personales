@@ -9,7 +9,7 @@ var MESES_NOM = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
 
 var ESPECIALES = ['Balance General','Flujo TDC Papi','Flujo de Caja',
                   'Viaje a Japón','Registro','TDC_App','TDC_VISA','TDC_MC','_NOTIF',
-                  'Balance_App','_BALANCE_LOG','_BALANCE_DELETED','PINTURAS'];
+                  'Balance_App','_BALANCE_LOG','_BALANCE_DELETED','_BALANCE_CUSTOM','PINTURAS'];
 
 var TDC_DIFERIDOS = {
   VISA: [{nombre:'Diferido Artefacta', inicial:366.68, cuota:30.56, cuotasAlMesBase:3, mesBase:'May 26'}],
@@ -214,6 +214,7 @@ function getBalanceGeneral(){
     var eliminados=_getBalanceDeletedMap(ssBal);
     d.activos=d.activos.filter(function(x){return x.esGrupo||!eliminados[x.codigo];});
     d.pasivos=d.pasivos.filter(function(x){return x.esGrupo||!eliminados[x.codigo];});
+    _agregarBalanceCustom(ssBal,d);
     d.cambios=_getBalanceLog(ssBal,6);
 
     // Sincronizar Efectivo Disponible (10101.05) con saldo real del mes actual
@@ -249,6 +250,19 @@ function getBalanceGeneral(){
     }
     if(grupoActual!==null) d.activos[grupoActual].valor=sumaGrupo;
 
+    grupoActual=null;
+    sumaGrupo=0;
+    for(var pi=0;pi<d.pasivos.length;pi++){
+      var p=d.pasivos[pi];
+      if(p.esGrupo){
+        if(grupoActual!==null) d.pasivos[grupoActual].valor=sumaGrupo;
+        grupoActual=pi;sumaGrupo=0;
+      } else {
+        sumaGrupo+=p.valor;
+      }
+    }
+    if(grupoActual!==null) d.pasivos[grupoActual].valor=sumaGrupo;
+
     d.totalActivos=d.activos.reduce(function(a,x){return x.esGrupo?a:a+x.valor;},0);
     d.totalPasivos=d.pasivos.reduce(function(a,x){return x.esGrupo?a:a+x.valor;},0);
     d.patrimonioNeto=d.totalActivos-d.totalPasivos;
@@ -277,17 +291,48 @@ function actualizarBalance(params){
     var item=_findBalanceItem(ss,params.codigo);
     if(!item) return{ok:false,error:'Codigo no encontrado'};
     var nuevo=_n(params.valor);
-    item.sheet.getRange(item.row,item.col).setValue(nuevo);
+    var nuevoNombre=_s(params.nombre||item.nombre);
+    if(item.custom){
+      item.sheet.getRange(item.row,2,1,4).setValues([[nuevoNombre,item.tipo,nuevo,true]]);
+    }else{
+      if(nuevoNombre) item.sheet.getRange(item.row,item.nameCol).setValue(nuevoNombre);
+      item.sheet.getRange(item.row,item.col).setValue(nuevo);
+    }
     _appendBalanceLog(ss,{
       codigo:item.codigo,
-      nombre:item.nombre,
+      nombre:nuevoNombre||item.nombre,
       tipo:item.tipo,
       accion:'editar',
       anterior:item.valor,
       nuevo:nuevo,
       nota:params&&params.nota?params.nota:''
     });
-    return{ok:true};
+    return{ok:true,balance:getBalanceGeneral()};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function guardarBalanceItem(params){
+  try{
+    params=params||{};
+    var ss=getSS();
+    if(params.codigo) return actualizarBalance(params);
+    var tipo=_s(params.tipo||params.operacion||'Activo');
+    tipo=tipo.toLowerCase().indexOf('pas')===0?'Pasivo':'Activo';
+    var nombre=_s(params.nombre);
+    if(!nombre) return{ok:false,error:'Escribe el nombre'};
+    var valor=_n(params.valor);
+    var codigo=(tipo==='Pasivo'?'APP-P-':'APP-A-')+(new Date().getTime());
+    _balanceCustomSheet(ss).appendRow([codigo,nombre,tipo,valor,true,new Date(),params.nota||'']);
+    _appendBalanceLog(ss,{
+      codigo:codigo,
+      nombre:nombre,
+      tipo:tipo,
+      accion:'crear',
+      anterior:0,
+      nuevo:valor,
+      nota:params.nota||''
+    });
+    return{ok:true,codigo:codigo,balance:getBalanceGeneral()};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
@@ -297,7 +342,12 @@ function eliminarBalanceItem(params){
     var item=_findBalanceItem(ss,params.codigo);
     if(!item) return{ok:false,error:'Codigo no encontrado'};
     var nota=params&&params.nota?params.nota:'';
-    _balanceDeletedSheet(ss).appendRow([new Date(),item.codigo,item.nombre,item.tipo,nota]);
+    if(item.custom){
+      item.sheet.getRange(item.row,5).setValue(false);
+      item.sheet.getRange(item.row,7).setValue(nota);
+    }else{
+      _balanceDeletedSheet(ss).appendRow([new Date(),item.codigo,item.nombre,item.tipo,nota]);
+    }
     _appendBalanceLog(ss,{
       codigo:item.codigo,
       nombre:item.nombre,
@@ -307,7 +357,7 @@ function eliminarBalanceItem(params){
       nuevo:0,
       nota:nota
     });
-    return{ok:true};
+    return{ok:true,balance:getBalanceGeneral()};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
@@ -319,13 +369,16 @@ function _findBalanceItem(ss,codigo){
   var D=sh.getDataRange().getValues();
   for(var i=0;i<D.length;i++){
     if(_s(D[i][0])===codigo){
-      return{sheet:sh,row:i+1,col:3,codigo:codigo,nombre:_s(D[i][1]),tipo:'Activo',valor:_n(D[i][2])};
+      return{sheet:sh,row:i+1,col:3,nameCol:2,codigo:codigo,nombre:_s(D[i][1]),tipo:'Activo',valor:_n(D[i][2]),custom:false};
     }
     if(_s(D[i][5])===codigo){
-      return{sheet:sh,row:i+1,col:8,codigo:codigo,nombre:_s(D[i][6]),tipo:'Pasivo',valor:_n(D[i][7])};
+      return{sheet:sh,row:i+1,col:8,nameCol:7,codigo:codigo,nombre:_s(D[i][6]),tipo:'Pasivo',valor:_n(D[i][7]),custom:false};
+    }
+    if(codigo==='brackets'&&!_s(D[i][5])&&_s(D[i][6])==='Brackets'){
+      return{sheet:sh,row:i+1,col:8,nameCol:7,codigo:codigo,nombre:'Brackets',tipo:'Pasivo',valor:_n(D[i][7]),custom:false};
     }
   }
-  return null;
+  return _findBalanceCustomItem(ss,codigo);
 }
 
 function _balanceLogSheet(ss){
@@ -344,6 +397,56 @@ function _balanceDeletedSheet(ss){
     sh.appendRow(['Fecha','Codigo','Nombre','Tipo','Nota']);
   }
   return sh;
+}
+
+function _balanceCustomSheet(ss){
+  var sh=ss.getSheetByName('_BALANCE_CUSTOM');
+  if(!sh){
+    sh=ss.insertSheet('_BALANCE_CUSTOM');
+    sh.appendRow(['Codigo','Nombre','Tipo','Valor','Activo','Fecha','Nota']);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function _balanceCustomItems(ss){
+  var sh=ss.getSheetByName('_BALANCE_CUSTOM');
+  if(!sh) return [];
+  var D=sh.getDataRange().getValues(),out=[];
+  for(var i=1;i<D.length;i++){
+    var activo=D[i][4];
+    if(activo===false||String(activo).toLowerCase()==='false') continue;
+    var codigo=_s(D[i][0]),nombre=_s(D[i][1]),tipo=_s(D[i][2]);
+    if(!codigo||!nombre) continue;
+    out.push({sheet:sh,row:i+1,codigo:codigo,nombre:nombre,tipo:tipo,valor:_n(D[i][3]),custom:true});
+  }
+  return out;
+}
+
+function _findBalanceCustomItem(ss,codigo){
+  var sh=ss.getSheetByName('_BALANCE_CUSTOM');
+  if(!sh) return null;
+  var D=sh.getDataRange().getValues();
+  for(var i=1;i<D.length;i++){
+    if(_s(D[i][0])===codigo){
+      return{sheet:sh,row:i+1,col:4,nameCol:2,codigo:codigo,nombre:_s(D[i][1]),tipo:_s(D[i][2])||'Activo',valor:_n(D[i][3]),custom:true};
+    }
+  }
+  return null;
+}
+
+function _agregarBalanceCustom(ss,d){
+  var items=_balanceCustomItems(ss);
+  var activos=items.filter(function(x){return String(x.tipo).toLowerCase().indexOf('pas')!==0;});
+  var pasivos=items.filter(function(x){return String(x.tipo).toLowerCase().indexOf('pas')===0;});
+  if(activos.length){
+    d.activos.push({codigo:'APP-A',nombre:'Activos manuales',valor:0,tipo:'Activo',esGrupo:true});
+    activos.forEach(function(x){d.activos.push({codigo:x.codigo,nombre:x.nombre,valor:x.valor,tipo:'Activo',esGrupo:false,manual:true});});
+  }
+  if(pasivos.length){
+    d.pasivos.push({codigo:'APP-P',nombre:'Pasivos manuales',valor:0,tipo:'Pasivo',esGrupo:true});
+    pasivos.forEach(function(x){d.pasivos.push({codigo:x.codigo,nombre:x.nombre,valor:x.valor,tipo:'Pasivo',esGrupo:false,manual:true});});
+  }
 }
 
 function _appendBalanceLog(ss,r){
@@ -378,7 +481,7 @@ function _getBalanceLog(ss,limit){
   var out=[];
   for(var i=D.length-1;i>=1&&out.length<(limit||8);i--){
     out.push({
-      fecha:D[i][0],
+      fecha:_fmtFechaSimple(D[i][0]),
       codigo:_s(D[i][1]),
       nombre:_s(D[i][2]),
       tipo:_s(D[i][3]),
@@ -1646,16 +1749,16 @@ function _parseBalance(){
     var codP=_s(D[i][5]),ctaP=_s(D[i][6]),valP=_n(D[i][7]);
 
     if(cod&&cod.charAt(0)==='1'&&cta&&cta!=='Cuenta'){
-      activos.push({codigo:cod,nombre:cta,valor:val,
+      activos.push({codigo:cod,nombre:cta,valor:val,tipo:'Activo',
                     esGrupo:cod.indexOf('.')===-1&&cod.toUpperCase().indexOf('TOTAL')===-1});
     }
     if(cod==='TOTAL DE ACTIVOS') totalActivos=_n(D[i][3]);
 
     if(codP&&codP.charAt(0)==='2'&&ctaP&&ctaP!=='Código'){
-      pasivos.push({codigo:codP,nombre:ctaP,valor:valP,esGrupo:codP.indexOf('.')===-1});
+      pasivos.push({codigo:codP,nombre:ctaP,valor:valP,tipo:'Pasivo',esGrupo:codP.indexOf('.')===-1});
     }
     if(!codP&&ctaP==='Brackets'&&valP>0){
-      pasivos.push({codigo:'brackets',nombre:'Brackets',valor:valP,esGrupo:false});
+      pasivos.push({codigo:'brackets',nombre:'Brackets',valor:valP,tipo:'Pasivo',esGrupo:false});
     }
     if(codP==='TOTAL DE PASIVOS') totalPasivos=_n(D[i][8]);
     if(codP==='PATRIMONIO NETO')  patrimonioNeto=valP;
@@ -2087,6 +2190,7 @@ var API_METHODS = {
   getMesData: getMesData,
   getBalanceGeneral: getBalanceGeneral,
   actualizarBalance: actualizarBalance,
+  guardarBalanceItem: guardarBalanceItem,
   eliminarBalanceItem: eliminarBalanceItem,
   getFlujoCaja: getFlujoCaja,
   getViajeJapon: getViajeJapon,

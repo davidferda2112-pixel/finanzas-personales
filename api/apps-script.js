@@ -16,6 +16,7 @@ const READ_TTL_MS = {
 
 const WRITE_METHODS = new Set([
   'actualizarBalance',
+  'guardarBalanceItem',
   'eliminarBalanceItem',
   'actualizarJapon',
   'guardarPinturasMes',

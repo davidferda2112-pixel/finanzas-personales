@@ -747,13 +747,17 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .bal-val{font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:13px;color:var(--t1);}
 .bal-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:138px;}
 .bal-actions .edit-in{width:92px;text-align:right;}
+.bal-row-main{min-width:0;display:flex;flex-direction:column;gap:2px;}
+.bal-row-main small{font-size:10px;color:var(--t3);font-weight:700;}
+.bal-edit-btn{width:32px;height:32px;border:0;border-radius:10px;background:rgba(0,122,255,.10);color:var(--blue);font-weight:800;font-family:inherit;cursor:pointer;}
 .bal-del{width:32px;height:32px;border:0;border-radius:10px;background:rgba(255,59,48,.10);color:var(--over);font-weight:800;font-family:inherit;cursor:pointer;}
-.bal-del:active{transform:scale(.96);}
+.bal-edit-btn:active,.bal-del:active{transform:scale(.96);}
 .bal-log{padding:11px 14px;margin-bottom:12px;}
 .bal-log-title{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;}
 .bal-log-item{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;padding:6px 0;border-top:1px solid rgba(0,0,0,.05);}
 .bal-log-item:first-of-type{border-top:0;}
 .bal-log-item span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2);}
+.bal-log-item em{display:block;font-style:normal;font-size:10px;color:var(--t3);margin-top:1px;}
 .bal-log-item strong{white-space:nowrap;}
 .fl-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;background:rgba(255,255,255,0.98);border-radius:20px}
 .fl-table-wrap table{width:100%;border-collapse:collapse;font-size:11px;min-width:760px;background:#fff}
@@ -1020,7 +1024,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="page" id="page-balance">
     <div class="ph">
       <div class="ph-l"><div class="ph-t">Balance General</div><div class="ph-s">Activos · Pasivos · Patrimonio</div></div>
-      <div class="ph-r"><div class="ib" onclick="abrirBalanceLog()" title="Ultimos cambios"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg></div><div class="ib" onclick="tgBalEdit()" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div></div>
+      <div class="ph-r"><div class="ib" onclick="abrirBalanceItem('crear')" title="Agregar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg></div><div class="ib" onclick="abrirBalanceLog()" title="Ultimos cambios"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg></div><div class="ib" onclick="tgBalEdit()" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div></div>
     </div>
     <div class="pc">
       <div class="card cs pat-c mb14">
@@ -1403,6 +1407,22 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 </div>
 
 <!-- MODAL CAMBIOS BALANCE -->
+<div class="mov" id="mov-bal-item" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="msh">
+    <div class="mhnd"></div>
+    <div class="mti" id="bal-item-title">Agregar item</div>
+    <div style="font-size:12px;color:var(--t2);margin-bottom:14px">Balance General</div>
+    <div class="fg"><div class="fl">Tipo</div><select class="fs" id="bal-item-tipo">
+      <option value="Activo">Activo</option>
+      <option value="Pasivo">Pasivo</option>
+    </select></div>
+    <div class="fg"><div class="fl">Nombre</div><input class="fi" id="bal-item-nombre" type="text" placeholder="Nombre"></div>
+    <div class="fg"><div class="fl">Valor</div><input class="fi bn" id="bal-item-valor" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0.00"></div>
+    <div class="fg"><div class="fl">Nota</div><input class="fi" id="bal-item-nota" type="text" placeholder="Opcional"></div>
+    <div class="fr g8"><button class="btn bgh bful" onclick="eid('mov-bal-item').classList.remove('open')">Cancelar</button><button class="btn bb bful" id="bal-item-save" onclick="guardarBalanceItemUI()">Guardar</button></div>
+  </div>
+</div>
+
 <div class="mov" id="mov-bal-log" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="msh" style="max-height:88vh">
     <div class="mhnd"></div>
@@ -1450,6 +1470,7 @@ var CARD_LOGOS={
 // ── HELPERS ──────────────────────────────────────────────────
 function eid(i){return document.getElementById(i);}
 function fmt(n){n=parseFloat(n)||0;return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function hEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function moneyVal(v){
   if(typeof v==='string')v=v.trim().replace(/\s/g,'').replace(',','.');
   return parseFloat(v)||0;
@@ -2691,8 +2712,58 @@ function renderBalanceLog(items,targetId){
   el.innerHTML='<div class="bal-log-title">Ultimos cambios</div>'+items.map(function(x){
     var accion=x.accion||'cambio';
     var nombre=x.nombre||x.codigo||'Balance';
-    return'<div class="bal-log-item"><span>'+accion+' - '+nombre+'</span><strong>'+fmt(x.nuevo||0)+'</strong></div>';
+    var tipo=String(x.tipo||'').toLowerCase();
+    var esPasivo=tipo.indexOf('pas')===0;
+    var esEliminar=String(accion).toLowerCase().indexOf('elim')===0;
+    var positivo=esPasivo?esEliminar:!esEliminar;
+    var cls=positivo?'tok2':'tov2';
+    var valor=esEliminar?(x.anterior||x.nuevo||0):(x.nuevo||0);
+    return'<div class="bal-log-item"><span><b class="'+cls+'">'+hEsc(accion)+'</b> - '+hEsc(nombre)+'<em>'+hEsc(x.fecha||'')+' · '+hEsc(x.tipo||'')+'</em></span><strong class="'+cls+'">'+fmt(valor)+'</strong></div>';
   }).join('');
+}
+function balanceAllItems(){
+  var d=G.balance||{};
+  return (d.activos||[]).concat(d.pasivos||[]).filter(function(x){return x&&!x.esGrupo;});
+}
+function findBalanceItemLocal(codigo){
+  return balanceAllItems().filter(function(x){return String(x.codigo)===String(codigo);})[0]||null;
+}
+function abrirBalanceItem(modo,codigo,tipo){
+  var item=codigo?findBalanceItemLocal(codigo):null;
+  G.balItem={modo:modo||'crear',codigo:codigo||''};
+  eid('bal-item-title').textContent=item?'Editar item':'Agregar item';
+  eid('bal-item-tipo').disabled=!!item;
+  eid('bal-item-tipo').value=item?(item.tipo||tipo||'Activo'):(tipo||'Activo');
+  eid('bal-item-nombre').value=item?(item.nombre||''):'';
+  eid('bal-item-valor').value=item?String(item.valor||0):'';
+  eid('bal-item-nota').value='';
+  eid('mov-bal-item').classList.add('open');
+  setTimeout(function(){eid('bal-item-nombre').focus();},180);
+}
+function guardarBalanceItemUI(){
+  var btn=eid('bal-item-save');
+  var nombre=eid('bal-item-nombre').value.trim();
+  var valor=moneyVal(eid('bal-item-valor').value);
+  if(!nombre){showToast('Escribe el nombre','err');return;}
+  var params={
+    codigo:G.balItem&&G.balItem.codigo,
+    tipo:eid('bal-item-tipo').value,
+    nombre:nombre,
+    valor:String(valor),
+    nota:eid('bal-item-nota').value||''
+  };
+  btn.disabled=true;btn.textContent='Guardando...';
+  google.script.run
+    .withSuccessHandler(function(res){
+      btn.disabled=false;btn.textContent='Guardar';
+      if(!res||!res.ok){showToast('Error: '+(res&&res.error?res.error:'desconocido'),'err');return;}
+      eid('mov-bal-item').classList.remove('open');
+      if(res.balance){G.balance=res.balance;G._dirtyBalance=false;renderBalance(res.balance);}
+      else syncTrasCambio({delay:80,balance:true});
+      showToast(params.codigo?'Balance actualizado':'Item agregado','ok');
+    })
+    .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Guardar';showToast('Error: '+e,'err');})
+    .guardarBalanceItem(params);
 }
 function renderBalance(d){
   eid('b-pat').textContent=fmt(d.patrimonioNeto||0);
@@ -2704,14 +2775,14 @@ function renderBalance(d){
     if(!grupoActual)return;
     var subHtml=itemsGrupo.map(function(a){
       return'<div class="bal-edit-row" style="padding-left:20px">'
-        +'<div class="bn2" style="font-weight:500;font-size:13px">'+a.nombre+'</div>'
-        +(G.balEdit?'<div class="bal-actions"><input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+a.valor+'" onchange="saveBalance(\''+a.codigo+'\',normMoney(this.value))"><button class="bal-del" onclick="deleteBalance(\''+a.codigo+'\')">x</button></div>'
+        +'<div class="bal-row-main"><div class="bn2" style="font-weight:500;font-size:13px">'+hEsc(a.nombre)+'</div><small>'+hEsc(a.codigo)+'</small></div>'
+        +(G.balEdit?'<div class="bal-actions"><div class="bal-val tok2">'+fmt(a.valor)+'</div><button class="bal-edit-btn" onclick="abrirBalanceItem(\'editar\',\''+a.codigo+'\')">✎</button><button class="bal-del" onclick="deleteBalance(\''+a.codigo+'\')">x</button></div>'
           :'<div class="bal-val tok2">'+fmt(a.valor)+'</div>')
         +'</div>';
     }).join('');
     var gid='ag'+grupoActual.codigo.replace(/\W/g,'');
     actHtml+='<div class="bal-titulo fb" onclick="tgC(\''+gid+'\')" style="cursor:pointer;user-select:none">'
-      +'<span>'+grupoActual.nombre+'</span>'
+      +'<span>'+hEsc(grupoActual.nombre)+'</span>'
       +'<span style="color:var(--ok);font-weight:700;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:13px">'+fmt(grupoActual.valor)+'</span>'
       +'</div>'
       +'<div id="'+gid+'" style="display:block">'+subHtml+'</div>';
@@ -2719,17 +2790,17 @@ function renderBalance(d){
   }
   (d.activos||[]).forEach(function(a){
     if(a.esGrupo){flushGrupo();grupoActual=a;itemsGrupo=[];}
-    else if(a.valor!==0)itemsGrupo.push(a);
+    else if(a.valor!==0||a.manual||G.balEdit)itemsGrupo.push(a);
   });
   flushGrupo();
   eid('b-act-list').innerHTML=actHtml;
 
   var pasHtml='';
   (d.pasivos||[]).forEach(function(p){
-    if(p.esGrupo){pasHtml+='<div class="bal-titulo">'+p.nombre+'</div>';}
-    else if(p.valor!==0){
-      pasHtml+='<div class="bal-edit-row"><div class="bn2">'+p.nombre+'</div>'
-        +(G.balEdit?'<div class="bal-actions"><input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+p.valor+'" onchange="saveBalance(\''+p.codigo+'\',normMoney(this.value))"><button class="bal-del" onclick="deleteBalance(\''+p.codigo+'\')">x</button></div>'
+    if(p.esGrupo){pasHtml+='<div class="bal-titulo">'+hEsc(p.nombre)+'<span style="float:right;color:var(--over);font-weight:700;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:13px">'+fmt(p.valor)+'</span></div>';}
+    else if(p.valor!==0||p.manual||G.balEdit){
+      pasHtml+='<div class="bal-edit-row"><div class="bal-row-main"><div class="bn2">'+hEsc(p.nombre)+'</div><small>'+hEsc(p.codigo)+'</small></div>'
+        +(G.balEdit?'<div class="bal-actions"><div class="bal-val tov2">'+fmt(p.valor)+'</div><button class="bal-edit-btn" onclick="abrirBalanceItem(\'editar\',\''+p.codigo+'\')">✎</button><button class="bal-del" onclick="deleteBalance(\''+p.codigo+'\')">x</button></div>'
           :'<div class="bal-val tov2">'+fmt(p.valor)+'</div>')+'</div>';
     }
   });
@@ -2759,17 +2830,14 @@ function abrirBalanceLog(){
 }
 function tgBalEdit(){G.balEdit=!G.balEdit;if(G.balance)renderBalance(G.balance);showToast(G.balEdit?'Modo edicion':'Cambios guardados','ok');}
 function saveBalance(codigo,valor){
-  var nota=prompt('Motivo del cambio:')||'';
-  google.script.run
-    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Actualizado','ok');syncTrasCambio({delay:80,balance:true});}else showToast('Error','err');})
-    .actualizarBalance({codigo:codigo,valor:valor,nota:nota});
+  abrirBalanceItem('editar',codigo);
 }
 function deleteBalance(codigo){
   var nota=prompt('Motivo para eliminar/ocultar:');
   if(nota===null)return;
   if(!confirm('Ocultar este activo/pasivo del balance?'))return;
   google.script.run
-    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Eliminado','ok');syncTrasCambio({delay:80,balance:true});}else showToast('Error','err');})
+    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Eliminado','ok');if(res.balance){G.balance=res.balance;G._dirtyBalance=false;renderBalance(res.balance);}else syncTrasCambio({delay:80,balance:true});}else showToast('Error','err');})
     .eliminarBalanceItem({codigo:codigo,nota:nota||''});
 }
 
