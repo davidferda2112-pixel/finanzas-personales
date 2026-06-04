@@ -1698,7 +1698,42 @@ function aplicarInitialState(res,opts){
     paintHomeJapon(res.japon);
     renderModalJapon(res.japon);
   }
+  if(stateOk(res.pinturas)){
+    G.pinturas=res.pinturas.data;
+    cacheSetPinturas(homeMes,res.pinturas.data);
+    paintHomePinturas(res.pinturas.data);
+  }
   G._dirty=false;
+  return true;
+}
+
+function aplicarPostChangeState(state){
+  if(!state||state.ok===false)return false;
+  var homeMes=state.homeMes||G.mesActual;
+  var histMes=state.histMes||G.histMes||homeMes;
+  if(state.home&&state.home.ok!==false&&!state.home.error){
+    G.mesData=aplicarSaldoEsperado(state.home,homeMes);
+    cacheSetBootHome(homeMes,G.mesData);
+    cacheSet('lastGoodHome',{mes:homeMes,data:G.mesData});
+    if(G.mesActual===homeMes||eid('page-home').classList.contains('active'))renderHome(G.mesData);
+  }
+  if(state.movimientos&&state.movimientos.ok){
+    G.movimientos=state.movimientos.data||[];
+    G.movimientosMes=histMes;
+    cacheSetMovimientos(histMes,G.movimientos);
+    if(G.histMes===histMes&&eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
+  }
+  if(state.tarjetas&&state.tarjetas.ok!==false){
+    aplicarTarjetasState(state.tarjetas);
+  }
+  if(state.pinturas&&state.pinturas.ok){
+    G.pinturas=state.pinturas.data;
+    cacheSetPinturas(homeMes,state.pinturas.data);
+    paintHomePinturas(state.pinturas.data);
+  }
+  G._dirty=true;
+  G._dirtyFlujo=true;
+  G._dirtyBalance=true;
   return true;
 }
 
@@ -1786,10 +1821,10 @@ function init(){
 }
 
 async function preloadAppFast(){
-  var canHide=false,mes=mesActualCalendario(),slow=null,paintedCached=false,cachedMesPainted='';
+  var canHide=false,mes=mesActualCalendario(),slow=null;
   try{
-    slow=setTimeout(function(){bootText('Actualizando datos...');},1200);
-    bootText('Preparando datos...');
+    slow=setTimeout(function(){bootText('Leyendo datos reales...');},1200);
+    bootText('Conectando con el libro...');
 
     var cachedMeses=G.meses&&G.meses.length?G.meses:(cacheGet('meses')||[]);
     if(cachedMeses.length){
@@ -1804,90 +1839,32 @@ async function preloadAppFast(){
     var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
     cacheSet('mesActual',G.mesActual);
 
-    var cached=cacheGetBootHome(mes);
-    var last=cacheGet('lastGoodHome');
-    if((!cached||!cached.vistaGeneral)&&last&&last.mes===mes&&last.data)cached=last.data;
-    if(cached&&cached.vistaGeneral){
-      G.mesData=cached;
-      G.histData=cached;
-      renderHome(cached);
-      paintedCached=true;
-      cachedMesPainted=mes;
-      canHide=true;
-      setTimeout(function(){hideBootLoader();},650);
+    bootText('Cargando inicio e historial...');
+    var boot=await withTimeout(gsRun('getBootState',[{
+      homeMes:G.mesActual,
+      histMes:G.histMes||G.mesActual
+    }]),10500,'estado inicial');
+    if(!boot||boot.timeout||boot.ok===false||boot.error){
+      throw new Error((boot&&boot.error)||'No llegaron los datos iniciales');
     }
-
-    var mesesPromise=withTimeout(gsRun('getMesesDisponibles'),2800,'meses')
-      .then(function(mesesRes){
-        if(mesesRes&&mesesRes.ok&&mesesRes.data&&mesesRes.data.length){
-          var keepHome=G.mesActual||mes,keepHist=G.histMes||keepHome;
-          G.meses=mesesRes.data.slice().sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
-          if(G.meses.indexOf(keepHome)<0)G.meses.push(keepHome);
-          cacheSet('meses',G.meses);
-          fillSels(G.meses);
-          G.mesActual=keepHome;
-          G.histMes=keepHist;
-          var sm=eid('sel-h');if(sm)sm.value=keepHome;
-          var spm=eid('sel-pr');if(spm)spm.value=keepHist;
-        }
-      })
-      .catch(function(e){console.warn('meses fast bg',e);});
-
-    var movCache=cacheGetMovimientos(G.histMes);
-    if(movCache){
-      G.movimientos=movCache;
-      G.movimientosMes=G.histMes;
+    aplicarInitialState(boot,{homeMes:boot.mesActual||G.mesActual,histMes:boot.histMes||G.histMes});
+    if(G.mesData){
+      cacheSetBootHome(G.mesActual,G.mesData);
+      cacheSet('lastGoodHome',{mes:G.mesActual,data:G.mesData});
     }
-    var cardOpts={mes:G.tcMesActual||mes,idx:G.tcIdx||0,anio:G.tdcAnio||2026};
-    var cardCache=cacheGetTarjetas(cardOpts);
-    if(cardCache)aplicarTarjetasState(cardCache,true);
-    var paintCache=cacheGetPinturas(mes);
-    if(paintCache){
-      G.pinturas=paintCache;
-      paintHomePinturas(paintCache);
-    }
-
-    if(!paintedCached || !G.mesData || cachedMesPainted!==G.mesActual){
-      bootText('Cargando inicio...');
-      var mesDataRes=await withTimeout(gsRun('getMesData',[G.mesActual]),7600,'inicio');
-      if(!mesDataRes||mesDataRes.timeout||mesDataRes.ok===false||mesDataRes.error){
-        throw new Error((mesDataRes&&mesDataRes.error)||'No llegaron los datos de inicio');
-      }
-      mesDataRes=aplicarSaldoEsperado(mesDataRes,G.mesActual);
-      G.mesData=mesDataRes;
-      G.histData=G.histData||mesDataRes;
-      cacheSetBootHome(G.mesActual,mesDataRes);
-      cacheSet('lastGoodHome',{mes:G.mesActual,data:mesDataRes});
-      renderHome(mesDataRes);
-      canHide=true;
-    }
+    canHide=true;
 
     clearTimeout(slow);
     bootText('Listo');
-    mesesPromise.then(function(){});
     setTimeout(function(){
-      cargarMovimientosMesBg(G.histMes||G.mesActual);
-      cargarTarjetasState({mes:G.tcMesActual||G.mesActual,idx:G.tcIdx||0,anio:G.tdcAnio||2026},4200);
+      cargarTarjetasState({mes:G.tcMesActual||G.mesActual,idx:G.tcIdx||0,anio:G.tdcAnio||2026},6500);
       preloadSecundario(G.mesActual,false);
     },120);
   }catch(e){
     if(slow)clearTimeout(slow);
     console.warn('preload fast',e);
-    var fallback=cacheGetBootHome(mes);
-    var lastGood=cacheGet('lastGoodHome');
-    if((!fallback||!fallback.vistaGeneral)&&lastGood&&lastGood.data)fallback=lastGood.data;
-    if(fallback&&fallback.vistaGeneral){
-      G.mesData=fallback;
-      G.histData=fallback;
-      renderHome(fallback);
-      bootText('Entrando con datos guardados...');
-      canHide=true;
-      showToast('Entrando con datos guardados. Actualizando...','ok');
-      setTimeout(function(){refreshInicioBg(G.mesActual||mes);},350);
-    }else{
-      bootText('No se pudo cargar el libro. Revisa conexion y recarga.');
-      showToast('No se pudo cargar el libro. Recarga la app.','err');
-    }
+    bootText('No pude cargar datos reales. Revisa conexion y abre la app otra vez.');
+    showToast('No pude cargar datos reales. No uses valores guardados.','err');
   }finally{
     if(canHide)setTimeout(function(){if(G.mesData)hideBootLoader();},260);
   }
@@ -2019,12 +1996,6 @@ function refreshInicioBg(mes){
 function cargarMovimientosMesBg(mes){
   mes=mes||G.histMes||G.mesActual;
   if(!mes)return Promise.resolve(null);
-  var cached=cacheGetMovimientos(mes);
-  if(cached&&G.movimientosMes!==mes){
-    G.movimientos=cached;
-    G.movimientosMes=mes;
-    if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
-  }
   return withTimeout(gsRun('getMovimientosMes',[mes]),4200,'movimientos')
     .then(function(res){
       if(res&&res.ok){
@@ -2220,10 +2191,20 @@ function cambiarMes(nombre){cambiarMesInicio(nombre);}
 function cambiarMesInicio(nombre){
   if(!nombre)return;
   G.mesActual=nombre;
-  G.movimientosMes=null;
   cacheSet('mesActual',nombre);
   var sh=eid('sel-h');if(sh)sh.value=nombre;
-  syncTrasCambio({delay:0,mesInicio:nombre,mesHist:G.histMes||nombre});
+  eid('home').innerHTML='<div class="empty-state">Cargando '+nombre+'...</div>';
+  gsRun('getMesData',[nombre]).then(function(res){
+    if(!res||res.ok===false||res.error){showToast('No pude cargar '+nombre,'err');return;}
+    G.mesData=aplicarSaldoEsperado(res,nombre);
+    cacheSetBootHome(nombre,G.mesData);
+    cacheSet('lastGoodHome',{mes:nombre,data:G.mesData});
+    renderHome(G.mesData);
+    cargarTarjetasState({mes:G.tcMesActual||nombre,idx:G.tcIdx||0,anio:G.tdcAnio||2026},6500);
+  }).catch(function(e){
+    console.warn('mes inicio',e);
+    showToast('No pude cargar '+nombre,'err');
+  });
 }
 
 function cambiarMesHistorial(nombre){
@@ -2231,7 +2212,29 @@ function cambiarMesHistorial(nombre){
   G.histMes=nombre;
   G.movimientosMes=null;
   var sp=eid('sel-pr');if(sp)sp.value=nombre;
-  syncTrasCambio({delay:0,mesInicio:G.mesActual||mesActualCalendario(),mesHist:nombre,historial:true});
+  if(eid('page-presupuesto').classList.contains('active')){
+    eid('tx-list').innerHTML='<div class="empty-state">Cargando movimientos de '+nombre+'...</div>';
+  }
+  Promise.all([
+    gsRun('getMesData',[nombre]).catch(function(e){return{ok:false,error:e};}),
+    gsRun('getMovimientosMes',[nombre]).catch(function(e){return{ok:false,error:e};})
+  ]).then(function(pair){
+    var mesData=pair[0],movs=pair[1];
+    if(movs&&movs.ok){
+      G.movimientos=movs.data||[];
+      G.movimientosMes=nombre;
+      cacheSetMovimientos(nombre,G.movimientos);
+    }
+    if(mesData&&mesData.ok!==false&&!mesData.error){
+      G.histData=mesData;
+      if(eid('page-presupuesto').classList.contains('active'))renderPresupuesto(mesData);
+    }
+    if(movs&&movs.ok){
+      if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
+    }else{
+      showToast('No pude cargar movimientos de '+nombre,'err');
+    }
+  });
 }
 
 // ── HOME ─────────────────────────────────────────────────────
@@ -2857,18 +2860,16 @@ function irHistorialDesdeSaldo(){
 function loadMovimientosMes(){
   var mes=G.histMes||G.mesActual;
   if(!mes)return;
-  var cached=cacheGetMovimientos(mes);
-  if(cached){
-    G.movimientos=cached;
+  eid('tx-list').innerHTML='<div class="empty-state">Cargando movimientos...</div>';
+  withTimeout(gsRun('getMovimientosMes',[mes]),8500,'movimientos').then(function(res){
+    if(!res||res.timeout||!res.ok){showToast('Error historial','err');return;}
+    G.movimientos=res.data||[];
     G.movimientosMes=mes;
+    cacheSetMovimientos(mes,G.movimientos);
     renderHistorialMovimientos();
-  }else{
-    eid('tx-list').innerHTML='<div class="empty-state">Cargando movimientos...</div>';
-  }
-  cargarMovimientosMesBg(mes).then(function(res){
-    if(!res||!res.ok){
-      if(!cached)showToast('Error historial','err');
-    }
+  }).catch(function(e){
+    console.warn('historial directo',e);
+    showToast('Error historial','err');
   });
 }
 
@@ -3042,12 +3043,16 @@ function guardarEdicion(){
     .withSuccessHandler(function(res){
       btn.disabled=false;btn.textContent='Guardar';
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
-      eid('mov-edit').classList.remove('open');showToast('Movimiento actualizado','ok');refrescarTrasMovimiento(res.mesCaja||mesDesdeFechaISO(eid('e-fecha').value)||G.histMes);
+      eid('mov-edit').classList.remove('open');
+      if(res.state)aplicarPostChangeState(res.state);
+      else refrescarTrasMovimiento(res.mesCaja||mesDesdeFechaISO(eid('e-fecha').value)||G.histMes);
+      showToast('Movimiento actualizado','ok');
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Guardar';showToast('Error: '+e,'err');})
     .actualizarMovimiento({
       id:G.editTx.id,mes:(G.histMes||G.mesActual),tipo:tipo,categoria:tipo,subcategoria:sub,
-      monto:String(monto),fecha:eid('e-fecha').value,notas:eid('e-notas').value,fast:true
+      monto:String(monto),fecha:eid('e-fecha').value,notas:eid('e-notas').value,fast:true,
+      returnState:true,homeMes:G.mesActual,histMes:G.histMes||G.mesActual
     });
 }
 
@@ -3067,19 +3072,17 @@ function confirmarEliminar(){
       btn.disabled=false;btn.textContent='Eliminar';
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
       eid('mov-del').classList.remove('open');
-      var txDel=G.deleteTx;
-      G.movimientos=(G.movimientos||[]).filter(function(t){return String(t.id)!==String(G.deleteTx.id);});
-      cacheSetMovimientos(G.histMes,G.movimientos);
-      renderHistorialMovimientos();
-      if(txDel){
-        var inv=txDel.tipo==='ingreso'?-moneyVal(txDel.monto):moneyVal(txDel.monto);
-        actualizarSaldoVisibleDelta(res.mesCaja||txDel.mesCaja||mesDesdeFechaISO(txDel.fecha)||G.histMes,inv);
+      if(res.state)aplicarPostChangeState(res.state);
+      else{
+        G.movimientos=(G.movimientos||[]).filter(function(t){return String(t.id)!==String(G.deleteTx.id);});
+        cacheSetMovimientos(G.histMes,G.movimientos);
+        renderHistorialMovimientos();
+        refrescarTrasMovimiento(res.mesCaja||G.histMes);
       }
       showToast('Movimiento eliminado','ok');
-      refrescarTrasMovimiento(res.mesCaja||G.histMes);
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
-    .eliminarMovimiento({id:G.deleteTx.id,fast:true});
+    .eliminarMovimiento({id:G.deleteTx.id,fast:true,returnState:true,homeMes:G.mesActual,histMes:G.histMes||G.mesActual});
 }
 
 function refrescarTrasMovimiento(mesCaja){
@@ -3628,9 +3631,10 @@ function guardarMovTdc(){
   var btn=eid('btn-tdc-sv');btn.disabled=true;btn.textContent='Registrando...';
   var fechaTdc=eid('tdc-fecha').value;
   var mesCajaTdc=mesDesdeFechaISO(fechaTdc)||G.mesActual||G.tcMesActual;
+  var mesGastoTdc=G.tcMesActual||G.mesActual||mesCajaTdc;
   var mesAplicadoTdc=G.tdcAccion==='abono'
-    ? (eid('tdc-mes-aplica').value||mesSiguienteNombre(G.tcMesActual||mesCajaTdc)||G.tcMesActual||G.mesActual)
-    : (G.tcMesActual||G.mesActual);
+    ? (eid('tdc-mes-aplica').value||mesSiguienteNombre(mesGastoTdc)||mesGastoTdc)
+    : mesGastoTdc;
   if(G.tdcAccion==='abono'&&mesAplicadoTdc===mesCajaTdc){
     var okSame=confirm('Este abono saldrá de caja en '+mesCajaTdc+' y también se aplicará a Pagos / Créditos de '+mesAplicadoTdc+'. Si estás adelantando el pago del siguiente ciclo, cambia el campo "Aplicar a Pagos / Créditos". ¿Quieres registrarlo así?');
     if(!okSame){btn.disabled=false;btn.textContent='Registrar';return;}
@@ -3638,13 +3642,21 @@ function guardarMovTdc(){
   var params={
     mes:mesAplicadoTdc,
     mesAplica:mesAplicadoTdc,
+    mesPagoCredito:mesAplicadoTdc,
+    mesGasto:mesGastoTdc,
     mesRegistro:(G.tdcAccion==='abono'?mesCajaTdc:(G.tcMesActual||G.mesActual)),
     tarjeta:t.id,
     tipo:G.tdcAccion,
     monto:String(monto),
     fecha:fechaTdc,
     notas:eid('tdc-notas').value,
-    fast:true
+    fast:true,
+    returnState:true,
+    homeMes:G.mesActual,
+    histMes:G.histMes||mesGastoTdc,
+    cardMes:G.tcMesActual||mesGastoTdc,
+    cardIdx:G.tcIdx||0,
+    cardYear:G.tdcAnio||2026
   };
   if(G.tdcAccion==='abono'){
     params.cargoId=eid('tdc-cargo-target').value||'';
@@ -3661,17 +3673,8 @@ function guardarMovTdc(){
       eid('mov-tdc').classList.remove('open');
       showToast(G.tdcEditId?'Transacción actualizada':(G.tdcAccion==='cargo'?'Cargo agregado':'Abono agregado'),'ok');
       var mesCajaRes=res.mesCaja||mesCajaTdc;
-      if(G.tdcAccion==='abono'&&params.origen==='egreso'){
-        if(res.mesData&&res.mesData.ok&&G.mesActual===mesCajaRes){
-          G.mesData=res.mesData;
-          cacheSetBootHome(mesCajaRes,res.mesData);
-          cacheSet('lastGoodHome',{mes:mesCajaRes,data:res.mesData});
-          renderHome(G.mesData);
-        }else if(!G.tdcEditId){
-          actualizarSaldoVisiblePorCaja({tipo:'egreso',monto:monto,fecha:fechaTdc,mesRegistro:mesCajaTdc});
-        }
-      }
-      syncTrasCambio({delay:80,mesInicio:mesCajaRes,mesHist:G.histMes||mesCajaRes,tarjetas:true,historial:true});
+      if(res.state)aplicarPostChangeState(res.state);
+      else syncTrasCambio({delay:80,mesInicio:mesCajaRes,mesHist:G.histMes||mesCajaRes,tarjetas:true,historial:true});
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Registrar';showToast('Error: '+e,'err');});
   if(G.tdcEditId){params.id=G.tdcEditId;runner.actualizarMovimientoTarjeta(params);}
@@ -3693,16 +3696,11 @@ function confirmarEliminarTdc(){
       btn.disabled=false;btn.textContent='Eliminar';
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
       eid('mov-tdc-del').classList.remove('open');showToast('Transacción eliminada','ok');
-      if(res.mesData&&res.mesData.ok&&res.mesCaja&&G.mesActual===res.mesCaja){
-        G.mesData=res.mesData;
-        cacheSetBootHome(res.mesCaja,res.mesData);
-        cacheSet('lastGoodHome',{mes:res.mesCaja,data:res.mesData});
-        renderHome(G.mesData);
-      }
-      syncTrasCambio({delay:80,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual,tarjetas:true,historial:true});
+      if(res.state)aplicarPostChangeState(res.state);
+      else syncTrasCambio({delay:80,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual,tarjetas:true,historial:true});
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
-    .eliminarMovimientoTarjeta({id:G.tdcDeleteId,fast:true});
+    .eliminarMovimientoTarjeta({id:G.tdcDeleteId,fast:true,returnState:true,homeMes:G.mesActual,histMes:G.histMes||G.mesActual,cardMes:G.tcMesActual||G.mesActual,cardIdx:G.tcIdx||0,cardYear:G.tdcAnio||2026});
 }
 
 function abrirModalTDC(){
@@ -3929,28 +3927,18 @@ function guardar(){
     mesAplicado=eid('m-mes-aplica').value;
   }
   var params={mes:mesAplicado,mesRegistro:mesRegistro,tipo:G.tipoModal,categoria:G.tipoModal,
-    subcategoria:sub,monto:String(monto),fecha:fecha,notas:eid('m-notas').value,fast:true};
+    subcategoria:sub,monto:String(monto),fecha:fecha,notas:eid('m-notas').value,fast:true,
+    returnState:true,homeMes:G.mesActual,histMes:G.histMes||mesAplicado};
   google.script.run
     .withSuccessHandler(function(res){
       btn.textContent='Guardar';btn.disabled=false;eid('mov').classList.remove('open');
       if(res&&res.ok){
         showSucc();showToast(G.tipoModal==='ahorro'&&mesAplicado!==G.mesActual?'Ahorro aplicado a '+mesAplicado:'Guardado ✓','ok');
-        insertarMovimientoOptimista(movimientoOptimista(params,res.id,res.mesCaja||mesRegistro));
         G._dirty=true;  // marcar como dirty para invalidar balance/flujo al navegar
         cacheDel('mesData_'+mesAplicado);
         cacheDel('mesData_'+mesRegistro);
-        var mesHoy=mesDesdeFechaISO(todayISO());
-        if(res.mesCaja&&res.mesCaja===mesHoy&&G.mesActual!==res.mesCaja){
-          G.mesActual=res.mesCaja;
-          if(G.meses.indexOf(res.mesCaja)<0){G.meses.push(res.mesCaja);fillSels(G.meses);}
-          cacheSet('mesActual',G.mesActual);
-        }
-        actualizarSaldoVisiblePorCaja(params);
-        if(res.mesData&&res.mesData.ok&&G.mesActual===res.mesCaja){
-          G.mesData=res.mesData;
-          renderHome(G.mesData);
-        }
-        syncTrasCambio({delay:180,mesInicio:G.mesActual,mesHist:G.histMes||mesAplicado,historial:true});
+        if(res.state)aplicarPostChangeState(res.state);
+        else refrescarTrasMovimiento(res.mesCaja||mesRegistro);
       }else showToast('Error: '+(res?res.error:'desconocido'),'err');
     })
     .withFailureHandler(function(e){btn.textContent='Guardar';btn.disabled=false;showToast('Error de conexión','err');})

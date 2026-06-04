@@ -638,7 +638,8 @@ function registrarMovimientoTarjeta(params){
     var monto=parseFloat(String(params.monto).replace(',','.'))||0;
     if(['cargo','abono'].indexOf(tipo)===-1) return{ok:false,error:'Tipo TDC inválido'};
     if(!monto||monto<=0) return{ok:false,error:'Monto inválido'};
-    var mes=_normalizarMesNombre(params.mesAplica||params.mesAplicado||params.mes);
+    var mes=_normalizarMesNombre(params.mesPagoCredito||params.mesTarjeta||params.mesAplica||params.mesAplicado||params.mes);
+    var mesGasto=_normalizarMesNombre(params.mesGasto||params.mesRegistroGasto||params.mesBase||params.mesSeleccionado||params.mesCaja||params.mesRegistro||params.mes||mes);
     var mesCajaPorFecha=_mesDesdeFechaMovimiento(params.fecha);
     var mesRegistro=_normalizarMesNombre(params.mesRegistro||mesCajaPorFecha||params.mes);
     var tarjeta=_s(params.tarjeta);
@@ -647,7 +648,7 @@ function registrarMovimientoTarjeta(params){
     var registroId='',mesDataCaja=null,mesCajaRespuesta=mesRegistro;
     if(tipo==='abono'&&params.origen==='egreso'){
       var r=registrarMovimiento({
-        mes:mes,
+        mes:mesGasto,
         mesRegistro:mesRegistro,
         tipo:params.egresoTipo||'deuda',
         categoria:params.egresoTipo||'deuda',
@@ -682,11 +683,33 @@ function registrarMovimientoTarjeta(params){
     var mesCaja=_mesDesdeFechaMovimiento(params.fecha);
     cDel('flujo');
     cDel('mes_'+mes.replace(/ /g,'_'));
+    cDel('mes_'+mesGasto.replace(/ /g,'_'));
     cDel('mes_'+mesRegistro.replace(/ /g,'_'));
     if(mesCaja) cDel('mes_'+mesCaja.replace(/ /g,'_'));
+    if(params.returnState){
+      SpreadsheetApp.flush();
+      return{
+        ok:true,
+        id:id,
+        registroId:registroId,
+        mesData:null,
+        mesCaja:mesCajaRespuesta,
+        mesAplicado:mes,
+        mesGasto:mesGasto,
+        state:_postCambioState({
+          homeMes:params.homeMes||params.mesInicio||mesCajaRespuesta,
+          histMes:params.histMes||params.mesHist||mesGasto,
+          tarjetas:true,
+          cardMes:params.cardMes||params.tcMes||mes,
+          cardIdx:params.cardIdx,
+          cardYear:params.cardYear,
+          pinturas:true
+        })
+      };
+    }
     if(!params.fast) SpreadsheetApp.flush();
     if(!params.fast&&!mesDataCaja&&tipo==='abono'&&params.origen==='egreso') mesDataCaja=getMesData(mesCajaRespuesta);
-    return{ok:true,id:id,registroId:registroId,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes};
+    return{ok:true,id:id,registroId:registroId,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes,mesGasto:mesGasto};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
@@ -726,7 +749,8 @@ function actualizarMovimientoTarjeta(params){
       var oldTipo=_s(D[i][4]);
       var oldOrigen=_s(D[i][8]);
       var oldRegistroId=_s(D[i][9]);
-      var mes=_normalizarMesNombre(params.mesAplica||params.mesAplicado||params.mes||oldMes);
+      var mes=_normalizarMesNombre(params.mesPagoCredito||params.mesTarjeta||params.mesAplica||params.mesAplicado||params.mes||oldMes);
+      var mesGasto=_normalizarMesNombre(params.mesGasto||params.mesRegistroGasto||params.mesBase||params.mesSeleccionado||params.mesCaja||params.mesRegistro||params.mes||mes);
       var mesCajaPorFecha=_mesDesdeFechaMovimiento(params.fecha);
       var mesRegistro=_normalizarMesNombre(params.mesRegistro||mesCajaPorFecha||params.mes||oldMes);
       var tipo=_s(params.tipo||oldTipo);
@@ -742,7 +766,7 @@ function actualizarMovimientoTarjeta(params){
       if(tipo==='abono'&&params.origen==='egreso'){
         var movParams={
           id:oldRegistroId,
-          mes:mes,
+          mes:mesGasto,
           mesRegistro:mesRegistro,
           tipo:params.egresoTipo||'deuda',
           categoria:params.egresoTipo||'deuda',
@@ -774,12 +798,31 @@ function actualizarMovimientoTarjeta(params){
       sh.getRange(i+1,7).setNumberFormat('@STRING@').setValue(_fechaISOTexto(params.fecha));
       sh.getRange(i+1,3).setNumberFormat('@STRING@').setValue(mes);
       var mesCaja=_mesDesdeFechaMovimiento(params.fecha);
-      cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));cDel('mes_'+mesRegistro.replace(/ /g,'_'));
+      cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));cDel('mes_'+mesGasto.replace(/ /g,'_'));cDel('mes_'+mesRegistro.replace(/ /g,'_'));
       if(mesCaja) cDel('mes_'+mesCaja.replace(/ /g,'_'));
+      if(params.returnState){
+        SpreadsheetApp.flush();
+        return{
+          ok:true,
+          mesData:null,
+          mesCaja:mesCajaRespuesta,
+          mesAplicado:mes,
+          mesGasto:mesGasto,
+          state:_postCambioState({
+            homeMes:params.homeMes||params.mesInicio||mesCajaRespuesta,
+            histMes:params.histMes||params.mesHist||mesGasto,
+            tarjetas:true,
+            cardMes:params.cardMes||params.tcMes||mes,
+            cardIdx:params.cardIdx,
+            cardYear:params.cardYear,
+            pinturas:true
+          })
+        };
+      }
       if(params.fast) return{ok:true,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes};
       SpreadsheetApp.flush();
       if(!params.fast&&tipo==='abono'&&params.origen==='egreso'&&!mesDataCaja) mesDataCaja=getMesData(mesCajaRespuesta);
-      return{ok:true,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes};
+      return{ok:true,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes,mesGasto:mesGasto};
     }
     return{ok:false,error:'Movimiento TDC no encontrado'};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -787,11 +830,17 @@ function actualizarMovimientoTarjeta(params){
 
 function eliminarMovimientoTarjeta(input){
   try{
-    var fast=false;
+    var fast=false,returnState=false,homeMes='',histMes='',cardMes='',cardIdx=0,cardYear=0;
     var id=input;
     if(input&&typeof input==='object'){
       id=input.id;
       fast=!!input.fast;
+      returnState=!!input.returnState;
+      homeMes=input.homeMes||input.mesInicio||'';
+      histMes=input.histMes||input.mesHist||'';
+      cardMes=input.cardMes||input.tcMes||'';
+      cardIdx=input.cardIdx;
+      cardYear=input.cardYear;
     }
     var ss=getSS();
     var sh=ss.getSheetByName('TDC_App');
@@ -805,6 +854,23 @@ function eliminarMovimientoTarjeta(input){
       if(registroId) del=eliminarMovimiento(fast?{id:registroId,fast:true}:registroId);
       sh.deleteRow(i+1);
       cDel('flujo');cDel('mes_'+mes.replace(/ /g,'_'));
+      if(returnState){
+        SpreadsheetApp.flush();
+        return{
+          ok:true,
+          mesData:null,
+          mesCaja:del&&del.mesCaja?del.mesCaja:null,
+          state:_postCambioState({
+            homeMes:homeMes||(del&&del.mesCaja)||mes,
+            histMes:histMes||(del&&del.mesCaja)||mes,
+            tarjetas:true,
+            cardMes:cardMes||mes,
+            cardIdx:cardIdx,
+            cardYear:cardYear,
+            pinturas:true
+          })
+        };
+      }
       if(fast) return{ok:true,mesData:null,mesCaja:del&&del.mesCaja?del.mesCaja:null};
       SpreadsheetApp.flush();
       return{ok:true,mesData:del&&del.mesData?del.mesData:null,mesCaja:del&&del.mesCaja?del.mesCaja:null};
@@ -882,6 +948,19 @@ function registrarMovimiento(params){
     // 4. Notificar excesos
     if(!params.fast) _checkExceso(ss, params);
 
+    if(params.returnState){
+      SpreadsheetApp.flush();
+      return{
+        ok:true,
+        id:id,
+        mesCaja:mesCaja,
+        state:_postCambioState({
+          homeMes:params.homeMes||params.mesInicio||mesCaja,
+          histMes:params.histMes||params.mesHist||mes,
+          pinturas:true
+        })
+      };
+    }
     if(params.fast) return{ok:true,id:id,mesCaja:mesCaja};
     SpreadsheetApp.flush();
     return{ok:true,id:id,mesData:getMesData(mesCaja),mesCaja:mesCaja};
@@ -1240,6 +1319,18 @@ function actualizarMovimiento(params){
       _invalidarMovimientoMes(newMes);
       _invalidarMovimientoMes(oldMesCaja);
       _invalidarMovimientoMes(newMesCaja);
+      if(params.returnState){
+        SpreadsheetApp.flush();
+        return{
+          ok:true,
+          mesCaja:newMesCaja,
+          state:_postCambioState({
+            homeMes:params.homeMes||params.mesInicio||newMesCaja,
+            histMes:params.histMes||params.mesHist||newMes,
+            pinturas:true
+          })
+        };
+      }
       if(params.fast) return{ok:true,mesCaja:newMesCaja};
       SpreadsheetApp.flush();
       return{ok:true,mesData:getMesData(newMesCaja),mesCaja:newMesCaja};
@@ -1250,11 +1341,14 @@ function actualizarMovimiento(params){
 
 function eliminarMovimiento(input){
   try{
-    var fast=false;
+    var fast=false,returnState=false,homeMes='',histMes='';
     var id=input;
     if(input&&typeof input==='object'){
       id=input.id;
       fast=!!input.fast;
+      returnState=!!input.returnState;
+      homeMes=input.homeMes||input.mesInicio||'';
+      histMes=input.histMes||input.mesHist||'';
     }
     var ss=getSS();
     var reg=ss.getSheetByName('Registro');
@@ -1270,6 +1364,18 @@ function eliminarMovimiento(input){
       reg.deleteRow(i+1);
       _invalidarMovimientoMes(mes);
       _invalidarMovimientoMes(mesCaja);
+      if(returnState){
+        SpreadsheetApp.flush();
+        return{
+          ok:true,
+          mesCaja:mesCaja,
+          state:_postCambioState({
+            homeMes:homeMes||mesCaja,
+            histMes:histMes||mes,
+            pinturas:true
+          })
+        };
+      }
       if(fast) return{ok:true,mesCaja:mesCaja};
       SpreadsheetApp.flush();
       return{ok:true,mesData:getMesData(mesCaja),mesCaja:mesCaja};
@@ -1939,6 +2045,64 @@ function getInitialState(opts){
   }
 }
 
+function _resolverMesesEstado(opts){
+  opts=opts||{};
+  var mesesRes=getMesesDisponibles();
+  if(!mesesRes||!mesesRes.ok) return{ok:false,error:(mesesRes&&mesesRes.error)||'No se pudieron leer los meses'};
+  var meses=(mesesRes.data||[]).slice().sort(function(a,b){return _mesOrden(a)-_mesOrden(b);});
+  var calendario=_normalizarMesNombre(_mesCalendarioActual());
+  var actualSheet=_normalizarMesNombre(_getMesActual()||calendario);
+  var homeMes=_normalizarMesNombre(opts.homeMes||opts.mesInicio||calendario||actualSheet);
+  if(meses.indexOf(homeMes)<0){
+    if(meses.indexOf(calendario)>=0) homeMes=calendario;
+    else if(meses.indexOf(actualSheet)>=0) homeMes=actualSheet;
+    else if(meses.length) homeMes=meses[meses.length-1];
+  }
+  var histMes=_normalizarMesNombre(opts.histMes||opts.mesHist||homeMes);
+  if(meses.indexOf(histMes)<0) histMes=homeMes;
+  return{ok:true,meses:meses,homeMes:homeMes,histMes:histMes};
+}
+
+function getBootState(opts){
+  try{
+    opts=opts||{};
+    var ctx=_resolverMesesEstado(opts);
+    if(!ctx.ok) return ctx;
+    var homeData=getMesData(ctx.homeMes);
+    return{
+      ok:true,
+      generatedAt:new Date().toISOString(),
+      meses:ctx.meses,
+      mesActual:ctx.homeMes,
+      histMes:ctx.histMes,
+      home:homeData,
+      hist:ctx.histMes===ctx.homeMes?homeData:getMesData(ctx.histMes),
+      movimientos:getMovimientosMes(ctx.histMes),
+      pinturas:getPinturasMes(ctx.homeMes)
+    };
+  }catch(e){
+    return{ok:false,error:e.toString()};
+  }
+}
+
+function _postCambioState(opts){
+  opts=opts||{};
+  var homeMes=_normalizarMesNombre(opts.homeMes||opts.mesInicio||opts.mesCaja||opts.histMes);
+  var histMes=_normalizarMesNombre(opts.histMes||opts.mesHist||homeMes);
+  var out={ok:true,homeMes:homeMes,histMes:histMes};
+  if(homeMes) out.home=getMesData(homeMes);
+  if(histMes) out.movimientos=getMovimientosMes(histMes);
+  if(opts.tarjetas){
+    out.tarjetas=getTarjetasState({
+      mes:opts.cardMes||opts.tcMes||homeMes,
+      idx:parseInt(opts.cardIdx,10)||0,
+      anio:parseInt(opts.cardYear,10)||((new Date()).getFullYear())
+    });
+  }
+  if(opts.pinturas&&homeMes) out.pinturas=getPinturasMes(homeMes);
+  return out;
+}
+
 // ============================================================
 // API para Vercel - agrega este bloque al final de Code.gs
 // ============================================================
@@ -1962,6 +2126,7 @@ var API_METHODS = {
   getPinturasMes: getPinturasMes,
   guardarPinturasMes: guardarPinturasMes,
   exportarSnapshotSupabase: exportarSnapshotSupabase,
+  getBootState: getBootState,
   getInitialState: getInitialState,
   parseTarjetas: parseTarjetas,
   getTarjetasState: getTarjetasState,

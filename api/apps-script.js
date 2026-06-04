@@ -30,8 +30,6 @@ const WRITE_METHODS = new Set([
   'crearMesNuevo'
 ]);
 
-const STALE_MAX_MS = 10 * 60 * 1000;
-
 function getCache() {
   if (!globalThis.__jaegerAppsScriptCache) {
     globalThis.__jaegerAppsScriptCache = new Map();
@@ -58,20 +56,7 @@ function cachedResponse(fn, args) {
 }
 
 function staleResponse(fn, args) {
-  const ttl = READ_TTL_MS[fn];
-  if (!ttl) return null;
-  const item = getCache().get(makeCacheKey(fn, args));
-  if (!item) return null;
-  const age = Date.now() - item.savedAt;
-  if (age > STALE_MAX_MS) return null;
-  try {
-    const data = JSON.parse(item.text);
-    data._stale = true;
-    data._staleReason = 'Apps Script no respondio a tiempo';
-    return JSON.stringify(data);
-  } catch (_) {
-    return item.text;
-  }
+  return null;
 }
 
 function storeReadCache(fn, args, text) {
