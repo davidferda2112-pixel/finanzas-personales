@@ -1952,53 +1952,6 @@ function guardarPinturasMes(params){
   }
 }
 
-function exportarSnapshotSupabase(opts){
-  try{
-    opts=opts||{};
-    var mesesRes=getMesesDisponibles();
-    if(!mesesRes||!mesesRes.ok) return mesesRes||{ok:false,error:'No se pudieron leer los meses'};
-    var meses=mesesRes.data||[];
-    if(opts.meses&&opts.meses.length){
-      var filtro={};
-      opts.meses.forEach(function(m){filtro[_normalizarMesNombre(m)]=true;});
-      meses=meses.filter(function(m){return filtro[_normalizarMesNombre(m)];});
-    }
-    var cards=['VISA','MC'];
-    var out={
-      exportedAt:new Date().toISOString(),
-      source:'apps_script_sheets',
-      mesesDisponibles:mesesRes.data||[],
-      meses:[],
-      balance:getBalanceGeneral(),
-      flujo:getFlujoCaja(),
-      japon:getViajeJapon()
-    };
-    meses.forEach(function(m){
-      var yy=parseInt(String(m).split(' ')[1],10);
-      var anio=isNaN(yy)?(new Date()).getFullYear():2000+yy;
-      var tdcStates=[];
-      cards.forEach(function(card,idx){
-        tdcStates.push({
-          tarjeta:card,
-          state:getTarjetasState({mes:m,idx:idx,anio:anio}),
-          movimientos:getMovimientosTarjeta(m,card)
-        });
-      });
-      out.meses.push({
-        mes:m,
-        anio:anio,
-        mesData:getMesData(m),
-        movimientos:getMovimientosMes(m),
-        tarjetas:tdcStates,
-        pinturas:getPinturasMes(m)
-      });
-    });
-    return{ok:true,data:out};
-  }catch(e){
-    return{ok:false,error:e.toString()};
-  }
-}
-
 function getInitialState(opts){
   try{
     opts=opts||{};
@@ -2069,17 +2022,18 @@ function getBootState(opts){
     var ctx=_resolverMesesEstado(opts);
     if(!ctx.ok) return ctx;
     var homeData=getMesData(ctx.homeMes);
-    return{
+    var out={
       ok:true,
       generatedAt:new Date().toISOString(),
       meses:ctx.meses,
       mesActual:ctx.homeMes,
       histMes:ctx.histMes,
-      home:homeData,
-      hist:ctx.histMes===ctx.homeMes?homeData:getMesData(ctx.histMes),
-      movimientos:getMovimientosMes(ctx.histMes),
-      pinturas:getPinturasMes(ctx.homeMes)
+      home:homeData
     };
+    if(opts.includeHist) out.hist=ctx.histMes===ctx.homeMes?homeData:getMesData(ctx.histMes);
+    if(opts.includeMovimientos) out.movimientos=getMovimientosMes(ctx.histMes);
+    if(opts.includePinturas) out.pinturas=getPinturasMes(ctx.homeMes);
+    return out;
   }catch(e){
     return{ok:false,error:e.toString()};
   }
@@ -2125,7 +2079,6 @@ var API_METHODS = {
   actualizarJapon: actualizarJapon,
   getPinturasMes: getPinturasMes,
   guardarPinturasMes: guardarPinturasMes,
-  exportarSnapshotSupabase: exportarSnapshotSupabase,
   getBootState: getBootState,
   getInitialState: getInitialState,
   parseTarjetas: parseTarjetas,

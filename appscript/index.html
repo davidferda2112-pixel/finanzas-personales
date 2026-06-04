@@ -35,6 +35,7 @@
   var isAppsScript = host.indexOf('script.google.com') > -1 || host.indexOf('googleusercontent.com') > -1;
   if (isAppsScript) return;
   if (window.google && window.google.script && window.google.script.run) return;
+  window.__JAEGER_BRIDGE_RUNTIME = true;
 
   function getAccessKey(forceAsk) {
     var key = '';
@@ -1668,6 +1669,8 @@ function aplicarInitialState(res,opts){
   if(stateOk(res.hist)){
     G.histData=res.hist;
     if(eid('page-presupuesto').classList.contains('active'))renderPresupuesto(res.hist);
+  }else if(G.mesData&&histMes===homeMes){
+    G.histData=G.mesData;
   }
   if(stateOk(res.movimientos)){
     G.movimientos=res.movimientos.data||[];
@@ -1839,11 +1842,21 @@ async function preloadAppFast(){
     var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
     cacheSet('mesActual',G.mesActual);
 
-    bootText('Cargando inicio e historial...');
+    if(window.__JAEGER_BRIDGE_RUNTIME){
+      var direct=await preloadAppLegacy(mes);
+      if(direct){
+        canHide=true;
+        clearTimeout(slow);
+        bootText('Listo');
+        return;
+      }
+    }
+
+    bootText('Cargando inicio...');
     var boot=await withTimeout(gsRun('getBootState',[{
       homeMes:G.mesActual,
       histMes:G.histMes||G.mesActual
-    }]),10500,'estado inicial');
+    }]),8500,'estado inicial');
     if(!boot||boot.timeout||boot.ok===false||boot.error){
       throw new Error((boot&&boot.error)||'No llegaron los datos iniciales');
     }
@@ -1857,14 +1870,22 @@ async function preloadAppFast(){
     clearTimeout(slow);
     bootText('Listo');
     setTimeout(function(){
+      cargarMovimientosMesBg(G.histMes||G.mesActual);
       cargarTarjetasState({mes:G.tcMesActual||G.mesActual,idx:G.tcIdx||0,anio:G.tdcAnio||2026},6500);
       preloadSecundario(G.mesActual,false);
     },120);
   }catch(e){
     if(slow)clearTimeout(slow);
     console.warn('preload fast',e);
+    try{
+      bootText('Intentando carga real directa...');
+      var legacy=await preloadAppLegacy(mes);
+      if(legacy){canHide=true;return;}
+    }catch(legacyErr){
+      console.warn('preload fast fallback',legacyErr);
+    }
     bootText('No pude cargar datos reales. Revisa conexion y abre la app otra vez.');
-    showToast('No pude cargar datos reales. No uses valores guardados.','err');
+    showToast('No pude cargar datos reales. Recarga la app.','err');
   }finally{
     if(canHide)setTimeout(function(){if(G.mesData)hideBootLoader();},260);
   }
