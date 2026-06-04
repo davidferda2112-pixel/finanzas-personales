@@ -1,8 +1,17 @@
 const READ_TTL_MS = {
-  // Solo se cachea la lista de meses porque no cambia con cada movimiento.
-  // Las lecturas financieras críticas deben viajar siempre al servidor:
-  // saldo disponible, historial, tarjetas, flujo, balance y pinturas.
-  getMesesDisponibles: 60 * 1000
+  getMesesDisponibles: 5 * 60 * 1000,
+  getInitialState: 15 * 1000,
+  getMesData: 18 * 1000,
+  getMovimientosMes: 18 * 1000,
+  getTarjetasState: 18 * 1000,
+  getMovimientosTarjeta: 18 * 1000,
+  parseTarjetas: 45 * 1000,
+  getFlujoCaja: 30 * 1000,
+  getBalanceGeneral: 30 * 1000,
+  getViajeJapon: 45 * 1000,
+  getPinturasMes: 30 * 1000,
+  getDesgloseSub: 18 * 1000,
+  getNotificaciones: 12 * 1000
 };
 
 const WRITE_METHODS = new Set([
@@ -51,8 +60,7 @@ function staleResponse(fn, args) {
 }
 
 function storeReadCache(fn, args, text) {
-  const ttl = READ_TTL_MS[fn];
-  if (!ttl || !text) return;
+  if (!READ_TTL_MS[fn] || !text) return;
   try {
     const parsed = JSON.parse(text);
     if (parsed && parsed.ok === false) return;
