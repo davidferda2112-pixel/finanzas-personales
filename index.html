@@ -1729,6 +1729,12 @@ function aplicarPostChangeState(state){
   if(state.tarjetas&&state.tarjetas.ok!==false){
     aplicarTarjetasState(state.tarjetas);
   }
+  if(state.tdcMovs&&state.tdcMovs.ok){
+    G.tdcMovs=state.tdcMovs.data||[];
+    G.tdcMovsAplicados=stateOk(state.tdcMovsAplicados)?(state.tdcMovsAplicados.data||[]):G.tdcMovsAplicados||[];
+    G._tdcMovsReadyKey=state.tdcKey||G._tdcMovsReadyKey;
+    if(eid('page-tarjetas').classList.contains('active'))renderMovsTdc();
+  }
   if(state.pinturas&&state.pinturas.ok){
     G.pinturas=state.pinturas.data;
     cacheSetPinturas(homeMes,state.pinturas.data);
@@ -3067,6 +3073,7 @@ function guardarEdicion(){
       eid('mov-edit').classList.remove('open');
       if(res.state)aplicarPostChangeState(res.state);
       else refrescarTrasMovimiento(res.mesCaja||mesDesdeFechaISO(eid('e-fecha').value)||G.histMes);
+      syncTrasCambio({delay:350,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual,historial:true});
       showToast('Movimiento actualizado','ok');
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Guardar';showToast('Error: '+e,'err');})
@@ -3100,6 +3107,7 @@ function confirmarEliminar(){
         renderHistorialMovimientos();
         refrescarTrasMovimiento(res.mesCaja||G.histMes);
       }
+      syncTrasCambio({delay:350,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual,historial:true});
       showToast('Movimiento eliminado','ok');
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
@@ -3696,6 +3704,7 @@ function guardarMovTdc(){
       var mesCajaRes=res.mesCaja||mesCajaTdc;
       if(res.state)aplicarPostChangeState(res.state);
       else syncTrasCambio({delay:80,mesInicio:mesCajaRes,mesHist:G.histMes||mesCajaRes,tarjetas:true,historial:true});
+      syncTrasCambio({delay:350,mesInicio:mesCajaRes,mesHist:G.histMes||mesCajaRes,tarjetas:true,historial:true});
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Registrar';showToast('Error: '+e,'err');});
   if(G.tdcEditId){params.id=G.tdcEditId;runner.actualizarMovimientoTarjeta(params);}
@@ -3719,6 +3728,7 @@ function confirmarEliminarTdc(){
       eid('mov-tdc-del').classList.remove('open');showToast('Transacción eliminada','ok');
       if(res.state)aplicarPostChangeState(res.state);
       else syncTrasCambio({delay:80,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual,tarjetas:true,historial:true});
+      syncTrasCambio({delay:350,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual,tarjetas:true,historial:true});
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
     .eliminarMovimientoTarjeta({id:G.tdcDeleteId,fast:true,returnState:true,homeMes:G.mesActual,histMes:G.histMes||G.mesActual,cardMes:G.tcMesActual||G.mesActual,cardIdx:G.tcIdx||0,cardYear:G.tdcAnio||2026});
@@ -3960,6 +3970,7 @@ function guardar(){
         cacheDel('mesData_'+mesRegistro);
         if(res.state)aplicarPostChangeState(res.state);
         else refrescarTrasMovimiento(res.mesCaja||mesRegistro);
+        syncTrasCambio({delay:350,mesInicio:res.mesCaja||mesRegistro,mesHist:G.histMes||mesAplicado,historial:true});
       }else showToast('Error: '+(res?res.error:'desconocido'),'err');
     })
     .withFailureHandler(function(e){btn.textContent='Guardar';btn.disabled=false;showToast('Error de conexión','err');})

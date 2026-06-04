@@ -699,11 +699,12 @@ function registrarMovimientoTarjeta(params){
         state:_postCambioState({
           homeMes:params.homeMes||params.mesInicio||mesCajaRespuesta,
           histMes:params.histMes||params.mesHist||mesGasto,
-          tarjetas:true,
+          includeHome:tipo==='abono'&&params.origen==='egreso',
+          tdcMovs:true,
           cardMes:params.cardMes||params.tcMes||mes,
+          cardId:tarjeta,
           cardIdx:params.cardIdx,
-          cardYear:params.cardYear,
-          pinturas:true
+          cardYear:params.cardYear
         })
       };
     }
@@ -811,11 +812,12 @@ function actualizarMovimientoTarjeta(params){
           state:_postCambioState({
             homeMes:params.homeMes||params.mesInicio||mesCajaRespuesta,
             histMes:params.histMes||params.mesHist||mesGasto,
-            tarjetas:true,
+            includeHome:tipo==='abono'&&params.origen==='egreso',
+            tdcMovs:true,
             cardMes:params.cardMes||params.tcMes||mes,
+            cardId:_s(params.tarjeta),
             cardIdx:params.cardIdx,
-            cardYear:params.cardYear,
-            pinturas:true
+            cardYear:params.cardYear
           })
         };
       }
@@ -863,11 +865,12 @@ function eliminarMovimientoTarjeta(input){
           state:_postCambioState({
             homeMes:homeMes||(del&&del.mesCaja)||mes,
             histMes:histMes||(del&&del.mesCaja)||mes,
-            tarjetas:true,
+            includeHome:!!registroId,
+            tdcMovs:true,
             cardMes:cardMes||mes,
+            cardId:_s(D[i][3]),
             cardIdx:cardIdx,
-            cardYear:cardYear,
-            pinturas:true
+            cardYear:cardYear
           })
         };
       }
@@ -956,8 +959,7 @@ function registrarMovimiento(params){
         mesCaja:mesCaja,
         state:_postCambioState({
           homeMes:params.homeMes||params.mesInicio||mesCaja,
-          histMes:params.histMes||params.mesHist||mes,
-          pinturas:true
+          histMes:params.histMes||params.mesHist||mes
         })
       };
     }
@@ -1326,8 +1328,7 @@ function actualizarMovimiento(params){
           mesCaja:newMesCaja,
           state:_postCambioState({
             homeMes:params.homeMes||params.mesInicio||newMesCaja,
-            histMes:params.histMes||params.mesHist||newMes,
-            pinturas:true
+            histMes:params.histMes||params.mesHist||newMes
           })
         };
       }
@@ -1371,8 +1372,7 @@ function eliminarMovimiento(input){
           mesCaja:mesCaja,
           state:_postCambioState({
             homeMes:homeMes||mesCaja,
-            histMes:histMes||mes,
-            pinturas:true
+            histMes:histMes||mes
           })
         };
       }
@@ -2044,16 +2044,30 @@ function _postCambioState(opts){
   var homeMes=_normalizarMesNombre(opts.homeMes||opts.mesInicio||opts.mesCaja||opts.histMes);
   var histMes=_normalizarMesNombre(opts.histMes||opts.mesHist||homeMes);
   var out={ok:true,homeMes:homeMes,histMes:histMes};
-  if(homeMes) out.home=getMesData(homeMes);
-  if(histMes) out.movimientos=getMovimientosMes(histMes);
-  if(opts.tarjetas){
+  var includeHome=opts.includeHome!==false;
+  var includeMovimientos=opts.includeMovimientos===true||opts.movimientos===true;
+  var includeTarjetas=opts.includeTarjetas===true||opts.tarjetas===true;
+  var includePinturas=opts.includePinturas===true||opts.pinturas===true;
+  var includeTdcMovs=opts.includeTdcMovs===true||opts.tdcMovs===true;
+  if(includeHome&&homeMes) out.home=getMesData(homeMes);
+  if(includeMovimientos&&histMes) out.movimientos=getMovimientosMes(histMes);
+  if(includeTarjetas){
     out.tarjetas=getTarjetasState({
       mes:opts.cardMes||opts.tcMes||homeMes,
       idx:parseInt(opts.cardIdx,10)||0,
       anio:parseInt(opts.cardYear,10)||((new Date()).getFullYear())
     });
   }
-  if(opts.pinturas&&homeMes) out.pinturas=getPinturasMes(homeMes);
+  if(includeTdcMovs){
+    var cardMes=_normalizarMesNombre(opts.cardMes||opts.tcMes||homeMes);
+    var cardId=_s(opts.cardId||opts.tarjeta||opts.cardTarjeta);
+    if(cardMes&&cardId){
+      out.tdcMovs=getMovimientosTarjeta(cardMes,cardId);
+      out.tdcMovsAplicados=getMovimientosTarjeta(_mesSiguienteNombre(cardMes),cardId);
+      out.tdcKey=cardId+'|'+cardMes;
+    }
+  }
+  if(includePinturas&&homeMes) out.pinturas=getPinturasMes(homeMes);
   return out;
 }
 
