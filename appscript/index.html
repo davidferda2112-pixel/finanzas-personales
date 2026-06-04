@@ -1582,6 +1582,11 @@ function getMesActual(meses){
   if(meses.length)return meses[meses.length-1];
   return cal;
 }
+function mesInicioActivo(){
+  var sel=eid('sel-h');
+  var visible=sel&&sel.value?sel.value:'';
+  return visible||G.mesActual||mesActualCalendario();
+}
 function showToast(msg,tipo){
   var el=document.createElement('div');el.className='toast '+(tipo||'ok');el.textContent=msg;
   document.body.appendChild(el);setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},2900);
@@ -2381,16 +2386,51 @@ function renderHome(d){
 
 function actualizarSaldoVisiblePorCaja(params){
   var mesCaja=params.mesRegistro||mesDesdeFechaISO(params.fecha)||G.mesActual;
+  var monto=parseFloat(String(params.monto||0).replace(',','.'))||0;
+  var delta=params.tipo==='ingreso'?monto:-monto;
+  actualizarSaldoVisibleDelta(mesCaja,delta);
+}
+
+function actualizarSaldoVisibleDelta(mesCaja,delta){
+  mesCaja=mesCaja||G.mesActual;
   if(!G.mesData)return;
   var ordCaja=mesOrdenNombre(mesCaja),ordActual=mesOrdenNombre(G.mesActual);
   if(G.mesActual!==mesCaja&&!(ordCaja>=0&&ordActual>=0&&ordCaja<ordActual))return;
-  var monto=parseFloat(String(params.monto||0).replace(',','.'))||0;
-  var delta=params.tipo==='ingreso'?monto:-monto;
   var saldoNuevo=Math.round((getSaldoData(G.mesData)+delta+Number.EPSILON)*100)/100;
   setSaldoData(G.mesData,saldoNuevo);
   cacheSetBootHome(G.mesActual,G.mesData);
   cacheSet('lastGoodHome',{mes:G.mesActual,data:G.mesData});
   renderHome(G.mesData);
+}
+
+function movimientoOptimista(params,id,mesCaja){
+  params=params||{};
+  var fecha=params.fecha||todayISO();
+  return{
+    id:String(id||Date.now()),
+    orden:Date.now(),
+    timestamp:new Date().toISOString(),
+    mes:params.mes,
+    mesCaja:mesCaja||params.mesRegistro||mesDesdeFechaISO(fecha)||params.mes,
+    tipo:params.tipo,
+    categoria:params.categoria||params.tipo,
+    subcategoria:params.subcategoria,
+    monto:moneyVal(params.monto),
+    fecha:fecha,
+    fechaOrden:localDateMs(fecha),
+    notas:params.notas||'',
+    saldoDespues:null
+  };
+}
+
+function insertarMovimientoOptimista(tx){
+  if(!tx||tx.mes!==G.histMes)return;
+  var movs=(G.movimientos||[]).filter(function(t){return String(t.id)!==String(tx.id);});
+  movs.push(tx);
+  G.movimientos=movs;
+  G.movimientosMes=G.histMes;
+  cacheSetMovimientos(G.histMes,G.movimientos);
+  if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
 }
 
 function loadHomeJapon(){
@@ -2425,7 +2465,7 @@ function calcPinturasData(raw){
   var ingresos=Math.round(((6.5*vendidas)-(2*autoconsumo)-(0.5*descuento)+Number.EPSILON)*100)/100;
   var costo=Math.round((4.5*vendidas+Number.EPSILON)*100)/100;
   var utilidad=Math.round((ingresos-costo+Number.EPSILON)*100)/100;
-  return{mes:raw.mes||G.mesActual||mesActualCalendario(),stockInicial:inicial,stockAgregado:agregado,stockActual:actual,autoconsumo:autoconsumo,descuento:descuento,vendidas:vendidas,ingresos:ingresos,costo:costo,utilidad:utilidad};
+  return{mes:raw.mes||mesInicioActivo(),stockInicial:inicial,stockAgregado:agregado,stockActual:actual,autoconsumo:autoconsumo,descuento:descuento,vendidas:vendidas,ingresos:ingresos,costo:costo,utilidad:utilidad};
 }
 
 function paintHomePinturas(data){
@@ -2436,7 +2476,7 @@ function paintHomePinturas(data){
 }
 
 function loadHomePinturas(){
-  var mes=G.mesActual||mesActualCalendario();
+  var mes=mesInicioActivo();
   if(G.pinturas&&G.pinturas.mes===mes){paintHomePinturas(G.pinturas);return;}
   var cached=cacheGetPinturas(mes);
   if(cached){G.pinturas=cached;paintHomePinturas(cached);}
@@ -2475,7 +2515,7 @@ function renderPinturasModal(data){
 
 function calcPinturasUI(){
   var data=calcPinturasData({
-    mes:G.mesActual||mesActualCalendario(),
+    mes:mesInicioActivo(),
     stockInicial:eid('paint-inicial')?eid('paint-inicial').value:0,
     stockAgregado:eid('paint-agregado')?eid('paint-agregado').value:0,
     stockActual:eid('paint-actual')?eid('paint-actual').value:0,
@@ -2491,7 +2531,7 @@ function calcPinturasUI(){
 }
 
 function abrirModalPinturas(){
-  var mes=G.mesActual||mesActualCalendario();
+  var mes=mesInicioActivo();
   var modal=eid('mov-pinturas');if(modal)modal.classList.add('open');
   if(G.pinturas&&G.pinturas.mes===mes){renderPinturasModal(G.pinturas);setPinturasEdit(false);return;}
   var cached=cacheGetPinturas(mes);
@@ -2511,7 +2551,7 @@ function editarPinturas(){
 }
 
 function cancelarPinturas(){
-  renderPinturasModal(G.pinturas||{mes:G.mesActual||mesActualCalendario()});
+  renderPinturasModal(G.pinturas||{mes:mesInicioActivo()});
   setPinturasEdit(false);
 }
 
@@ -2997,18 +3037,23 @@ function confirmarEliminar(){
       btn.disabled=false;btn.textContent='Eliminar';
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
       eid('mov-del').classList.remove('open');
+      var txDel=G.deleteTx;
       G.movimientos=(G.movimientos||[]).filter(function(t){return String(t.id)!==String(G.deleteTx.id);});
       cacheSetMovimientos(G.histMes,G.movimientos);
       renderHistorialMovimientos();
+      if(txDel){
+        var inv=txDel.tipo==='ingreso'?-moneyVal(txDel.monto):moneyVal(txDel.monto);
+        actualizarSaldoVisibleDelta(res.mesCaja||txDel.mesCaja||mesDesdeFechaISO(txDel.fecha)||G.histMes,inv);
+      }
       showToast('Movimiento eliminado','ok');
-      refrescarTrasMovimiento();
+      refrescarTrasMovimiento(res.mesCaja||G.histMes);
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
     .eliminarMovimiento({id:G.deleteTx.id,fast:true});
 }
 
-function refrescarTrasMovimiento(){
-  syncTrasCambio({delay:80});
+function refrescarTrasMovimiento(mesCaja){
+  syncTrasCambio({delay:350,mesInicio:G.mesActual,mesHist:G.histMes||mesCaja||G.mesActual});
 }
 
 function abrirModalCat(nombre){
@@ -3860,7 +3905,7 @@ function guardar(){
       btn.textContent='Guardar';btn.disabled=false;eid('mov').classList.remove('open');
       if(res&&res.ok){
         showSucc();showToast(G.tipoModal==='ahorro'&&mesAplicado!==G.mesActual?'Ahorro aplicado a '+mesAplicado:'Guardado ✓','ok');
-        G.txs.push(params);
+        insertarMovimientoOptimista(movimientoOptimista(params,res.id,res.mesCaja||mesRegistro));
         G._dirty=true;  // marcar como dirty para invalidar balance/flujo al navegar
         cacheDel('mesData_'+mesAplicado);
         cacheDel('mesData_'+mesRegistro);
@@ -3875,7 +3920,7 @@ function guardar(){
           G.mesData=res.mesData;
           renderHome(G.mesData);
         }
-        syncTrasCambio({delay:80});
+        syncTrasCambio({delay:350,mesInicio:G.mesActual,mesHist:G.histMes||mesAplicado});
       }else showToast('Error: '+(res?res.error:'desconocido'),'err');
     })
     .withFailureHandler(function(e){btn.textContent='Guardar';btn.disabled=false;showToast('Error de conexión','err');})

@@ -874,8 +874,8 @@ function registrarMovimiento(params){
     // 4. Notificar excesos
     if(!params.fast) _checkExceso(ss, params);
 
-    SpreadsheetApp.flush();
     if(params.fast) return{ok:true,id:id,mesCaja:mesCaja};
+    SpreadsheetApp.flush();
     return{ok:true,id:id,mesData:getMesData(mesCaja),mesCaja:mesCaja};
   }catch(e){return{ok:false,error:e.toString()};}
 }
@@ -1261,8 +1261,8 @@ function eliminarMovimiento(input){
       reg.deleteRow(i+1);
       _invalidarMovimientoMes(mes);
       _invalidarMovimientoMes(mesCaja);
-      SpreadsheetApp.flush();
       if(fast) return{ok:true,mesCaja:mesCaja};
+      SpreadsheetApp.flush();
       return{ok:true,mesData:getMesData(mesCaja),mesCaja:mesCaja};
     }
     return{ok:false,error:'Movimiento no encontrado'};
@@ -1760,16 +1760,41 @@ function _calcPinturas(r){
   };
 }
 
+function _pinturasPropKey(mes){
+  return 'PINTURAS_'+_normalizarMesNombre(_s(mes)).replace(/ /g,'_');
+}
+
+function _pinturasBackupGet(mes){
+  try{
+    var raw=PropertiesService.getScriptProperties().getProperty(_pinturasPropKey(mes));
+    return raw?JSON.parse(raw):null;
+  }catch(e){
+    return null;
+  }
+}
+
+function _pinturasBackupSet(mes,raw){
+  try{
+    PropertiesService.getScriptProperties().setProperty(_pinturasPropKey(mes),JSON.stringify(raw||{}));
+  }catch(e){}
+}
+
 function getPinturasMes(mes){
   try{
-    mes=_s(mes)||_getMesActual();
+    mes=_normalizarMesNombre(_s(mes))||_getMesActual();
     var ss=getSS(),sh=_pinturasSheet(ss),D=sh.getDataRange().getValues();
     var raw={stockInicial:0,stockAgregado:0,stockActual:0,autoconsumo:0,descuento:0};
+    var found=false;
     for(var i=1;i<D.length;i++){
-      if(_s(D[i][0])===mes){
+      if(_normalizarMesNombre(_s(D[i][0]))===mes){
         raw={stockInicial:D[i][1],stockAgregado:D[i][2],stockActual:D[i][3],autoconsumo:D[i][4],descuento:D[i][5]};
+        found=true;
         break;
       }
+    }
+    if(!found){
+      var backup=_pinturasBackupGet(mes);
+      if(backup) raw=backup;
     }
     var calc=_calcPinturas(raw);
     calc.mes=mes;
@@ -1782,7 +1807,7 @@ function getPinturasMes(mes){
 function guardarPinturasMes(params){
   try{
     params=params||{};
-    var mes=_s(params.mes)||_getMesActual();
+    var mes=_normalizarMesNombre(_s(params.mes))||_getMesActual();
     var raw={
       stockInicial:_n(params.stockInicial),
       stockAgregado:_n(params.stockAgregado),
@@ -1795,10 +1820,15 @@ function guardarPinturasMes(params){
       return {ok:false,error:'Autoconsumo y descuento no pueden superar las pinturas vendidas.'};
     }
     var ss=getSS(),sh=_pinturasSheet(ss),D=sh.getDataRange().getValues(),row=0;
-    for(var i=1;i<D.length;i++){if(_s(D[i][0])===mes){row=i+1;break;}}
+    for(var i=1;i<D.length;i++){if(_normalizarMesNombre(_s(D[i][0]))===mes){row=i+1;break;}}
     var values=[mes,calc.stockInicial,calc.stockAgregado,calc.stockActual,calc.autoconsumo,calc.descuento,_nowLocal()];
     if(row) sh.getRange(row,1,1,values.length).setValues([values]);
-    else sh.appendRow(values);
+    else{
+      row=sh.getLastRow()+1;
+      sh.getRange(row,1,1,values.length).setValues([values]);
+    }
+    sh.getRange(row,1).setNumberFormat('@STRING@');
+    _pinturasBackupSet(mes,raw);
     calc.mes=mes;
     cDel('mes_'+mes.replace(/ /g,'_'));
     return {ok:true,data:calc};
