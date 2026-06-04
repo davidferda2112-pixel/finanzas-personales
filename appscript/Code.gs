@@ -684,7 +684,7 @@ function registrarMovimientoTarjeta(params){
     cDel('mes_'+mes.replace(/ /g,'_'));
     cDel('mes_'+mesRegistro.replace(/ /g,'_'));
     if(mesCaja) cDel('mes_'+mesCaja.replace(/ /g,'_'));
-    SpreadsheetApp.flush();
+    if(!params.fast) SpreadsheetApp.flush();
     if(!params.fast&&!mesDataCaja&&tipo==='abono'&&params.origen==='egreso') mesDataCaja=getMesData(mesCajaRespuesta);
     return{ok:true,id:id,registroId:registroId,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -776,6 +776,7 @@ function actualizarMovimientoTarjeta(params){
       var mesCaja=_mesDesdeFechaMovimiento(params.fecha);
       cDel('flujo');cDel('mes_'+oldMes.replace(/ /g,'_'));cDel('mes_'+mes.replace(/ /g,'_'));cDel('mes_'+mesRegistro.replace(/ /g,'_'));
       if(mesCaja) cDel('mes_'+mesCaja.replace(/ /g,'_'));
+      if(params.fast) return{ok:true,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes};
       SpreadsheetApp.flush();
       if(!params.fast&&tipo==='abono'&&params.origen==='egreso'&&!mesDataCaja) mesDataCaja=getMesData(mesCajaRespuesta);
       return{ok:true,mesData:mesDataCaja,mesCaja:mesCajaRespuesta,mesAplicado:mes};
@@ -784,8 +785,14 @@ function actualizarMovimientoTarjeta(params){
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
-function eliminarMovimientoTarjeta(id){
+function eliminarMovimientoTarjeta(input){
   try{
+    var fast=false;
+    var id=input;
+    if(input&&typeof input==='object'){
+      id=input.id;
+      fast=!!input.fast;
+    }
     var ss=getSS();
     var sh=ss.getSheetByName('TDC_App');
     if(!sh) return{ok:false,error:'Hoja TDC_App no encontrada'};
@@ -795,9 +802,10 @@ function eliminarMovimientoTarjeta(id){
       var mes=_s(D[i][2]).replace(/^'+/,'');
       var registroId=_s(D[i][9]);
       var del=null;
-      if(registroId) del=eliminarMovimiento(registroId);
+      if(registroId) del=eliminarMovimiento(fast?{id:registroId,fast:true}:registroId);
       sh.deleteRow(i+1);
       cDel('flujo');cDel('mes_'+mes.replace(/ /g,'_'));
+      if(fast) return{ok:true,mesData:null,mesCaja:del&&del.mesCaja?del.mesCaja:null};
       SpreadsheetApp.flush();
       return{ok:true,mesData:del&&del.mesData?del.mesData:null,mesCaja:del&&del.mesCaja?del.mesCaja:null};
     }
@@ -1232,6 +1240,7 @@ function actualizarMovimiento(params){
       _invalidarMovimientoMes(newMes);
       _invalidarMovimientoMes(oldMesCaja);
       _invalidarMovimientoMes(newMesCaja);
+      if(params.fast) return{ok:true,mesCaja:newMesCaja};
       SpreadsheetApp.flush();
       return{ok:true,mesData:getMesData(newMesCaja),mesCaja:newMesCaja};
     }

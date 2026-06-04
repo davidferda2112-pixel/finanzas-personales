@@ -1430,7 +1430,7 @@ var G={
   catManage:null,
   movimientos:[],movimientosMes:null,editTx:null,deleteTx:null,
   histFiltroTipo:'todos',histFiltroCat:'todos',histOrden:'recientes',histFechaIni:'',histFechaFin:'',
-  _dirty:false  // flag: se activó después de guardar
+  _dirty:false,_dirtyFlujo:false,_dirtyBalance:false,_dirtyTarjetas:false  // flags de refresco
 };
 var MESES_NOM_JS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 var SUBCATS={
@@ -1749,15 +1749,15 @@ function navTo(p){
 
   // Balance y flujo: recargar siempre si dirty, sino solo si no hay datos
   if(p==='balance'){
-    if(G._dirty||!G.balance){G.balance=null;loadBalance();}
+    if(G._dirtyBalance||!G.balance){G.balance=null;loadBalance();}
     else renderBalance(G.balance);
   }
   if(p==='flujo'){
-    if(G._dirty||!G.flujo){G.flujo=null;loadFlujo();}
+    if(G._dirtyFlujo||!G.flujo){G.flujo=null;loadFlujo();}
     else renderFlujo(G.flujo);
   }
   if(p==='tarjetas'){
-    if(G._dirty||!G.tarjetas){G.tarjetas=null;loadTarjetas();}
+    if(G._dirtyTarjetas||!G.tarjetas){G.tarjetas=null;loadTarjetas();}
     else{renderSelectorTarjeta();renderHistorialTarjeta();}
   }
   if(p==='presupuesto'){
@@ -1766,16 +1766,17 @@ function navTo(p){
     else if(G.mesData) renderPresupuesto(G.mesData);
   }
   if(p==='calendario')             renderCalendario();
-  if(p!=='balance'&&p!=='flujo')   G._dirty=false;
   setTimeout(actualizarFloatFechas,60);
 }
 
 // ── INIT ─────────────────────────────────────────────────────
 function init(){
   var cachedMeses=cacheGet('meses');
+  var cal=mesActualCalendario();
   if(cachedMeses&&cachedMeses.length){
-    G.meses=cachedMeses;
-    G.mesActual=getMesActual(G.meses);
+    G.meses=cachedMeses.slice();
+    if(G.meses.indexOf(cal)<0)G.meses.push(cal);
+    G.mesActual=cal;
     fillSels(G.meses);
     G.histMes=G.histMes||G.mesActual;
     var sh=eid('sel-h');if(sh)sh.value=G.mesActual;
@@ -1794,13 +1795,14 @@ async function preloadAppFast(){
     if(cachedMeses.length){
       cachedMeses.sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
       G.meses=cachedMeses;
+      if(G.meses.indexOf(mes)<0)G.meses.push(mes);
       fillSels(G.meses);
-      mes=getMesActual(G.meses);
     }
     G.mesActual=mes;
     G.histMes=G.histMes||mes;
     var sh=eid('sel-h');if(sh)sh.value=G.mesActual;
     var sp=eid('sel-pr');if(sp)sp.value=G.histMes;
+    cacheSet('mesActual',G.mesActual);
 
     var cached=cacheGetBootHome(mes);
     var last=cacheGet('lastGoodHome');
@@ -1814,6 +1816,22 @@ async function preloadAppFast(){
       canHide=true;
       setTimeout(function(){hideBootLoader();},650);
     }
+
+    var mesesPromise=withTimeout(gsRun('getMesesDisponibles'),2800,'meses')
+      .then(function(mesesRes){
+        if(mesesRes&&mesesRes.ok&&mesesRes.data&&mesesRes.data.length){
+          var keepHome=G.mesActual||mes,keepHist=G.histMes||keepHome;
+          G.meses=mesesRes.data.slice().sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
+          if(G.meses.indexOf(keepHome)<0)G.meses.push(keepHome);
+          cacheSet('meses',G.meses);
+          fillSels(G.meses);
+          G.mesActual=keepHome;
+          G.histMes=keepHist;
+          var sm=eid('sel-h');if(sm)sm.value=keepHome;
+          var spm=eid('sel-pr');if(spm)spm.value=keepHist;
+        }
+      })
+      .catch(function(e){console.warn('meses fast bg',e);});
 
     var movCache=cacheGetMovimientos(G.histMes);
     if(movCache){
@@ -1829,21 +1847,9 @@ async function preloadAppFast(){
       paintHomePinturas(paintCache);
     }
 
-    var mesesRes=await withTimeout(gsRun('getMesesDisponibles'),3200,'meses');
-    if(mesesRes&&mesesRes.ok&&mesesRes.data&&mesesRes.data.length){
-      G.meses=mesesRes.data.slice().sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
-      cacheSet('meses',G.meses);
-      fillSels(G.meses);
-      mes=getMesActual(G.meses);
-      G.mesActual=mes;
-      G.histMes=G.histMes||mes;
-      var sh2=eid('sel-h');if(sh2)sh2.value=G.mesActual;
-      var sp2=eid('sel-pr');if(sp2)sp2.value=G.histMes;
-    }
-
     if(!paintedCached || !G.mesData || cachedMesPainted!==G.mesActual){
       bootText('Cargando inicio...');
-      var mesDataRes=await withTimeout(gsRun('getMesData',[G.mesActual]),5200,'inicio');
+      var mesDataRes=await withTimeout(gsRun('getMesData',[G.mesActual]),7600,'inicio');
       if(!mesDataRes||mesDataRes.timeout||mesDataRes.ok===false||mesDataRes.error){
         throw new Error((mesDataRes&&mesDataRes.error)||'No llegaron los datos de inicio');
       }
@@ -1858,16 +1864,15 @@ async function preloadAppFast(){
 
     clearTimeout(slow);
     bootText('Listo');
-    setTimeout(function(){preloadSecundario(G.mesActual,false);},120);
+    mesesPromise.then(function(){});
+    setTimeout(function(){
+      cargarMovimientosMesBg(G.histMes||G.mesActual);
+      cargarTarjetasState({mes:G.tcMesActual||G.mesActual,idx:G.tcIdx||0,anio:G.tdcAnio||2026},4200);
+      preloadSecundario(G.mesActual,false);
+    },120);
   }catch(e){
     if(slow)clearTimeout(slow);
     console.warn('preload fast',e);
-    try{
-      var legacy=await preloadAppLegacy(mes);
-      if(legacy){canHide=true;return;}
-    }catch(legacyErr){
-      console.warn('preload legacy',legacyErr);
-    }
     var fallback=cacheGetBootHome(mes);
     var lastGood=cacheGet('lastGoodHome');
     if((!fallback||!fallback.vistaGeneral)&&lastGood&&lastGood.data)fallback=lastGood.data;
@@ -2020,7 +2025,7 @@ function cargarMovimientosMesBg(mes){
     G.movimientosMes=mes;
     if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();
   }
-  return withTimeout(gsRun('getMovimientosMes',[mes]),6500,'movimientos')
+  return withTimeout(gsRun('getMovimientosMes',[mes]),4200,'movimientos')
     .then(function(res){
       if(res&&res.ok){
         G.movimientos=res.data||[];
@@ -2049,6 +2054,7 @@ function aplicarTarjetasState(res,fromCache){
   prepararMesesTarjeta();
   renderSelectorTarjeta();
   renderHistorialTarjeta();
+  G._dirtyTarjetas=false;
   if(!fromCache)cacheSetTarjetas({mes:G.tcMesActual,idx:G.tcIdx,anio:G.tdcAnio},res);
   return true;
 }
@@ -2080,6 +2086,7 @@ async function preloadSecundarioReady(mes,force,showProgress){
   mes=mes||G.mesActual;
   if(!mes)return [];
   if(force){G.movimientosMes=null;G.tarjetas=null;G.flujo=null;G.balance=null;G.japon=null;G.pinturas=null;}
+  var ligero=!force&&!showProgress;
   var jobs=[];
   function job(label,condition,promiseFactory,handler,ms){
     if(!condition)return;
@@ -2093,18 +2100,20 @@ async function preloadSecundarioReady(mes,force,showProgress){
   job('tarjetas',!G.tarjetas,function(){return gsRun('getTarjetasState',[{mes:G.tcMesActual||mes,idx:G.tcIdx||0,anio:G.tdcAnio||2026}]);},function(res){
     aplicarTarjetasState(res);
   },2600);
-  job('flujo',!G.flujo,function(){return gsRun('getFlujoCaja');},function(res){
-    if(res&&res.ok){G.flujo=res.data;if(eid('page-flujo').classList.contains('active'))renderFlujo(res.data);}
-  },2600);
-  job('balance',!G.balance,function(){return gsRun('getBalanceGeneral');},function(res){
-    if(res&&res.ok){G.balance=res;if(eid('page-balance').classList.contains('active'))renderBalance(res);}
-  },2600);
-  job('japon',!G.japon,function(){return gsRun('getViajeJapon');},function(res){
-    if(res&&res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
-  },2200);
   job('pinturas',!G.pinturas||G.pinturas.mes!==mes,function(){return gsRun('getPinturasMes',[mes]);},function(res){
     if(res&&res.ok){G.pinturas=res.data;cacheSetPinturas(mes,res.data);paintHomePinturas(res.data);}
   },2200);
+  if(!ligero){
+    job('flujo',!G.flujo,function(){return gsRun('getFlujoCaja');},function(res){
+      if(res&&res.ok){G.flujo=res.data;if(eid('page-flujo').classList.contains('active'))renderFlujo(res.data);}
+    },2600);
+    job('balance',!G.balance,function(){return gsRun('getBalanceGeneral');},function(res){
+      if(res&&res.ok){G.balance=res;if(eid('page-balance').classList.contains('active'))renderBalance(res);}
+    },2600);
+    job('japon',!G.japon,function(){return gsRun('getViajeJapon');},function(res){
+      if(res&&res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
+    },2200);
+  }
   if(showProgress)bootText('Preparando páginas...');
   return Promise.allSettled(jobs);
 }
@@ -2120,15 +2129,26 @@ function invalidarDatosCompartidos(){
   G.japon=null;
   G.pinturas=null;
   G._dirty=true;
+  G._dirtyFlujo=true;
+  G._dirtyBalance=true;
+  G._dirtyTarjetas=true;
 }
 function syncTrasCambio(opts){
   opts=opts||{};
   G._dirty=true;
+  G._dirtyFlujo=true;
+  G._dirtyBalance=true;
+  if(opts.tarjetas)G._dirtyTarjetas=true;
   if(__syncTimer)clearTimeout(__syncTimer);
   __syncTimer=setTimeout(function(){
     var seq=++__syncSeq;
     var mesInicio=opts.mesInicio||opts.mes||G.mesActual||mesActualCalendario();
     var mesHist=opts.mesHist||G.histMes||mesInicio;
+    var activeHome=eid('page-home').classList.contains('active');
+    var activeHist=eid('page-presupuesto').classList.contains('active');
+    var activeCards=eid('page-tarjetas').classList.contains('active');
+    var activeFlujo=eid('page-flujo').classList.contains('active');
+    var activeBalance=eid('page-balance').classList.contains('active');
     var jobs=[];
     function ok(res){return res&&res.ok!==false&&!res.error&&!res.timeout;}
     function job(label,promise,handler){
@@ -2137,44 +2157,45 @@ function syncTrasCambio(opts){
         handler(res);
       }).catch(function(e){console.warn('sync '+label,e);}));
     }
-    job('meses',withTimeout(gsRun('getMesesDisponibles'),3600,'meses'),function(res){
-      if(res.ok&&res.data&&res.data.length){G.meses=res.data;cacheSet('meses',G.meses);fillSels(G.meses);}
-    });
-    job('inicio',withTimeout(gsRun('getMesData',[mesInicio]),5200,'inicio'),function(res){
+    if(opts.refreshMeses){
+      job('meses',withTimeout(gsRun('getMesesDisponibles'),2800,'meses'),function(res){
+        if(res.ok&&res.data&&res.data.length){G.meses=res.data;cacheSet('meses',G.meses);fillSels(G.meses);}
+      });
+    }
+    job('inicio',withTimeout(gsRun('getMesData',[mesInicio]),4800,'inicio'),function(res){
       res=aplicarSaldoEsperado(res,mesInicio);
       G.mesData=res;
       cacheSetBootHome(mesInicio,res);
       cacheSet('lastGoodHome',{mes:mesInicio,data:res});
-      renderHome(res);
+      if(activeHome||G.mesActual===mesInicio)renderHome(res);
     });
-    job('historial-data',withTimeout(gsRun('getMesData',[mesHist]),5200,'historial'),function(res){
-      G.histData=res;
-      if(mesHist===mesInicio){
-        cacheSetBootHome(mesHist,res);
-        cacheSet('lastGoodHome',{mes:mesHist,data:res});
-      }
-      if(eid('page-presupuesto').classList.contains('active'))renderPresupuesto(res);
-    });
-    job('movimientos',withTimeout(gsRun('getMovimientosMes',[mesHist]),5200,'movimientos'),function(res){
-      if(res.ok){G.movimientos=res.data||[];G.movimientosMes=mesHist;cacheSetMovimientos(mesHist,G.movimientos);if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();}
-    });
-    job('tarjetas',withTimeout(gsRun('getTarjetasState',[{mes:G.tcMesActual||mesInicio,idx:G.tcIdx||0,anio:G.tdcAnio||2026}]),5600,'tarjetas'),function(res){
-      aplicarTarjetasState(res);
-    });
-    job('flujo',withTimeout(gsRun('getFlujoCaja'),5600,'flujo'),function(res){
-      if(res.ok){G.flujo=res.data;if(eid('page-flujo').classList.contains('active'))renderFlujo(res.data);}
-    });
-    job('balance',withTimeout(gsRun('getBalanceGeneral'),5600,'balance'),function(res){
-      if(res.ok){G.balance=res;if(eid('page-balance').classList.contains('active'))renderBalance(res);}
-    });
-    job('japon',withTimeout(gsRun('getViajeJapon'),4200,'japon'),function(res){
-      if(res.ok){G.japon=res;paintHomeJapon(res);renderModalJapon(res);}
-    });
-    job('pinturas',withTimeout(gsRun('getPinturasMes',[mesInicio]),4200,'pinturas'),function(res){
-      if(res.ok){G.pinturas=res.data;cacheSetPinturas(mesInicio,res.data);paintHomePinturas(res.data);}
-    });
+    if(activeHist||opts.historial){
+      job('movimientos',withTimeout(gsRun('getMovimientosMes',[mesHist]),4200,'movimientos'),function(res){
+        if(res.ok){G.movimientos=res.data||[];G.movimientosMes=mesHist;cacheSetMovimientos(mesHist,G.movimientos);if(eid('page-presupuesto').classList.contains('active'))renderHistorialMovimientos();}
+      });
+    }
+    if(activeCards||opts.tarjetas){
+      job('tarjetas',withTimeout(gsRun('getTarjetasState',[{mes:G.tcMesActual||mesInicio,idx:G.tcIdx||0,anio:G.tdcAnio||2026}]),4800,'tarjetas'),function(res){
+        aplicarTarjetasState(res);
+      });
+    }
+    if(activeFlujo||opts.flujo){
+      job('flujo',withTimeout(gsRun('getFlujoCaja'),4800,'flujo'),function(res){
+        if(res.ok){G.flujo=res.data;G._dirtyFlujo=false;if(eid('page-flujo').classList.contains('active'))renderFlujo(res.data);}
+      });
+    }
+    if(activeBalance||opts.balance){
+      job('balance',withTimeout(gsRun('getBalanceGeneral'),4800,'balance'),function(res){
+        if(res.ok){G.balance=res;G._dirtyBalance=false;if(eid('page-balance').classList.contains('active'))renderBalance(res);}
+      });
+    }
+    if(activeHome||opts.pinturas){
+      job('pinturas',withTimeout(gsRun('getPinturasMes',[mesInicio]),3200,'pinturas'),function(res){
+        if(res.ok){G.pinturas=res.data;cacheSetPinturas(mesInicio,res.data);paintHomePinturas(res.data);}
+      });
+    }
     Promise.allSettled(jobs).then(function(){
-      if(seq===__syncSeq)G._dirty=false;
+      if(seq===__syncSeq&&activeFlujo&&activeBalance)G._dirty=false;
     });
   },opts.delay==null?90:opts.delay);
 }
@@ -2182,9 +2203,15 @@ function syncTrasCambio(opts){
 function fillSels(m){
   m=(m||[]).slice();
   m.sort(function(a,b){return mesOrdenNombre(a)-mesOrdenNombre(b);});
+  var homeVal=G.mesActual||(eid('sel-h')&&eid('sel-h').value)||'';
+  var histVal=G.histMes||(eid('sel-pr')&&eid('sel-pr').value)||homeVal;
   G.meses=m;
   var h=m.map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('');
   ['sel-h','sel-pr'].forEach(function(id){var el=eid(id);if(el)el.innerHTML=h;});
+  var sh=eid('sel-h');
+  if(sh&&homeVal&&m.indexOf(homeVal)>=0)sh.value=homeVal;
+  var sp=eid('sel-pr');
+  if(sp&&histVal&&m.indexOf(histVal)>=0)sp.value=histVal;
   eid('btn-nmes').style.display='flex';
 }
 
@@ -2204,7 +2231,7 @@ function cambiarMesHistorial(nombre){
   G.histMes=nombre;
   G.movimientosMes=null;
   var sp=eid('sel-pr');if(sp)sp.value=nombre;
-  syncTrasCambio({delay:0,mesInicio:G.mesActual||mesActualCalendario(),mesHist:nombre});
+  syncTrasCambio({delay:0,mesInicio:G.mesActual||mesActualCalendario(),mesHist:nombre,historial:true});
 }
 
 // ── HOME ─────────────────────────────────────────────────────
@@ -2619,7 +2646,7 @@ function renderTxs(){
 // ── BALANCE ──────────────────────────────────────────────────
 function loadBalance(){
   google.script.run
-    .withSuccessHandler(function(res){if(!res||!res.ok){showToast('Error balance','err');return;}G.balance=res;renderBalance(res);})
+    .withSuccessHandler(function(res){if(!res||!res.ok){showToast('Error balance','err');return;}G.balance=res;G._dirtyBalance=false;renderBalance(res);})
     .withFailureHandler(function(e){showToast('Error: '+e,'err');})
     .getBalanceGeneral();
 }
@@ -2704,7 +2731,7 @@ function tgBalEdit(){G.balEdit=!G.balEdit;if(G.balance)renderBalance(G.balance);
 function saveBalance(codigo,valor){
   var nota=prompt('Motivo del cambio:')||'';
   google.script.run
-    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Actualizado','ok');syncTrasCambio({delay:80});}else showToast('Error','err');})
+    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Actualizado','ok');syncTrasCambio({delay:80,balance:true});}else showToast('Error','err');})
     .actualizarBalance({codigo:codigo,valor:valor,nota:nota});
 }
 function deleteBalance(codigo){
@@ -2712,13 +2739,13 @@ function deleteBalance(codigo){
   if(nota===null)return;
   if(!confirm('Ocultar este activo/pasivo del balance?'))return;
   google.script.run
-    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Eliminado','ok');syncTrasCambio({delay:80});}else showToast('Error','err');})
+    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Eliminado','ok');syncTrasCambio({delay:80,balance:true});}else showToast('Error','err');})
     .eliminarBalanceItem({codigo:codigo,nota:nota||''});
 }
 
 function loadFlujo(){
   google.script.run
-    .withSuccessHandler(function(res){if(!res||!res.ok){showToast('Error flujo','err');return;}G.flujo=res.data;renderFlujo(res.data);})
+    .withSuccessHandler(function(res){if(!res||!res.ok){showToast('Error flujo','err');return;}G.flujo=res.data;G._dirtyFlujo=false;renderFlujo(res.data);})
     .withFailureHandler(function(e){showToast('Error: '+e,'err');})
     .getFlujoCaja();
 }
@@ -2830,16 +2857,19 @@ function irHistorialDesdeSaldo(){
 function loadMovimientosMes(){
   var mes=G.histMes||G.mesActual;
   if(!mes)return;
-  eid('tx-list').innerHTML='<div class="empty-state">Cargando movimientos...</div>';
-  google.script.run
-    .withSuccessHandler(function(res){
-      if(!res||!res.ok){showToast('Error historial','err');return;}
-      G.movimientos=res.data||[];
-      G.movimientosMes=mes;
-      renderHistorialMovimientos();
-    })
-    .withFailureHandler(function(e){showToast('Error: '+e,'err');})
-    .getMovimientosMes(mes);
+  var cached=cacheGetMovimientos(mes);
+  if(cached){
+    G.movimientos=cached;
+    G.movimientosMes=mes;
+    renderHistorialMovimientos();
+  }else{
+    eid('tx-list').innerHTML='<div class="empty-state">Cargando movimientos...</div>';
+  }
+  cargarMovimientosMesBg(mes).then(function(res){
+    if(!res||!res.ok){
+      if(!cached)showToast('Error historial','err');
+    }
+  });
 }
 
 function renderHistorialMovimientos(){
@@ -3012,12 +3042,12 @@ function guardarEdicion(){
     .withSuccessHandler(function(res){
       btn.disabled=false;btn.textContent='Guardar';
       if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
-      eid('mov-edit').classList.remove('open');showToast('Movimiento actualizado','ok');refrescarTrasMovimiento();
+      eid('mov-edit').classList.remove('open');showToast('Movimiento actualizado','ok');refrescarTrasMovimiento(res.mesCaja||mesDesdeFechaISO(eid('e-fecha').value)||G.histMes);
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Guardar';showToast('Error: '+e,'err');})
     .actualizarMovimiento({
       id:G.editTx.id,mes:(G.histMes||G.mesActual),tipo:tipo,categoria:tipo,subcategoria:sub,
-      monto:String(monto),fecha:eid('e-fecha').value,notas:eid('e-notas').value
+      monto:String(monto),fecha:eid('e-fecha').value,notas:eid('e-notas').value,fast:true
     });
 }
 
@@ -3053,7 +3083,7 @@ function confirmarEliminar(){
 }
 
 function refrescarTrasMovimiento(mesCaja){
-  syncTrasCambio({delay:350,mesInicio:G.mesActual,mesHist:G.histMes||mesCaja||G.mesActual});
+  syncTrasCambio({delay:180,mesInicio:G.mesActual,mesHist:G.histMes||mesCaja||G.mesActual,historial:true});
 }
 
 function abrirModalCat(nombre){
@@ -3188,7 +3218,7 @@ function guardarGestorCat(){
       eid('mov-cat-manage').classList.remove('open');
       abrirModalCat(params.categoria);
       showToast('Item actualizado','ok');
-      syncTrasCambio({delay:120,mesInicio:params.mes,mesHist:G.histMes||params.mes});
+      syncTrasCambio({delay:120,mesInicio:params.mes,mesHist:G.histMes||params.mes,tarjetas:true});
     })
     .catch(function(e){
       btn.disabled=false;btn.textContent=old;
@@ -3641,7 +3671,7 @@ function guardarMovTdc(){
           actualizarSaldoVisiblePorCaja({tipo:'egreso',monto:monto,fecha:fechaTdc,mesRegistro:mesCajaTdc});
         }
       }
-      syncTrasCambio({delay:80,mesInicio:mesCajaRes,mesHist:G.histMes||mesCajaRes});
+      syncTrasCambio({delay:80,mesInicio:mesCajaRes,mesHist:G.histMes||mesCajaRes,tarjetas:true,historial:true});
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Registrar';showToast('Error: '+e,'err');});
   if(G.tdcEditId){params.id=G.tdcEditId;runner.actualizarMovimientoTarjeta(params);}
@@ -3669,10 +3699,10 @@ function confirmarEliminarTdc(){
         cacheSet('lastGoodHome',{mes:res.mesCaja,data:res.mesData});
         renderHome(G.mesData);
       }
-      syncTrasCambio({delay:80,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual});
+      syncTrasCambio({delay:80,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual,tarjetas:true,historial:true});
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
-    .eliminarMovimientoTarjeta(G.tdcDeleteId);
+    .eliminarMovimientoTarjeta({id:G.tdcDeleteId,fast:true});
 }
 
 function abrirModalTDC(){
@@ -3920,7 +3950,7 @@ function guardar(){
           G.mesData=res.mesData;
           renderHome(G.mesData);
         }
-        syncTrasCambio({delay:350,mesInicio:G.mesActual,mesHist:G.histMes||mesAplicado});
+        syncTrasCambio({delay:180,mesInicio:G.mesActual,mesHist:G.histMes||mesAplicado,historial:true});
       }else showToast('Error: '+(res?res.error:'desconocido'),'err');
     })
     .withFailureHandler(function(e){btn.textContent='Guardar';btn.disabled=false;showToast('Error de conexión','err');})
