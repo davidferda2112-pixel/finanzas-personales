@@ -1258,6 +1258,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <button class="btn bgh bful" onclick="cancelarPinturas()">Cancelar</button>
       <button class="btn bb bful" id="paint-save" onclick="guardarPinturas()">Guardar</button>
     </div>
+    <button class="btn br bful" id="paint-clear" onclick="limpiarPinturas()" style="display:none;margin-top:10px">Limpiar mes</button>
   </div>
 </div>
 
@@ -1763,7 +1764,7 @@ function aplicarPostChangeState(state){
     G.mesData=aplicarSaldoEsperado(state.home,homeMes);
     cacheSetBootHome(homeMes,G.mesData);
     cacheSet('lastGoodHome',{mes:homeMes,data:G.mesData});
-    if(G.mesActual===homeMes||eid('page-home').classList.contains('active'))renderHome(G.mesData);
+    if(G.mesActual===homeMes)renderHome(G.mesData);
   }
   if(state.movimientos&&state.movimientos.ok){
     G.movimientos=state.movimientos.data||[];
@@ -1783,7 +1784,7 @@ function aplicarPostChangeState(state){
   if(state.pinturas&&state.pinturas.ok){
     G.pinturas=state.pinturas.data;
     cacheSetPinturas(homeMes,state.pinturas.data);
-    paintHomePinturas(state.pinturas.data);
+    if(mesInicioActivo()===homeMes)paintHomePinturas(state.pinturas.data);
   }
   G._dirty=true;
   G._dirtyFlujo=true;
@@ -2207,10 +2208,12 @@ function syncTrasCambio(opts){
     }
     job('inicio',withTimeout(gsRun('getMesData',[mesInicio]),4800,'inicio'),function(res){
       res=aplicarSaldoEsperado(res,mesInicio);
-      G.mesData=res;
       cacheSetBootHome(mesInicio,res);
       cacheSet('lastGoodHome',{mes:mesInicio,data:res});
-      if(activeHome||G.mesActual===mesInicio)renderHome(res);
+      if(G.mesActual===mesInicio){
+        G.mesData=res;
+        if(activeHome)renderHome(res);
+      }
     });
     if(activeHist||opts.historial){
       job('movimientos',withTimeout(gsRun('getMovimientosMes',[mesHist]),4200,'movimientos'),function(res){
@@ -2234,7 +2237,7 @@ function syncTrasCambio(opts){
     }
     if(activeHome||opts.pinturas){
       job('pinturas',withTimeout(gsRun('getPinturasMes',[mesInicio]),3200,'pinturas'),function(res){
-        if(res.ok){G.pinturas=res.data;cacheSetPinturas(mesInicio,res.data);paintHomePinturas(res.data);}
+        if(res.ok){G.pinturas=res.data;cacheSetPinturas(mesInicio,res.data);if(mesInicioActivo()===mesInicio)paintHomePinturas(res.data);}
       });
     }
     Promise.allSettled(jobs).then(function(){
@@ -2261,11 +2264,13 @@ function fillSels(m){
 function cambiarMes(nombre){cambiarMesInicio(nombre);}
 function cambiarMesInicio(nombre){
   if(!nombre)return;
+  ++__syncSeq;
   G.mesActual=nombre;
   cacheSet('mesActual',nombre);
   var sh=eid('sel-h');if(sh)sh.value=nombre;
   eid('home').innerHTML='<div class="empty-state">Cargando '+nombre+'...</div>';
   gsRun('getMesData',[nombre]).then(function(res){
+    if(G.mesActual!==nombre)return;
     if(!res||res.ok===false||res.error){showToast('No pude cargar '+nombre,'err');return;}
     G.mesData=aplicarSaldoEsperado(res,nombre);
     cacheSetBootHome(nombre,G.mesData);
@@ -2330,6 +2335,7 @@ function renderHome(d){
   var amtColor=noche?'#ffffff':'#0a1428';
   var greetClass=noche?'hero-night':(tarde?'hero-eve':'hero-day');
   var greetTxt=dia?'Buenos días':(tarde?'Buenas tardes':'Buenas noches');
+  var heroDateLabel=d.mes||G.mesActual||todayFull();
 
   if(dia){
     heroHTML='<div class="hero-card hero-day tap-target mb14" onclick="irHistorialDesdeSaldo()" title="Ver historial de transacciones" style="border:1px solid rgba(255,255,255,0.7)">'
@@ -2348,7 +2354,7 @@ function renderHome(d){
       +'<div class="hero-overlay"></div>'
       +'<div class="hero-content">'
       +'<div class="hero-greet">'+greetTxt+', <strong>Christian</strong></div>'
-      +'<div class="hero-date">'+todayFull()+'</div>'
+      +'<div class="hero-date">'+heroDateLabel+'</div>'
       +'<div class="hero-lbl">Saldo disponible</div>'
       +'<div class="hero-saldo"><span class="ah" style="color:'+amtColor+';text-shadow:0 1px 8px rgba(255,255,255,0.5)">'+fmt(saldo)+'</span>'
       +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
@@ -2368,7 +2374,7 @@ function renderHome(d){
       +'<div class="hero-overlay"></div>'
       +'<div class="hero-content">'
       +'<div class="hero-greet">'+greetTxt+', <strong>Christian</strong></div>'
-      +'<div class="hero-date">'+todayFull()+'</div>'
+      +'<div class="hero-date">'+heroDateLabel+'</div>'
       +'<div class="hero-lbl">Saldo disponible</div>'
       +'<div class="hero-saldo"><span class="ah" style="color:'+amtColor+';text-shadow:0 1px 8px rgba(255,255,255,0.4)">'+fmt(saldo)+'</span>'
       +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
@@ -2387,7 +2393,7 @@ function renderHome(d){
       +'</svg>'
       +'<div class="hero-content">'
       +'<div class="hero-greet">'+greetTxt+', <strong>Christian</strong></div>'
-      +'<div class="hero-date">'+todayFull()+'</div>'
+      +'<div class="hero-date">'+heroDateLabel+'</div>'
       +'<div class="hero-lbl">Saldo disponible</div>'
       +'<div class="hero-saldo"><span class="ah hero-night-amt" style="color:#fff;text-shadow:0 2px 12px rgba(0,0,0,0.4)">'+fmt(saldo)+'</span>'
       +'<span class="saldo-change '+(saldo>=0?'pos':'neg')+'">'+(saldo>=0?'Positivo ✓':'Negativo')+'</span></div>'
@@ -2583,7 +2589,13 @@ function loadHomePinturas(){
   var cached=cacheGetPinturas(mes);
   if(cached){G.pinturas=cached;paintHomePinturas(cached);}
   gsRun('getPinturasMes',[mes]).then(function(res){
-    if(res&&res.ok){G.pinturas=res.data;cacheSetPinturas(mes,res.data);paintHomePinturas(res.data);}
+    if(res&&res.ok){
+      cacheSetPinturas(mes,res.data);
+      if(mesInicioActivo()===mes){
+        G.pinturas=res.data;
+        paintHomePinturas(res.data);
+      }
+    }
   }).catch(function(e){console.warn('pinturas',e);});
 }
 
@@ -2596,6 +2608,7 @@ function setPinturasEdit(on){
   });
   if(eid('paint-actions'))eid('paint-actions').style.display=on?'flex':'none';
   if(eid('paint-edit-btn'))eid('paint-edit-btn').style.display=on?'none':'flex';
+  if(eid('paint-clear'))eid('paint-clear').style.display=on?'block':'none';
 }
 
 function renderPinturasModal(data){
@@ -2643,7 +2656,13 @@ function abrirModalPinturas(){
   setPinturasEdit(false);
   }
   gsRun('getPinturasMes',[mes]).then(function(res){
-    if(res&&res.ok){G.pinturas=res.data;cacheSetPinturas(mes,res.data);renderPinturasModal(res.data);}
+    if(res&&res.ok){
+      cacheSetPinturas(mes,res.data);
+      if(mesInicioActivo()===mes&&eid('mov-pinturas').classList.contains('open')){
+        G.pinturas=res.data;
+        renderPinturasModal(res.data);
+      }
+    }
   }).catch(function(){showToast('Error al cargar pinturas','err');});
 }
 
@@ -2671,6 +2690,23 @@ function guardarPinturas(){
     showToast('Pinturas actualizadas','ok');
   }).catch(function(e){
     showToast(e&&e.message?e.message:'Error al guardar','err');
+  }).finally(function(){if(btn)btn.disabled=false;});
+}
+
+function limpiarPinturas(){
+  var mes=mesInicioActivo();
+  if(!confirm('Limpiar pinturas de '+mes+'?'))return;
+  var btn=eid('paint-clear');if(btn)btn.disabled=true;
+  gsRun('limpiarPinturasMes',[mes]).then(function(res){
+    if(!res||!res.ok){showToast((res&&res.error)||'No se pudo limpiar','err');return;}
+    G.pinturas=res.data;
+    cacheSetPinturas(res.data.mes||mes,res.data);
+    renderPinturasModal(res.data);
+    setPinturasEdit(false);
+    paintHomePinturas(res.data);
+    showToast('Pinturas limpiadas','ok');
+  }).catch(function(e){
+    showToast(e&&e.message?e.message:'Error al limpiar','err');
   }).finally(function(){if(btn)btn.disabled=false;});
 }
 

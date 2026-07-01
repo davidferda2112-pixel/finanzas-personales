@@ -2062,6 +2062,12 @@ function _pinturasBackupSet(mes,raw){
   }catch(e){}
 }
 
+function _pinturasRawTieneDatos(raw){
+  raw=raw||{};
+  return _n(raw.stockInicial)>0||_n(raw.stockAgregado)>0||_n(raw.stockActual)>0||
+         _n(raw.autoconsumo)>0||_n(raw.descuento)>0;
+}
+
 function getPinturasMes(mes){
   try{
     mes=_normalizarMesNombre(_s(mes))||_getMesActual();
@@ -2075,10 +2081,9 @@ function getPinturasMes(mes){
         break;
       }
     }
-    if(!found){
-      var backup=_pinturasBackupGet(mes);
-      if(backup) raw=backup;
-    }
+    var backup=_pinturasBackupGet(mes);
+    if(!found&&backup) raw=backup;
+    if(found&&!_pinturasRawTieneDatos(raw)&&_pinturasRawTieneDatos(backup)) raw=backup;
     var calc=_calcPinturas(raw);
     calc.mes=mes;
     return {ok:true,data:calc};
@@ -2103,7 +2108,17 @@ function guardarPinturasMes(params){
       return {ok:false,error:'Autoconsumo y descuento no pueden superar las pinturas vendidas.'};
     }
     var ss=getSS(),sh=_pinturasSheet(ss),D=sh.getDataRange().getValues(),row=0;
-    for(var i=1;i<D.length;i++){if(_normalizarMesNombre(_s(D[i][0]))===mes){row=i+1;break;}}
+    var oldRaw=null;
+    for(var i=1;i<D.length;i++){
+      if(_normalizarMesNombre(_s(D[i][0]))===mes){
+        row=i+1;
+        oldRaw={stockInicial:D[i][1],stockAgregado:D[i][2],stockActual:D[i][3],autoconsumo:D[i][4],descuento:D[i][5]};
+        break;
+      }
+    }
+    if(!params.confirmReset&&!_pinturasRawTieneDatos(raw)&&_pinturasRawTieneDatos(oldRaw)){
+      return {ok:false,error:'Para borrar pinturas usa el boton Limpiar mes.'};
+    }
     var values=[mes,calc.stockInicial,calc.stockAgregado,calc.stockActual,calc.autoconsumo,calc.descuento,_nowLocal()];
     if(row) sh.getRange(row,1,1,values.length).setValues([values]);
     else{
@@ -2114,6 +2129,31 @@ function guardarPinturasMes(params){
     _pinturasBackupSet(mes,raw);
     calc.mes=mes;
     cDel('mes_'+mes.replace(/ /g,'_'));
+    return {ok:true,data:calc};
+  }catch(e){
+    return {ok:false,error:e.toString()};
+  }
+}
+
+function limpiarPinturasMes(mes){
+  try{
+    mes=_normalizarMesNombre(_s(mes))||_getMesActual();
+    var raw={stockInicial:0,stockAgregado:0,stockActual:0,autoconsumo:0,descuento:0};
+    var ss=getSS(),sh=_pinturasSheet(ss),D=sh.getDataRange().getValues(),row=0;
+    for(var i=1;i<D.length;i++){
+      if(_normalizarMesNombre(_s(D[i][0]))===mes){row=i+1;break;}
+    }
+    var values=[mes,0,0,0,0,0,_nowLocal()];
+    if(row) sh.getRange(row,1,1,values.length).setValues([values]);
+    else{
+      row=sh.getLastRow()+1;
+      sh.getRange(row,1,1,values.length).setValues([values]);
+    }
+    sh.getRange(row,1).setNumberFormat('@STRING@');
+    _pinturasBackupSet(mes,raw);
+    cDel('mes_'+mes.replace(/ /g,'_'));
+    var calc=_calcPinturas(raw);
+    calc.mes=mes;
     return {ok:true,data:calc};
   }catch(e){
     return {ok:false,error:e.toString()};
@@ -2262,6 +2302,7 @@ var API_METHODS = {
   actualizarJapon: actualizarJapon,
   getPinturasMes: getPinturasMes,
   guardarPinturasMes: guardarPinturasMes,
+  limpiarPinturasMes: limpiarPinturasMes,
   getBootState: getBootState,
   getInitialState: getInitialState,
   parseTarjetas: parseTarjetas,
