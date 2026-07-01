@@ -194,6 +194,7 @@ function _saldoFlujoInicialMes(mes, flujoData){
 function getMesesDisponibles(){
   try{
     var ss=getSS(),r=[];
+    _asegurarMesActualYSiguiente(ss);
     ss.getSheets().forEach(function(sh){
       var n=sh.getName();
       if(ESPECIALES.indexOf(n)!==-1) return;
@@ -345,6 +346,21 @@ function actualizarBalance(params){
     });
     return{ok:true,balance:getBalanceGeneral()};
   }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function _asegurarMesActualYSiguiente(ss){
+  try{
+    ss=ss||getSS();
+    var actual=_normalizarMesNombre(_mesCalendarioActual());
+    var siguiente=_mesSiguienteNombre(actual);
+    [actual,siguiente].forEach(function(nombre){
+      if(nombre&&!ss.getSheetByName(nombre)){
+        _crearMes(ss,nombre);
+      }
+    });
+  }catch(e){
+    Logger.log('asegurar mes actual/siguiente: '+e);
+  }
 }
 
 function guardarBalanceItem(params){
@@ -1601,8 +1617,7 @@ function _enriquecerConRegistros(d,mes){
     for(var i=1;i<D.length;i++){
       var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
       var tipo=_s(D[i][3]),sub=_s(D[i][5]),monto=_n(D[i][6]);
-      var mesCaja=_normalizarMesNombre(_mesCajaRegistro(D[i]));
-      if(mesCaja===mes){
+      if(mesFila===mes){
         if(tipo==='ingreso') totalIngApp+=monto;
         else totalEgrApp+=monto;
       }
@@ -1839,8 +1854,8 @@ function _parseFlujoCaja(){
     var DR=reg.getDataRange().getValues();
     var deltas={};
     for(var r=1;r<DR.length;r++){
-      var mesCaja=_normalizarMesNombre(_mesCajaRegistro(DR[r]));
-      var mesCorto=mesCaja.split(' ')[0].slice(0,3);
+      var mesFila=_normalizarMesNombre(_s(DR[r][2]).replace(/^'+/,''));
+      var mesCorto=mesFila.split(' ')[0].slice(0,3);
       var idxMes=meses.indexOf(mesCorto);
       if(idxMes<0) continue;
       var tipo=_s(DR[r][3]),sub=_s(DR[r][5]),monto=_n(DR[r][6]);
