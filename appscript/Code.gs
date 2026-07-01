@@ -155,6 +155,42 @@ function _saldoSheetConArrastre(ss,mes,vg){
   return prevSaldo+(saldoSheet-saldoInicial);
 }
 
+function _flujoMesIndex(mes, meses){
+  mes=_normalizarMesNombre(mes);
+  if(!mes) return -1;
+  var p=String(mes).split(' ');
+  var corto=p[0]?p[0].slice(0,3):'';
+  for(var i=0;i<(meses||[]).length;i++){
+    if(String(meses[i]).slice(0,3)===corto) return i;
+  }
+  return -1;
+}
+
+function _flujoValorMes(flujoData,label,mes){
+  if(!flujoData||!flujoData.filas) return null;
+  var idx=_flujoMesIndex(mes,flujoData.meses||[]);
+  if(idx<0) return null;
+  for(var i=0;i<flujoData.filas.length;i++){
+    if(flujoData.filas[i].label===label) return _n(flujoData.filas[i].valores[idx]);
+  }
+  return null;
+}
+
+function _flujoCajaData(){
+  var res=_parseFlujoCaja();
+  return res&&res.ok&&res.data?res.data:null;
+}
+
+function _saldoFlujoAcumuladoMes(mes, flujoData){
+  if(!flujoData) flujoData=_flujoCajaData();
+  return _flujoValorMes(flujoData,'FLUJO DE CAJA ACUMULADO',mes);
+}
+
+function _saldoFlujoInicialMes(mes, flujoData){
+  if(!flujoData) flujoData=_flujoCajaData();
+  return _flujoValorMes(flujoData,'SALDO INICIAL',mes);
+}
+
 function getMesesDisponibles(){
   try{
     var ss=getSS(),r=[];
@@ -1213,10 +1249,11 @@ function getMovimientosMes(mes){
       result.push(item);
     }
     var saldosPorId={};
+    var flujoData=_flujoCajaData();
     Object.keys(mesesCaja).forEach(function(mc){
       var movs=filas.filter(function(x){return x.mesCaja===mc;});
       movs.sort(_compararMovimientoAsc);
-      var saldo=_getSaldoBaseMovimientos(mc);
+      var saldo=_getSaldoBaseMovimientos(mc,flujoData);
       movs.forEach(function(t){
         var delta=t.tipo==='ingreso'?t.monto:-t.monto;
         saldo+=delta;
@@ -1225,7 +1262,7 @@ function getMovimientosMes(mes){
     });
     result.forEach(function(t){t.saldoDespues=saldosPorId[t.id];});
     result.sort(_compararMovimientoVista);
-    return{ok:true,data:result,saldoBase:_getSaldoBaseMovimientos(mes)};
+    return{ok:true,data:result,saldoBase:_getSaldoBaseMovimientos(mes,flujoData)};
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
@@ -1356,8 +1393,10 @@ function gestionarItemCategoria(params){
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
-function _getSaldoBaseMovimientos(mes){
+function _getSaldoBaseMovimientos(mes,flujoData){
   mes=_normalizarMesNombre(mes);
+  var saldoInicialFlujo=_saldoFlujoInicialMes(mes,flujoData);
+  if(saldoInicialFlujo!==null) return saldoInicialFlujo;
   var ss=getSS();
   var d=_parseMes(mes);
   if(d&&d.ok) return _n(_saldoSheetConArrastre(ss,mes,d.vistaGeneral||{}));
@@ -1609,9 +1648,18 @@ function _enriquecerConRegistros(d,mes){
     }
 
     var vg=dc.vistaGeneral||{};
+    var flujoData=_flujoCajaData();
+    var saldoInicialFlujo=_saldoFlujoInicialMes(mes,flujoData);
+    var saldoFinalFlujo=_saldoFlujoAcumuladoMes(mes,flujoData);
+    if(saldoInicialFlujo!==null){
+      dc.vistaGeneral.saldoInicial={
+        presupuesto:vg.saldoInicial?vg.saldoInicial.presupuesto:saldoInicialFlujo,
+        actual:saldoInicialFlujo
+      };
+    }
     dc.vistaGeneral.saldoFinal={
       presupuesto:vg.saldoFinal?vg.saldoFinal.presupuesto:0,
-      actual:saldoBase+(totalIngApp-totalEgrApp)
+      actual:saldoFinalFlujo!==null?saldoFinalFlujo:saldoBase+(totalIngApp-totalEgrApp)
     };
 
     dc.metricas=_recalcularMetricas(dc);
@@ -1791,8 +1839,8 @@ function _parseFlujoCaja(){
     var DR=reg.getDataRange().getValues();
     var deltas={};
     for(var r=1;r<DR.length;r++){
-      var mesFila=_normalizarMesNombre(_s(DR[r][2]).replace(/^'+/,''));
-      var mesCorto=mesFila.split(' ')[0].slice(0,3);
+      var mesCaja=_normalizarMesNombre(_mesCajaRegistro(DR[r]));
+      var mesCorto=mesCaja.split(' ')[0].slice(0,3);
       var idxMes=meses.indexOf(mesCorto);
       if(idxMes<0) continue;
       var tipo=_s(DR[r][3]),sub=_s(DR[r][5]),monto=_n(DR[r][6]);
@@ -1931,6 +1979,8 @@ function _crearMes(ss,nombre){
 
 function _saldoFinalRealParaCrearMes(nombreBase,fallback){
   try{
+    var saldoFlujo=_saldoFlujoAcumuladoMes(nombreBase);
+    if(saldoFlujo!==null) return _n(saldoFlujo);
     var d=_parseMes(nombreBase);
     if(d&&d.ok){
       var e=_enriquecerConRegistros(d,nombreBase);

@@ -2955,7 +2955,14 @@ function irHistorialDesdeSaldo(){
 function loadMovimientosMes(){
   var mes=G.histMes||G.mesActual;
   if(!mes)return;
-  eid('tx-list').innerHTML='<div class="empty-state">Cargando movimientos...</div>';
+  var cached=cacheGetMovimientos(mes);
+  if(cached){
+    G.movimientos=cached;
+    G.movimientosMes=mes;
+    renderHistorialMovimientos();
+  }else{
+    eid('tx-list').innerHTML='<div class="empty-state">Cargando movimientos...</div>';
+  }
   withTimeout(gsRun('getMovimientosMes',[mes]),8500,'movimientos').then(function(res){
     if(!res||res.timeout||!res.ok){showToast('Error historial','err');return;}
     G.movimientos=res.data||[];
