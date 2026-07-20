@@ -2967,6 +2967,34 @@ function _saveBalanceLegacy(codigo,valor){
 
 // â”€â”€ FLUJO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+
+function orgGroupList(tipo){
+  var gs=balanceGrupos(tipo);
+  return '<div class="lup mb10">'+tipo+'</div><div id="org-'+tipo+'" class="mb14">'+gs.map(function(g){
+    return '<div class="bal-log-item" draggable="true" ondragstart="orgDragStart(event,\''+tipo+'\',\''+hEsc(g)+'\')" ondragover="event.preventDefault()" ondrop="orgDrop(event,\''+tipo+'\',\''+hEsc(g)+'\')"><span><b>'+hEsc(g)+'</b></span><button class="bal-edit-btn" onclick="renombrarGrupoUI(\''+tipo+'\',\''+hEsc(g)+'\')">Editar</button></div>';
+  }).join('')+'</div>';
+}
+function orgDragStart(ev,tipo,nombre){G.orgDrag={tipo:tipo,nombre:nombre};}
+function orgDrop(ev,tipo,target){
+  ev.preventDefault();
+  if(!G.orgDrag||G.orgDrag.tipo!==tipo||G.orgDrag.nombre===target)return;
+  var gs=balanceGrupos(tipo).slice();
+  var from=gs.indexOf(G.orgDrag.nombre),to=gs.indexOf(target);
+  if(from<0||to<0)return;
+  var item=gs.splice(from,1)[0];gs.splice(to,0,item);
+  gsRun('ordenarBalanceGrupos',[{tipo:tipo,grupos:gs}]).then(function(res){if(res&&res.ok&&res.data){G.catalogo=res.data;abrirOrganizarBalance();showToast('Orden actualizado','ok');}});
+}
+function crearGrupoUI(tipo){
+  var n=prompt('Nombre del grupo '+tipo+':');
+  if(!n||!n.trim())return;
+  gsRun('guardarBalanceGrupo',[{tipo:tipo,nombre:n.trim()}]).then(function(res){if(res&&res.ok&&res.data){G.catalogo=res.data;abrirOrganizarBalance();showToast('Grupo creado','ok');}else showToast((res&&res.error)||'Error','err');});
+}
+function renombrarGrupoUI(tipo,oldNombre){
+  var n=prompt('Nuevo nombre:',oldNombre);
+  if(!n||!n.trim()||n===oldNombre)return;
+  gsRun('renombrarBalanceGrupo',[{tipo:tipo,oldNombre:oldNombre,nombre:n.trim()}]).then(function(res){if(res&&res.ok&&res.data){G.catalogo=res.data;abrirOrganizarBalance();showToast('Grupo renombrado','ok');}else showToast((res&&res.error)||'Error','err');});
+}
+
 function abrirOrganizarBalance(){
   function render(){
     var c=G.catalogo||{};
@@ -2974,7 +3002,7 @@ function abrirOrganizarBalance(){
     ['ahorro','deuda'].forEach(function(t){(c.items&&c.items[t]||[]).forEach(function(x){if(x.estado==='activo'&&!x.balanceId)pendientes.push(x);});});
     var html='<div class="lup mb10">Pendientes de asignar</div>';
     html+=pendientes.length?pendientes.map(function(x){return'<div class="bal-log-item"><span><b>'+hEsc(x.nombre)+'</b><em>'+hEsc(x.tipo)+'</em></span><strong class="tov2">Sin destino</strong></div>';}).join(''):'<div class="cat-manage-note">No hay pendientes activos.</div>';
-    html+='<div class="lup mb10" style="margin-top:14px">Grupos</div><div class="cat-manage-note">Puedes crear o cambiar grupo al agregar/editar cada activo o pasivo. El orden visual se respeta por grupo.</div>';
+    html+='<div class="fb mb10" style="margin-top:14px"><div class="lup">Grupos</div><div class="fr g8"><button class="cat-manage-btn" onclick="crearGrupoUI(\'Activo\')">+ Activo</button><button class="cat-manage-btn" onclick="crearGrupoUI(\'Pasivo\')">+ Pasivo</button></div></div>'+orgGroupList('Activo')+orgGroupList('Pasivo');
     eid('bal-org-body').innerHTML=html;
     eid('mov-bal-organizar').classList.add('open');
   }

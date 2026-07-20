@@ -1018,8 +1018,32 @@ var INGRESO_PRESTAMO_RECIBIDO = 'Prestamos recibidos';
 function _balanceGrupoDefault(tipo){
   return String(tipo||'').toLowerCase().indexOf('pas')===0?'Prestamos':'Activos Financieros';
 }
+
+function _balanceGroupsSheet(ss){
+  var sh=ss.getSheetByName('_BALANCE_GROUPS');
+  if(!sh){
+    sh=ss.insertSheet('_BALANCE_GROUPS');
+    sh.appendRow(['Tipo','Nombre','Orden','Activo']);
+    var rows=[];
+    BALANCE_GRUPOS_ACTIVOS.forEach(function(g,i){rows.push(['Activo',g,i+1,true]);});
+    BALANCE_GRUPOS_PASIVOS.forEach(function(g,i){rows.push(['Pasivo',g,i+1,true]);});
+    sh.getRange(2,1,rows.length,4).setValues(rows);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
 function _balanceGrupos(tipo){
-  return String(tipo||'').toLowerCase().indexOf('pas')===0?BALANCE_GRUPOS_PASIVOS:BALANCE_GRUPOS_ACTIVOS;
+  var tipoNom=_balanceNombreTipo(tipo),fallback=tipoNom==='Pasivo'?BALANCE_GRUPOS_PASIVOS:BALANCE_GRUPOS_ACTIVOS;
+  try{
+    var sh=_balanceGroupsSheet(getSS()),D=sh.getDataRange().getValues(),out=[];
+    for(var i=1;i<D.length;i++){
+      var activo=D[i][3];
+      if(_s(D[i][0])===tipoNom&&(activo===true||String(activo).toLowerCase()!=='false')) out.push({nombre:_s(D[i][1]),orden:_n(D[i][2])||i});
+    }
+    out.sort(function(a,b){return a.orden-b.orden||a.nombre.localeCompare(b.nombre);});
+    return out.length?out.map(function(x){return x.nombre;}):fallback;
+  }catch(e){return fallback;}
 }
 function _balanceNombreTipo(tipo){
   return String(tipo||'').toLowerCase().indexOf('pas')===0?'Pasivo':'Activo';
@@ -1108,6 +1132,52 @@ function _balanceDestinoItems(ss,tipo){
     return {codigo:x.codigo,nombre:x.nombre,grupo:x.grupo||grupo||_balanceGrupoDefault(tipo),valor:x.valor,tipo:_balanceNombreTipo(tipo)};
   }).filter(function(x){return x;});
 }
+function guardarBalanceGrupo(params){
+  try{
+    params=params||{};
+    var ss=getSS(),tipo=_balanceNombreTipo(params.tipo),nombre=_s(params.nombre);
+    if(!nombre) return{ok:false,error:'Escribe el nombre del grupo'};
+    var sh=_balanceGroupsSheet(ss),D=sh.getDataRange().getValues();
+    for(var i=1;i<D.length;i++) if(_s(D[i][0])===tipo&&_s(D[i][1]).toLowerCase()===nombre.toLowerCase()){
+      sh.getRange(i+1,4).setValue(true);
+      return getCatalogoFinanciero();
+    }
+    sh.appendRow([tipo,nombre,sh.getLastRow(),true]);
+    return getCatalogoFinanciero();
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+function renombrarBalanceGrupo(params){
+  try{
+    params=params||{};
+    var ss=getSS(),tipo=_balanceNombreTipo(params.tipo),oldNombre=_s(params.oldNombre),nombre=_s(params.nombre);
+    if(!oldNombre||!nombre) return{ok:false,error:'Selecciona grupo y escribe nombre'};
+    var sh=_balanceGroupsSheet(ss),D=sh.getDataRange().getValues();
+    for(var i=1;i<D.length;i++) if(_s(D[i][0])===tipo&&_s(D[i][1])===oldNombre) sh.getRange(i+1,2).setValue(nombre);
+    var bc=ss.getSheetByName('_BALANCE_CUSTOM');
+    if(bc){
+      var C=bc.getDataRange().getValues();
+      for(var r=1;r<C.length;r++) if(_s(C[r][2])===tipo&&_s(C[r][7])===oldNombre) bc.getRange(r+1,8).setValue(nombre);
+    }
+    var cat=ss.getSheetByName('_CATALOGO_ITEMS');
+    if(cat){
+      var K=cat.getDataRange().getValues();
+      for(var k=1;k<K.length;k++) if(_s(K[k][4])===tipo&&_s(K[k][7])===oldNombre) cat.getRange(k+1,8).setValue(nombre);
+    }
+    return getCatalogoFinanciero();
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+function ordenarBalanceGrupos(params){
+  try{
+    params=params||{};
+    var ss=getSS(),tipo=_balanceNombreTipo(params.tipo),grupos=params.grupos||[];
+    var sh=_balanceGroupsSheet(ss),D=sh.getDataRange().getValues();
+    grupos.forEach(function(g,idx){
+      for(var i=1;i<D.length;i++) if(_s(D[i][0])===tipo&&_s(D[i][1])===_s(g)) sh.getRange(i+1,3).setValue(idx+1);
+    });
+    return getCatalogoFinanciero();
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
 function getCatalogoFinanciero(){
   try{
     var ss=getSS();
@@ -2453,6 +2523,9 @@ var API_METHODS = {
   getBalanceGeneral: getBalanceGeneral,
   getCatalogoFinanciero: getCatalogoFinanciero,
   congelarBalanceGeneral: congelarBalanceGeneral,
+  guardarBalanceGrupo: guardarBalanceGrupo,
+  renombrarBalanceGrupo: renombrarBalanceGrupo,
+  ordenarBalanceGrupos: ordenarBalanceGrupos,
   actualizarBalance: actualizarBalance,
   guardarBalanceItem: guardarBalanceItem,
   eliminarBalanceItem: eliminarBalanceItem,
