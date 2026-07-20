@@ -1445,6 +1445,21 @@ function eid(i){return document.getElementById(i);}
 function qsa(sel){return Array.prototype.slice.call(document.querySelectorAll(sel));}
 function fmt(n){n=parseFloat(n)||0;return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function hEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function nE(s){
+  s=String(s==null?'':s).trim().toLowerCase();
+  try{if(s.normalize)s=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');}catch(e){}
+  return s.replace(/\s+/g,' ');
+}
+function uniqCanon(arr){
+  var seen={},out=[];
+  (arr||[]).forEach(function(v){
+    var label=String(v==null?'':v).trim();
+    if(!label)return;
+    var key=nE(label);
+    if(!seen[key]){seen[key]=true;out.push(label);}
+  });
+  return out;
+}
 function moneyVal(v){
   if(typeof v==='string')v=v.trim().replace(/\s/g,'').replace(',','.');
   return parseFloat(v)||0;
