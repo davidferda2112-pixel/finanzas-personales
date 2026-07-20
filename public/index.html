@@ -4165,8 +4165,12 @@ function abrirModal(tipo){
       else                     b.style.display=(bt==='necesidad'||bt==='deseo'||bt==='deuda')?'flex':'none';
     });
     var mp={egreso:'necesidad',ingreso:'ingreso',ahorro:'ahorro'};
-    var pre=document.querySelector('.tb[data-tipo="'+(mp[tipo]||'necesidad')+'"]');
-    if(pre)selTipo(pre);
+    setMovimientoTipo(mp[tipo]||'necesidad');
+    if(!G.catalogo){
+      loadCatalogo().then(function(){
+        if(eid('mov')&&eid('mov').classList.contains('open')) renderMovimientoSubcats(G.tipoModal);
+      });
+    }
     setTimeout(function(){var m=eid('m-monto');if(m)m.focus();},220);
   }catch(e){
     console.error('abrirModal error',e);
@@ -4184,16 +4188,30 @@ function syncMovimientoMesPorFecha(){
   if(!sel.value) sel.value=G.mesActual||mesFecha;
 }
 function cMov(e){if(e.target===eid('mov'))eid('mov').classList.remove('open');}
-function selTipo(btn){
-  qsa('.tb').forEach(function(b){b.className='tb';});
-  var t=btn.dataset.tipo;
-  var cls={necesidad:'s-nec',deseo:'s-des',deuda:'s-deu',ahorro:'s-aho',ingreso:'s-ing'}[t]||('s-'+t);
-  btn.classList.add(cls);
+function renderMovimientoSubcats(t){
+  var sub=eid('m-sub');
+  if(!sub)return;
+  var opts=catalogSubcats(t);
+  sub.innerHTML='<option value="">Selecciona...</option>'
+    +opts.map(function(s){return'<option value="'+hEsc(s)+'">'+hEsc(s)+'</option>';}).join('');
+  sub.onchange=actualizarBalanceBox;
+}
+function setMovimientoTipo(t){
+  t=t||'necesidad';
+  qsa('.tb').forEach(function(b){
+    b.className='tb';
+    var bt=b.getAttribute('data-tipo')||'';
+    if(bt===t){
+      var cls={necesidad:'s-nec',deseo:'s-des',deuda:'s-deu',ahorro:'s-aho',ingreso:'s-ing'}[t]||('s-'+t);
+      b.classList.add(cls);
+    }
+  });
   G.tipoModal=t;
-  eid('m-sub').innerHTML='<option value="">Selecciona...</option>'
-    +catalogSubcats(t).map(function(s){return'<option value="'+s+'">'+s+'</option>';}).join('');
-  eid('m-sub').onchange=actualizarBalanceBox;
+  renderMovimientoSubcats(t);
   actualizarBalanceBox();
+}
+function selTipo(btn){
+  setMovimientoTipo(btn?(btn.getAttribute('data-tipo')||'necesidad'):'necesidad');
 }
 function guardar(){
   var monto=moneyVal(eid('m-monto').value);
