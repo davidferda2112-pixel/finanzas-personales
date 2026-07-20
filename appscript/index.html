@@ -2460,9 +2460,9 @@ function renderHome(d){
   var metaA=mt.ahorros?mt.ahorros.valEst:ing*0.20;
 
   var cats=[
-    {t:'Necesidades',v:necR,meta:metaN,grad:'linear-gradient(135deg,#0062cc,#007AFF,#34AADC)',ic:'💳',aho:false},
-    {t:'Deseos',     v:desR,meta:metaD,grad:'linear-gradient(135deg,#8a3fbf,#AF52DE,#c97de8)',ic:'',aho:false},
-    {t:'Deudas',     v:deuR,meta:metaDeu,grad:'linear-gradient(135deg,#cc2a22,#FF3B30,#ff6b63)',ic:'',aho:false},
+    {t:'Necesidades',v:necR,meta:metaN,grad:'linear-gradient(135deg,#0062cc,#007AFF,#34AADC)',ic:'🏠',aho:false},
+    {t:'Deseos',     v:desR,meta:metaD,grad:'linear-gradient(135deg,#8a3fbf,#AF52DE,#c97de8)',ic:'🎮',aho:false},
+    {t:'Deudas',     v:deuR,meta:metaDeu,grad:'linear-gradient(135deg,#cc2a22,#FF3B30,#ff6b63)',ic:'💳',aho:false},
     {t:'Ahorros',    v:ahoR,meta:metaA,grad:'linear-gradient(135deg,#28a745,#34C759,#50d975)',ic:'🏦',aho:true}
   ];
   var pctDist=porcentajesDistribucion(cats);
@@ -2559,7 +2559,7 @@ function movimientoOptimista(params,id,mesCaja){
     mesCaja:mesCaja||params.mesRegistro||mesDesdeFechaISO(fecha)||params.mes,
     tipo:params.tipo,
     categoria:params.categoria||params.tipo,
-    subcategoría:params.subcategoría,
+    subcategoria:params.subcategoria,
     monto:moneyVal(params.monto),
     fecha:fecha,
     fechaOrden:localDateMs(fecha),
@@ -2783,10 +2783,10 @@ function renderTxs(){
   var el=eid('h-txs');
   if(!G.txs.length){el.innerHTML='<div style="color:var(--t3);font-size:13px;text-align:center;padding:8px">Sin movimientos esta sesión</div>';return;}
   el.innerHTML=G.txs.slice(-6).reverse().map(function(tx){
-    var ic=ICONOS[tx.subcategoría]||ICONOS['default'];
+    var ic=ICONOS[tx.subcategoria]||ICONOS['default'];
     var pos=tx.tipo==='ingreso'||tx.tipo==='ahorro';
     return'<div class="tx"><div class="txi" style="background:'+(pos?'rgba(52,199,89,0.12)':'rgba(255,59,48,0.09)')+'">'+ic+'</div>'
-      +'<div style="flex:1"><div class="txn">'+tx.subcategoría+'</div><div class="txd">'+tx.fecha+'</div></div>'
+      +'<div style="flex:1"><div class="txn">'+tx.subcategoria+'</div><div class="txd">'+tx.fecha+'</div></div>'
       +'<div class="txa '+(pos?'pos':'neg')+'">'+(pos?'+':'-')+fmt(tx.monto)+'</div></div>';
   }).join('');
 }
@@ -2934,11 +2934,10 @@ function saveBalance(codigo,valor){
 function moverBalanceItem(codigo,dir){
   var item=findBalanceItemLocal(codigo);
   if(!item){showToast('Item no encontrado','err');return;}
-  if(!item.custom){showToast('Ese item viene de la hoja Balance General; edítalo para cambiarlo','err');return;}
+  showToast('Moviendo...','ok');
   google.script.run
     .withSuccessHandler(function(res){
       if(res&&res.ok){
-        showToast('Orden actualizado','ok');
         if(res.balance){G.balance=res.balance;G._dirtyBalance=false;renderBalance(res.balance);}
         else syncTrasCambio({delay:80,balance:true});
       }else showToast((res&&res.error)||'No se pudo mover','err');
@@ -3120,7 +3119,7 @@ function renderHistorialMovimientos(){
     var saldoInfo=(t.saldoDespues!==undefined&&t.saldoDespues!==null)?fmt(t.saldoDespues):'';
     return'<div class="hist-row" onclick="abrirDetalleHistorial(\''+t.id+'\')">'
       +'<div class="hist-ic '+icCls+'">'+ic+'</div>'
-      +'<div class="hist-main"><div class="hist-title">'+t.subcategoría+'</div>'
+      +'<div class="hist-main"><div class="hist-title">'+t.subcategoria+'</div>'
       +'<div class="hist-meta">'+fmtFecha(t.fecha)+' · '+tipoLabel(t.tipo)+notas+'</div></div>'
       +'<div class="hist-side"><div class="hist-amt" style="color:'+col+'">'+(pos?'+':'-')+fmt(t.monto)+'</div>'
       +(saldoInfo?'<div class="hist-balance">'+saldoInfo+'</div>':'')+'</div></div>';
@@ -3132,7 +3131,7 @@ function abrirDetalleHistorial(id){
   var tx=(G.movimientos||[]).filter(function(t){return String(t.id)===String(id);})[0];
   if(!tx)return;
   var col=tx.tipo==='ingreso'?'tok2':tx.tipo==='ahorro'?'tokb':'tov2';
-  eid('hist-detail-title').textContent=tx.subcategoría||'Movimiento';
+  eid('hist-detail-title').textContent=tx.subcategoria||'Movimiento';
   eid('hist-detail-body').innerHTML=
     '<div class="detail-line"><span>Tipo</span><strong>'+tipoLabel(tx.tipo)+'</strong></div>'
     +'<div class="detail-line"><span>Monto</span><strong class="'+col+'">'+fmt(tx.monto)+'</strong></div>'
@@ -3234,7 +3233,7 @@ function abrirEditarTx(id){
   if(!tx)return;
   G.editTx=tx;
   eid('e-tipo').value=tx.tipo;
-  prepEditSubcats(tx.subcategoría);
+  prepEditSubcats(tx.subcategoria);
   eid('e-monto').value=tx.monto;
   eid('e-fecha').value=String(tx.fecha||'').split('T')[0];
   eid('e-notas').value=tx.notas||'';
@@ -3267,7 +3266,7 @@ function guardarEdicion(){
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Guardar';showToast('Error: '+e,'err');})
     .actualizarMovimiento({
-      id:G.editTx.id,mes:(G.histMes||G.mesActual),tipo:tipo,categoria:tipo,subcategoría:sub,
+      id:G.editTx.id,mes:(G.histMes||G.mesActual),tipo:tipo,categoria:tipo,subcategoria:sub,
       monto:String(monto),fecha:eid('e-fecha').value,notas:eid('e-notas').value,fast:true,
       returnState:true,homeMes:G.mesActual,histMes:G.histMes||G.mesActual
     });
@@ -3277,7 +3276,7 @@ function abrirEliminarTx(id){
   var tx=(G.movimientos||[]).filter(function(t){return String(t.id)===String(id);})[0];
   if(!tx)return;
   G.deleteTx=tx;
-  eid('del-text').innerHTML='Vas a eliminar <strong>'+tx.subcategoría+'</strong> por <strong>'+fmt(tx.monto)+'</strong>. Esta acción no se puede deshacer.';
+  eid('del-text').innerHTML='Vas a eliminar <strong>'+tx.subcategoria+'</strong> por <strong>'+fmt(tx.monto)+'</strong>. Esta acción no se puede deshacer.';
   eid('mov-del').classList.add('open');
 }
 
@@ -3872,7 +3871,7 @@ function editarMovTdc(id){
     eid('tdc-origen').value=m.origen||'externo';
     eid('tdc-eg-tipo').value=m.categoria||'deuda';
     prepTdcSubcats();
-    if(m.subcategoría) eid('tdc-sub').value=m.subcategoría;
+    if(m.subcategoria) eid('tdc-sub').value=m.subcategoria;
     toggleTdcOrigen();
   }
   eid('mov-tdc').classList.add('open');
@@ -3928,7 +3927,7 @@ function guardarMovTdc(){
     params.origen=eid('tdc-origen').value;
     if(params.origen==='egreso'){
       params.egresoTipo=eid('tdc-eg-tipo').value;
-      params.subcategoría=eid('tdc-sub').value;
+      params.subcategoria=eid('tdc-sub').value;
     }
   }
   var runner=google.script.run
@@ -4190,7 +4189,7 @@ function guardar(){
   var mesRegistro=mesDesdeFechaISO(fecha)||G.mesActual;
   if(eid('m-mes-aplica')&&eid('m-mes-aplica').value) mesAplicado=eid('m-mes-aplica').value;
   var params={mes:mesAplicado,mesRegistro:mesRegistro,tipo:G.tipoModal,categoria:G.tipoModal,
-    subcategoría:sub,monto:String(monto),fecha:fecha,notas:eid('m-notas').value,fast:true,
+    subcategoria:sub,monto:String(monto),fecha:fecha,notas:eid('m-notas').value,fast:true,
     returnState:true,homeMes:G.mesActual,histMes:G.histMes||mesAplicado};
   if(eid('m-balance-box')&&eid('m-balance-box').style.display!=='none'){
     params.balanceCodigo=eid('m-balance-dest').value==='__new'?'':eid('m-balance-dest').value;

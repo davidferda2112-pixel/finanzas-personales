@@ -247,6 +247,7 @@ function getBalanceGeneral(){
     var eliminados=_getBalanceDeletedMap(ssBal);
     d.activos=d.activos.filter(function(x){return x.esGrupo||!eliminados[x.codigo];});
     d.pasivos=d.pasivos.filter(function(x){return x.esGrupo||!eliminados[x.codigo];});
+    _aplicarBalanceOverrides(ssBal,d);
     d.cambios=_getBalanceLog(ssBal,6);
 
     var mesActual=_getMesActual();
@@ -308,6 +309,7 @@ function actualizarBalance(params){
     }else{
       if(nuevoNombre) item.sheet.getRange(item.row,item.nameCol).setValue(nuevoNombre);
       item.sheet.getRange(item.row,item.col).setValue(nuevo);
+      _setBalanceOverride(ss,item.codigo,grupo,item.orden||0);
     }
     _setBalanceAppDelta(ss,item.codigo,0);
     _appendBalanceLog(ss,{codigo:item.codigo,nombre:nuevoNombre||item.nombre,tipo:item.tipo,accion:'ajuste manual',anterior:item.valor,nuevo:nuevo,nota:params.nota||''});
@@ -319,24 +321,20 @@ function moverBalanceItemOrden(params){
   try{
     params=params||{};
     var ss=getSS();
-    var item=_findBalanceCustomItem(ss,params.codigo);
-    if(!item) return{ok:false,error:'Solo se pueden ordenar items manuales'};
-    var dir=_n(params.dir)>=0?1:-1;
-    var items=_balanceCustomItems(ss).filter(function(x){
-      return x.tipo===item.tipo && _s(x.grupo||_balanceGrupoDefault(x.tipo))===_s(item.grupo||_balanceGrupoDefault(item.tipo));
-    });
-    if(items.length<2) return{ok:true,balance:getBalanceGeneral()};
-    for(var i=0;i<items.length;i++){
-      items[i].sheet.getRange(items[i].row,9).setValue(i+1);
-      items[i].orden=i+1;
-    }
+    var d=getBalanceGeneral();
+    if(!d||!d.ok) return d;
+    var all=(d.activos||[]).concat(d.pasivos||[]).filter(function(x){return x&&!x.esGrupo;});
+    var item=null;
+    for(var i=0;i<all.length;i++) if(_s(all[i].codigo)===_s(params.codigo)){item=all[i];break;}
+    if(!item) return{ok:false,error:'Item no encontrado'};
+    var list=(item.tipo==='Pasivo'?d.pasivos:d.activos).filter(function(x){return x&&!x.esGrupo;});
+    var positions=list.map(function(x){return{grupo:x.grupo||_balanceGrupoDefault(item.tipo),orden:x.orden||1};});
     var idx=-1;
-    for(var j=0;j<items.length;j++) if(items[j].codigo===item.codigo){idx=j;break;}
-    var next=idx+dir;
-    if(idx<0||next<0||next>=items.length) return{ok:true,balance:getBalanceGeneral()};
-    var a=items[idx],b=items[next];
-    a.sheet.getRange(a.row,9).setValue(b.orden);
-    b.sheet.getRange(b.row,9).setValue(a.orden);
+    for(var j=0;j<list.length;j++) if(_s(list[j].codigo)===_s(item.codigo)){idx=j;break;}
+    var dir=_n(params.dir)>=0?1:-1,next=idx+dir;
+    if(idx<0||next<0||next>=list.length) return{ok:true,balance:d};
+    var moved=list.slice(),tmp=moved[idx];moved[idx]=moved[next];moved[next]=tmp;
+    moved.forEach(function(x,k){_setBalancePlacement(ss,x,positions[k].grupo,positions[k].orden);});
     _appendBalanceLog(ss,{codigo:item.codigo,nombre:item.nombre,tipo:item.tipo,accion:'ordenar',anterior:idx+1,nuevo:next+1,nota:''});
     return{ok:true,balance:getBalanceGeneral()};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -434,6 +432,78 @@ function _balanceDeletedSheet(ss){
     sh.appendRow(['Fecha','Código','Nombre','Tipo','Nota']);
   }
   return sh;
+}
+
+function _balanceOverrideSheet(ss){
+  var sh=ss.getSheetByName('_BALANCE_ITEM_OVERRIDES');
+  if(!sh){
+    sh=ss.insertSheet('_BALANCE_ITEM_OVERRIDES');
+    sh.appendRow(['Código','Grupo','Orden','Activo','Fecha']);
+    sh.setFrozenRows(1);
+  }
+  var heads=['Código','Grupo','Orden','Activo','Fecha'];
+  for(var i=0;i<heads.length;i++) if(_s(sh.getRange(1,i+1).getValue())!==heads[i]) sh.getRange(1,i+1).setValue(heads[i]);
+  return sh;
+}
+function _balanceOverrideMap(ss){
+  var sh=ss.getSheetByName('_BALANCE_ITEM_OVERRIDES');
+  if(!sh) return {};
+  _balanceOverrideSheet(ss);
+  var D=sh.getDataRange().getValues(),out={};
+  for(var i=1;i<D.length;i++){
+    var activo=D[i][3];
+    if(activo===false||String(activo).toLowerCase()==='false') continue;
+    var codigo=_s(D[i][0]); if(!codigo) continue;
+    out[codigo]={grupo:_s(D[i][1]),orden:_n(D[i][2])||0};
+  }
+  return out;
+}
+function _setBalanceOverride(ss,codigo,grupo,orden){
+  var sh=_balanceOverrideSheet(ss),D=sh.getDataRange().getValues(),row=0;
+  codigo=_s(codigo); if(!codigo) return;
+  for(var i=1;i<D.length;i++) if(_s(D[i][0])===codigo){row=i+1;break;}
+  var vals=[codigo,_s(grupo),_n(orden)||0,true,new Date()];
+  if(row) sh.getRange(row,1,1,5).setValues([vals]); else sh.appendRow(vals);
+}
+function _setBalancePlacement(ss,item,grupo,orden){
+  if(!item||!item.codigo) return;
+  if(item.custom){
+    var found=_findBalanceCustomItem(ss,item.codigo);
+    if(found) found.sheet.getRange(found.row,8,1,2).setValues([[_s(grupo),_n(orden)||0]]);
+  }else{
+    _setBalanceOverride(ss,item.codigo,grupo,orden);
+  }
+}
+function _reagruparBalanceLista(ss,arr,tipo){
+  var overrides=_balanceOverrideMap(ss),grupo='',grupoMap={},items=[],seq={};
+  arr.forEach(function(x){
+    if(x.esGrupo){
+      grupo=x.nombre;
+      grupoMap[grupo]=Object.assign({},x,{valor:0});
+      if(!seq[grupo]) seq[grupo]=0;
+      return;
+    }
+    var ov=overrides[x.codigo]||{};
+    var g=_balanceGrupoCanon(tipo,ov.grupo||x.grupo||grupo||_balanceGrupoDefault(tipo),x.nombre);
+    if(!seq[g]) seq[g]=0;
+    var ord=ov.orden||x.orden||(++seq[g]);
+    items.push(Object.assign({},x,{grupo:g,orden:ord}));
+    if(!grupoMap[g]) grupoMap[g]={codigo:'GRP-'+tipo.charAt(0)+'-'+g.replace(/[^A-Za-z0-9]+/g,'-'),nombre:g,valor:0,tipo:tipo,esGrupo:true,customGroup:true};
+  });
+  var orden=_balanceGrupos(tipo).slice();
+  items.forEach(function(x){if(orden.indexOf(x.grupo)<0) orden.push(x.grupo);});
+  var out=[];
+  orden.forEach(function(g){
+    var xs=items.filter(function(x){return x.grupo===g;}).sort(function(a,b){return (a.orden||0)-(b.orden||0)||a.nombre.localeCompare(b.nombre);});
+    if(!xs.length) return;
+    out.push(grupoMap[g]);
+    xs.forEach(function(x,idx){x.orden=idx+1;out.push(x);});
+  });
+  return out;
+}
+function _aplicarBalanceOverrides(ss,d){
+  d.activos=_reagruparBalanceLista(ss,d.activos||[],'Activo');
+  d.pasivos=_reagruparBalanceLista(ss,d.pasivos||[],'Pasivo');
 }
 
 function _balanceCustomSheet(ss){
