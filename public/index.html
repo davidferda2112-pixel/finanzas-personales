@@ -4138,7 +4138,9 @@ function tgSrch(){G.srchOpen=!G.srchOpen;var inp=eid('si');inp.classList.toggle(
 
 function abrirModal(tipo){
   try{
-    G.tipoModal=tipo;
+    tipo=tipo||'egreso';
+    var tipoReal=tipoModalInicial(tipo);
+    G.tipoModal=tipoReal;
     var modal=eid('mov');
     if(modal) modal.classList.add('open');
     var t={egreso:'Registrar Egreso',ingreso:'Registrar Ingreso',ahorro:'Registrar Ahorro'};
@@ -4146,6 +4148,7 @@ function abrirModal(tipo){
     if(eid('m-fecha')) eid('m-fecha').value=todayISO();
     if(eid('m-monto')) eid('m-monto').value='';
     if(eid('m-notas')) eid('m-notas').value='';
+    setMovimientoTipo(tipoReal);
     var aplicaBox=eid('m-aplica-box'),aplicaSel=eid('m-mes-aplica');
     if(aplicaBox&&aplicaSel){
       aplicaBox.style.display='block';
@@ -4164,12 +4167,10 @@ function abrirModal(tipo){
       else if(tipo==='ahorro') b.style.display=bt==='ahorro'?'flex':'none';
       else                     b.style.display=(bt==='necesidad'||bt==='deseo'||bt==='deuda')?'flex':'none';
     });
-    var mp={egreso:'necesidad',ingreso:'ingreso',ahorro:'ahorro'};
-    setMovimientoTipo(mp[tipo]||'necesidad');
     if(!G.catalogo){
       loadCatalogo().then(function(){
         if(eid('mov')&&eid('mov').classList.contains('open')) renderMovimientoSubcats(G.tipoModal);
-      });
+      }).catch(function(e){console.warn('catalogo modal',e);});
     }
     setTimeout(function(){var m=eid('m-monto');if(m)m.focus();},220);
   }catch(e){
@@ -4188,16 +4189,24 @@ function syncMovimientoMesPorFecha(){
   if(!sel.value) sel.value=G.mesActual||mesFecha;
 }
 function cMov(e){if(e.target===eid('mov'))eid('mov').classList.remove('open');}
+function tipoModalInicial(tipo){
+  return tipo==='ingreso'?'ingreso':tipo==='ahorro'?'ahorro':'necesidad';
+}
+function normalizarTipoMovimiento(tipo){
+  return ['ingreso','ahorro','necesidad','deseo','deuda'].indexOf(tipo)>=0?tipo:'necesidad';
+}
 function renderMovimientoSubcats(t){
   var sub=eid('m-sub');
   if(!sub)return;
+  t=normalizarTipoMovimiento(t);
   var opts=catalogSubcats(t);
+  if(!opts||!opts.length)opts=(SUBCATS[t]||[]).slice();
   sub.innerHTML='<option value="">Selecciona...</option>'
     +opts.map(function(s){return'<option value="'+hEsc(s)+'">'+hEsc(s)+'</option>';}).join('');
   sub.onchange=actualizarBalanceBox;
 }
 function setMovimientoTipo(t){
-  t=t||'necesidad';
+  t=normalizarTipoMovimiento(t);
   qsa('.tb').forEach(function(b){
     b.className='tb';
     var bt=b.getAttribute('data-tipo')||'';
@@ -4208,7 +4217,7 @@ function setMovimientoTipo(t){
   });
   G.tipoModal=t;
   renderMovimientoSubcats(t);
-  actualizarBalanceBox();
+  try{actualizarBalanceBox();}catch(e){console.warn('balance box modal',e);}
 }
 function selTipo(btn){
   setMovimientoTipo(btn?(btn.getAttribute('data-tipo')||'necesidad'):'necesidad');
