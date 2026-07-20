@@ -15,6 +15,13 @@ const READ_TTL_MS = {
 };
 
 const WRITE_METHODS = new Set([
+  'moverBalanceItemOrden',
+  'repararCatalogoFinanciero',
+  'congelarBalanceGeneral',
+  'guardarBalanceGrupo',
+  'renombrarBalanceGrupo',
+  'ordenarBalanceGrupos',
+  'limpiarPinturasMes',
   'actualizarBalance',
   'guardarBalanceItem',
   'eliminarBalanceItem',
