@@ -1435,6 +1435,10 @@ var G={
   _dirty:false,_dirtyFlujo:false,_dirtyBalance:false,_dirtyTarjetas:false  // flags de refresco
 };
 var MESES_NOM_JS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+var NECESIDAD_BALANCE_DEFAULT={
+  'aporte seguro':'10101.06',
+  'aporte caja':'10101.01'
+};
 var SUBCATS={
   necesidad:['Plan Celular','Aporte Seguro','Aporte caja','Comida Diaria','Salud','Transporte','Arriendo','Internet','Pinturas'],
   deseo:    ['Comida Fuera','Ropa','Gastos Familia','Fútbol','Entretenimiento','Cerveza','Tabaco','Gastos Bancarios','Gasolina','Pagos Tienda','Gastos personales'],
@@ -1547,20 +1551,28 @@ function catalogFind(tipo,nombre){
 function actualizarBalanceBox(){
   var box=eid('m-balance-box');if(!box)return;
   var tipo=G.tipoModal,sub=eid('m-sub')?eid('m-sub').value:'';
-  if(!G.catalogo&&(tipo==='ahorro'||tipo==='deuda'||sub==='Devolución de ahorro'||sub==='Préstamos recibidos')){
+  var isNecesidad=tipo==='necesidad';
+  if(!G.catalogo&&(tipo==='ahorro'||tipo==='deuda'||isNecesidad||sub==='Devolución de ahorro'||sub==='Préstamos recibidos')){
     loadCatalogo().then(actualizarBalanceBox);
     return;
   }
   var isDev=tipo==='ingreso'&&sub==='Devolución de ahorro';
   var isPre=tipo==='ingreso'&&sub==='Préstamos recibidos';
   var isCat=tipo==='ahorro'||tipo==='deuda';
-  box.style.display=(isDev||isPre||isCat)?'block':'none';
+  box.style.display=(isDev||isPre||isCat||isNecesidad)?'block':'none';
   eid('m-balance-new').style.display='none';eid('m-balance-grupo').style.display='none';
+  eid('m-balance-dest').onchange=null;
   if(isCat){
     var it=catalogFind(tipo,sub);
     eid('m-balance-label').textContent='Destino balance';
     eid('m-balance-dest').style.display='none';
     eid('m-balance-hint').textContent=it&&it.balanceNombre?'Se alojara en '+it.grupo+' > '+it.balanceNombre:'Debes asignarlo desde Gestionar antes de guardar.';
+  }else if(isNecesidad){
+    var sugerido=NECESIDAD_BALANCE_DEFAULT[nE(sub)]||'';
+    eid('m-balance-label').textContent='Impacto en balance';
+    eid('m-balance-dest').style.display='block';
+    fillBalanceDestinoSelect('m-balance-dest','Activo',sugerido,false);
+    eid('m-balance-hint').textContent=sugerido?'Este egreso baja caja y aumenta el activo seleccionado.':'Opcional: elige un activo si este egreso tambien aumenta tu balance.';
   }else if(isDev){
     eid('m-balance-label').textContent='Retirar desde activo';
     eid('m-balance-dest').style.display='block';fillBalanceDestinoSelect('m-balance-dest','Activo','',false);

@@ -1442,6 +1442,12 @@ function _movimientoBalanceMeta(ss,params,monto){
     }
     meta={id:cat.balanceId,tipo:cat.balanceTipo,nombre:cat.balanceNombre,grupo:cat.grupo};
     impactos.push({codigo:cat.balanceId,op:cat.balanceTipo==='Pasivo'?'pasivo':'activo',signo:tipo==='ahorro'?1:-1});
+  }else if(tipo==='necesidad'&&_s(params.balanceCodigo)){
+    var nId=_s(params.balanceCodigo);
+    var n=_findBalanceItem(ss,nId);
+    if(!n||n.tipo!=='Activo') return{ok:false,error:'Activo de balance no encontrado'};
+    meta={id:n.codigo,tipo:'Activo',nombre:n.nombre,grupo:n.grupo||_balanceGrupoDefault('Activo')};
+    impactos.push({codigo:n.codigo,op:'activo',signo:1});
   }else if(tipo==='ingreso'&&sub===INGRESO_DEVOLUCION_AHORRO){
     var aId=_s(params.balanceCodigo); if(!aId) return{ok:false,error:'Selecciona desde que activo retiras'};
     var a=_findBalanceItem(ss,aId); if(!a||a.tipo!=='Activo') return{ok:false,error:'Activo no encontrado'};
@@ -1468,6 +1474,7 @@ function _impactosDesdeRegistro(ss,fila){
     else if(tipo==='deuda') sign=-1;
     else if(tipo==='ingreso'&&sub===INGRESO_DEVOLUCION_AHORRO) sign=-1;
     else if(tipo==='ingreso'&&sub===INGRESO_PRESTAMO_RECIBIDO) sign=1;
+    else if(tipo==='necesidad'&&bt==='Activo') sign=1;
     else return{ok:true,impactos:[],meta:{}};
     return{ok:true,impactos:[{codigo:bid,op:op,signo:sign}],meta:{id:bid,tipo:bt,nombre:bn,grupo:bg}};
   }
