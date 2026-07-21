@@ -1119,10 +1119,11 @@ var CATALOGO_ALIAS = {
 };
 
 function _normKey(v){
-  return _s(v).toLowerCase()
-    .replace(/[áÁàäâ]/g,'a').replace(/[éÉèëê]/g,'e').replace(/[íÍìïî]/g,'i')
-    .replace(/[óÓòöô]/g,'o').replace(/[úÚùüû]/g,'u').replace(/ñ/g,'n')
-    .replace(/\s+/g,' ').trim();
+  var s=_s(v).toLowerCase().trim();
+  try{
+    if(s.normalize) s=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  }catch(e){}
+  return s.replace(/ñ/g,'n').replace(/\s+/g,' ').trim();
 }
 function _catalogNombreCanon(tipo,nombre){
   var key=_normKey(nombre);
@@ -1377,15 +1378,20 @@ function _guardarCatalogoItem(ss,params){
     balanceId=_crearBalanceDesdeCatalogo(ss,balanceTipo,balanceNombre,grupo);
   }
   if(!balanceId){
-    if(tipo==='deuda'&&grupo==='Pasivos Fijos') return{ok:true,item:{id:_catalogId(tipo,nombre),tipo:tipo,nombre:nombre,estado:'activo',balanceTipo:'Pasivo',balanceId:'',balanceNombre:'',grupo:grupo}};
-    return{ok:false,error:'Asigna un '+(balanceTipo==='Activo'?'activo':'pasivo')+' del balance'};
+    if(!(tipo==='deuda'&&grupo==='Pasivos Fijos')){
+      return{ok:false,error:'Asigna un '+(balanceTipo==='Activo'?'activo':'pasivo')+' del balance'};
+    }
+    balanceTipo='Pasivo';
+    balanceNombre='';
+  }else{
+    var b=_findBalanceItem(ss,balanceId);
+    if(!b) return{ok:false,error:'Destino de balance no encontrado'};
+    balanceNombre=b.nombre;
   }
-  var b=_findBalanceItem(ss,balanceId);
-  if(!b) return{ok:false,error:'Destino de balance no encontrado'};
-  balanceNombre=b.nombre;
   var estado=params.estado===false||_s(params.estado)==='inactivo'?'inactivo':'activo';
   var sh=_ensureCatalog(ss),D=sh.getDataRange().getValues(),row=0;
-  for(var i=1;i<D.length;i++) if(_s(D[i][1])===tipo&&_s(D[i][2]).toLowerCase()===oldNombre.toLowerCase()){row=i+1;break;}
+  for(var i=1;i<D.length;i++) if(_s(D[i][1])===tipo&&_normKey(D[i][2])===_normKey(oldNombre)){row=i+1;break;}
+  if(!row) for(var j=1;j<D.length;j++) if(_s(D[j][1])===tipo&&_normKey(D[j][2])===_normKey(nombre)){row=j+1;break;}
   var id=row?_s(sh.getRange(row,1).getValue()):_catalogId(tipo,nombre);
   var vals=[id,tipo,nombre,estado,balanceTipo,balanceId,balanceNombre,grupo,_n(params.orden)||0,_nowLocal(),_s(params.nota)];
   if(row) sh.getRange(row,1,1,vals.length).setValues([vals]); else sh.appendRow(vals);
@@ -1524,7 +1530,12 @@ function registrarMovimiento(params){
 
     if(params.returnState){
       SpreadsheetApp.flush();
-      return{ok:true,id:id,mesCaja:mesCaja,state:_postCambioState({homeMes:params.homeMes||params.mesInicio||mesCaja,histMes:params.histMes||params.mesHist||mes})};
+      return{ok:true,id:id,mesCaja:mesCaja,state:_postCambioState({
+        homeMes:params.homeMes||params.mesInicio||mesCaja,
+        histMes:params.histMes||params.mesHist||mes,
+        includeHome:params.includeHome!==false,
+        includeMovimientos:params.includeMovimientos===true
+      })};
     }
     if(params.fast) return{ok:true,id:id,mesCaja:mesCaja};
     SpreadsheetApp.flush();
@@ -1793,7 +1804,7 @@ function gestionarItemCategoria(params){
       if(!nombre) return{ok:false,error:'Escribe el nuevo nombre'};
       var erow=_findCatDistribRow(block,cfg,oldNombre);
       if(!erow) return{ok:false,error:'Item no encontrado'};
-      if(nombre.toLowerCase()!==oldNombre.toLowerCase()&&_findCatDistribRow(block,cfg,nombre)) return{ok:false,error:'Ya existe un item con ese nombre'};
+      if(_normKey(nombre)!==_normKey(oldNombre)&&_findCatDistribRow(block,cfg,nombre)) return{ok:false,error:'Ya existe un item con ese nombre'};
       if(esBalanceCat){
         var cedit=_guardarCatalogoItem(ss,{tipo:tipoCat,oldNombre:oldNombre,nombre:nombre,estado:params.estado||'activo',balanceCodigo:params.balanceCodigo,balanceNombreNuevo:params.balanceNombreNuevo,grupo:params.balanceGrupo||params.grupo,orden:params.orden,nota:'Gestionar '+categoria});
         if(!cedit.ok) return cedit;
