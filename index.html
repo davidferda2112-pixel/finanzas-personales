@@ -2873,6 +2873,33 @@ function balanceAllItems(){
 function findBalanceItemLocal(codigo){
   return balanceAllItems().filter(function(x){return String(x.codigo)===String(codigo);})[0]||null;
 }
+function recalcularBalanceLocal(){
+  if(!G.balance)return;
+  function suma(lista){
+    var total=0,grupo=null;
+    (lista||[]).forEach(function(x){
+      if(!x)return;
+      if(x.esGrupo){grupo=x;grupo.valor=0;return;}
+      if(grupo)grupo.valor+=Number(x.valor||0);
+      total+=Number(x.valor||0);
+    });
+    return Math.round((total+Number.EPSILON)*100)/100;
+  }
+  G.balance.totalActivos=suma(G.balance.activos||[]);
+  G.balance.totalPasivos=suma(G.balance.pasivos||[]);
+  G.balance.patrimonioNeto=Math.round(((G.balance.totalActivos||0)-(G.balance.totalPasivos||0)+Number.EPSILON)*100)/100;
+}
+function aplicarBalanceImpactosLocal(impactos,monto){
+  if(!G.balance||!impactos||!impactos.length)return;
+  var changed=false;
+  impactos.forEach(function(imp){
+    var it=findBalanceItemLocal(imp.codigo);
+    if(!it)return;
+    it.valor=Math.round(((Number(it.valor||0)+Number(monto||0)*Number(imp.signo||0))+Number.EPSILON)*100)/100;
+    changed=true;
+  });
+  if(changed){recalcularBalanceLocal();renderBalance(G.balance);}
+}
 function abrirBalanceItem(modo,codigo,tipo){
   try{
     if(!G.balance&&codigo){showToast('Cargando balance...','ok');loadBalance();return;}
@@ -2958,13 +2985,6 @@ function renderBalance(d){
   eid('b-act-list').innerHTML=renderListaBalance(d.activos||[],'Activo');
   eid('b-pas-list').innerHTML=renderListaBalance(d.pasivos||[],'Pasivo');
 }
-function _tgBalEditLegacy(){G.balEdit=!G.balEdit;if(G.balance)renderBalance(G.balance);showToast(G.balEdit?'Modo edición':'Cambios guardados','ok');}
-function _saveBalanceLegacy(codigo,valor){
-  google.script.run
-    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Actualizado','ok');G.balance=null;loadBalance();}else showToast('Error','err');})
-    .actualizarBalance({codigo:codigo,valor:valor});
-}
-
 
 
 function abrirBalanceLog(){
@@ -3661,27 +3681,6 @@ function setTdcAnioValue(yr){
   renderHistorialTarjeta();
 }
 
-function getResumenTdc(t){
-  var mes=G.tcMesActual||G.mesActual||G.meses[G.meses.length-1];
-  var hist=G.tdcAnio===2026?t.historial2026:t.historial2025;
-  var meses=G.tdcAnio===2026?t.meses2026:t.meses2025;
-  var mesCorto=mes?mes.split(' ')[0].slice(0,3)+' '+mes.split(' ')[1]:'';
-  var idx=meses?meses.indexOf(mesCorto):-1;
-  var out={mes:mes,idx:idx,meses:meses,hist:hist,consumos:0,pagos:0,saldoRot:0,saldoReal:0,saldoRotAnt:0,pendiente:0,alDia:false};
-  if(!hist||idx<0)return out;
-  hist.forEach(function(f){
-    var v=f[meses[idx]]||0;
-    if(f.concepto==='Consumos') out.consumos=v;
-    if(f.concepto==='Pagos / Créditos') out.pagos=v;
-    if(f.concepto==='Total/ Saldo Rotativo') out.saldoRot=v;
-    if(f.concepto==='Saldo Real') out.saldoReal=v;
-    if(idx>0&&f.concepto==='Total/ Saldo Rotativo') out.saldoRotAnt=f[meses[idx-1]]||0;
-  });
-  out.pendiente=Math.max(Math.round((out.saldoRotAnt-out.pagos)*100)/100,0);
-  out.alDia=out.pendiente<=0.009;
-  if(out.alDia) out.pendiente=0;
-  return out;
-}
 
 function conceptoTdcEs(valor,esperado){
   var clean=function(v){
@@ -4315,6 +4314,7 @@ function guardar(){
           G.movimientos.forEach(function(t){if(String(t.id)===tempId)t.id=String(res.id);});
           cacheSetMovimientos(G.histMes,G.movimientos);
         }
+        aplicarBalanceImpactosLocal(res.balanceImpactos,res.balanceMonto||monto);
         showToast('Guardado','ok');
         G._dirty=true;G._dirtyFlujo=true;G._dirtyBalance=true;
         cacheDel('mesData_'+mesAplicado);cacheDel('mesData_'+mesRegistro);

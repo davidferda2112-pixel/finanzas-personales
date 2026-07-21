@@ -475,27 +475,31 @@ function _setBalancePlacement(ss,item,grupo,orden){
   }
 }
 function _reagruparBalanceLista(ss,arr,tipo){
-  var overrides=_balanceOverrideMap(ss),grupo='',grupoMap={},items=[],seq={};
+  var overrides=_balanceOverrideMap(ss),deleted=_getBalanceDeletedMap(ss),items=[],grupoActual='',seq={},grupoMap={};
   arr.forEach(function(x){
+    if(!x) return;
     if(x.esGrupo){
-      grupo=x.nombre;
-      grupoMap[grupo]=Object.assign({},x,{valor:0});
-      if(!seq[grupo]) seq[grupo]=0;
+      grupoActual=_balanceGrupoCanon(tipo,x.nombre,x.nombre);
+      if(!grupoMap[grupoActual]) grupoMap[grupoActual]={codigo:'GRP-'+tipo.charAt(0)+'-'+grupoActual.replace(/[^A-Za-z0-9]+/g,'-'),nombre:grupoActual,valor:0,tipo:tipo,esGrupo:true,customGroup:!!x.customGroup};
+      if(!seq[grupoActual]) seq[grupoActual]=0;
       return;
     }
+    if(deleted[x.codigo]) return;
     var ov=overrides[x.codigo]||{};
-    var g=_balanceGrupoCanon(tipo,ov.grupo||x.grupo||grupo||_balanceGrupoDefault(tipo),x.nombre);
+    var g=_balanceGrupoCanon(tipo,ov.grupo||x.grupo||grupoActual||_balanceGrupoDefault(tipo),x.nombre);
     if(!seq[g]) seq[g]=0;
     var ord=ov.orden||x.orden||(++seq[g]);
-    items.push(Object.assign({},x,{grupo:g,orden:ord}));
+    var item=Object.assign({},x,{grupo:g,orden:ord});
+    items.push(item);
     if(!grupoMap[g]) grupoMap[g]={codigo:'GRP-'+tipo.charAt(0)+'-'+g.replace(/[^A-Za-z0-9]+/g,'-'),nombre:g,valor:0,tipo:tipo,esGrupo:true,customGroup:true};
   });
-  var orden=_balanceGrupos(tipo).slice();
+  var orden=_balanceGrupos(tipo).map(function(g){return _balanceGrupoCanon(tipo,g,g);});
   items.forEach(function(x){if(orden.indexOf(x.grupo)<0) orden.push(x.grupo);});
   var out=[];
   orden.forEach(function(g){
     var xs=items.filter(function(x){return x.grupo===g;}).sort(function(a,b){return (a.orden||0)-(b.orden||0)||a.nombre.localeCompare(b.nombre);});
     if(!xs.length) return;
+    grupoMap[g].valor=xs.reduce(function(a,x){return a+_n(x.valor);},0);
     out.push(grupoMap[g]);
     xs.forEach(function(x,idx){x.orden=idx+1;out.push(x);});
   });
@@ -1195,11 +1199,22 @@ function _catalogLegacyNames(ss,tipo){
 }
 function _balanceGrupoCanon(tipo,grupo,nombre){
   var g=_s(grupo);
-  if(_normKey(g)==='tarjeta de credito') return 'Tarjeta de Crédito';
-  if(_normKey(g)==='prestamos') return 'Préstamos';
-  if(_normKey(g)==='pasivos fijos') return 'Pasivos Fijos';
-  if(_normKey(g)==='activos financieros') return 'Activos Financieros';
-  if(_normKey(g)==='cuentas por cobrar') return 'Cuentas por Cobrar';
+  var k=_normKey(g);
+  var aliases={
+    'efectivo y equivalentes':'Efectivo y Equivalentes',
+    'efectivo equivalentes':'Efectivo y Equivalentes',
+    'activos financieros':'Activos Financieros',
+    'cuentas por cobrar':'Cuentas por Cobrar',
+    'inventarios':'Inventarios',
+    'inmuebles':'Inmuebles',
+    'propiedades y equipo':'Equipos',
+    'equipos':'Equipos',
+    'tarjeta de credito':'Tarjeta de Crédito',
+    'tarjetas de credito':'Tarjeta de Crédito',
+    'prestamos':'Préstamos',
+    'pasivos fijos':'Pasivos Fijos'
+  };
+  if(aliases[k]) return aliases[k];
   if(_normKey(nombre)==='brackets') return 'Pasivos Fijos';
   return g||_balanceGrupoDefault(tipo);
 }
@@ -1289,14 +1304,21 @@ function _catalogFind(ss,tipo,nombre,includeInactive){
   return null;
 }
 function _balanceDestinoItems(ss,tipo){
-  var d=_parseBalance(); if(!d||!d.ok) d={activos:[],pasivos:[]};
-  _agregarBalanceCustom(ss,d);
-  var src=String(tipo||'').toLowerCase().indexOf('pas')===0?d.pasivos:d.activos;
-  var grupo='';
-  return src.map(function(x){
-    if(x.esGrupo){grupo=x.nombre;return null;}
-    return {codigo:x.codigo,nombre:x.nombre,grupo:x.grupo||grupo||_balanceGrupoDefault(tipo),valor:x.valor,tipo:_balanceNombreTipo(tipo)};
-  }).filter(function(x){return x;});
+  var bal=getBalanceGeneral();
+  if(!bal||!bal.ok) return [];
+  var lista=(tipo==='Pasivo'?bal.pasivos:bal.activos)||[];
+  var deleted=_getBalanceDeletedMap(ss);
+  return lista.filter(function(x){return x&&!x.esGrupo&&!deleted[x.codigo];}).map(function(x){
+    var grupo=_balanceGrupoCanon(tipo,x.grupo,x.nombre);
+    return {
+      codigo:x.codigo,
+      id:x.codigo,
+      nombre:x.nombre,
+      grupo:grupo,
+      valor:x.valor,
+      tipo:_balanceNombreTipo(tipo)
+    };
+  });
 }
 function guardarBalanceGrupo(params){
   try{
@@ -1475,9 +1497,9 @@ var BALANCE_MAP = {
   'Aporte caja':        [{codigo:'10101.01', op:'activo', signo:1}],
   'Programado Tulcán':  [{codigo:'10101.02', op:'activo', signo:1}],
   'Programado Caja':    [{codigo:'10101.04', op:'activo', signo:1}],
-  'Ahorro Flexible':    [{codigo:'10102.02', op:'activo', signo:1}],
-  'Devolucion Ahorro 1':[{codigo:'10102.02', op:'activo', signo:1}],
-  'Devolucion ahorro 2':[{codigo:'10102.02', op:'activo', signo:1}],
+  'Ahorro Flexible':    [{codigo:'10102.01', op:'activo', signo:1}],
+  'Devolucion Ahorro 1':[{codigo:'10102.01', op:'activo', signo:1}],
+  'Devolucion ahorro 2':[{codigo:'10102.01', op:'activo', signo:1}],
   'Inversión XTB':      [{codigo:'10102.05', op:'activo', signo:1}],
   'Diferido Artefacta': [{codigo:'2010301.2',op:'pasivo', signo:-1}],
   'Devolución Terreno': [
@@ -1537,7 +1559,10 @@ function registrarMovimiento(params){
         includeMovimientos:params.includeMovimientos===true
       })};
     }
-    if(params.fast) return{ok:true,id:id,mesCaja:mesCaja};
+    if(params.fast){
+      if(balMeta.impactos&&balMeta.impactos.length) SpreadsheetApp.flush();
+      return{ok:true,id:id,mesCaja:mesCaja,balanceImpactos:balMeta.impactos||[],balanceMonto:monto};
+    }
     SpreadsheetApp.flush();
     return{ok:true,id:id,mesData:getMesData(mesCaja),mesCaja:mesCaja};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -1660,11 +1685,11 @@ function getMovimientosMes(mes){
     var reg=ss.getSheetByName('Registro');
     if(!reg) return{ok:true,data:[]};
     var D=reg.getDataRange().getValues(),result=[];
-    var mesesCaja={}, filas=[];
     for(var i=1;i<D.length;i++){
       var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
       var mesCaja=_normalizarMesNombre(_mesCajaRegistro(D[i]));
-      var item={
+      if(mesFila!==mes) continue;
+      result.push({
         id:_s(D[i][0]),
         orden:i,
         timestamp:_s(D[i][1]),
@@ -1677,25 +1702,15 @@ function getMovimientosMes(mes){
         fecha:_fmtFechaSimple(D[i][7]),
         fechaOrden:_fechaMsSimple(D[i][7]),
         notas:_s(D[i][8])
-      };
-      filas.push(item);
-      if(mesFila!==mes) continue;
-      mesesCaja[mesCaja]=true;
-      result.push(item);
-    }
-    var saldosPorId={};
-    var flujoData=_flujoCajaData();
-    Object.keys(mesesCaja).forEach(function(mc){
-      var movs=filas.filter(function(x){return x.mesCaja===mc;});
-      movs.sort(_compararMovimientoAsc);
-      var saldo=_getSaldoBaseMovimientos(mc,flujoData);
-      movs.forEach(function(t){
-        var delta=t.tipo==='ingreso'?t.monto:-t.monto;
-        saldo+=delta;
-        saldosPorId[t.id]=Math.round((saldo+Number.EPSILON)*100)/100;
       });
+    }
+    var flujoData=_flujoCajaData();
+    var saldo=_getSaldoBaseMovimientos(mes,flujoData);
+    result.slice().sort(_compararMovimientoAsc).forEach(function(t){
+      var delta=t.tipo==='ingreso'?t.monto:-t.monto;
+      saldo+=delta;
+      t.saldoDespues=Math.round((saldo+Number.EPSILON)*100)/100;
     });
-    result.forEach(function(t){t.saldoDespues=saldosPorId[t.id];});
     result.sort(_compararMovimientoVista);
     return{ok:true,data:result,saldoBase:_getSaldoBaseMovimientos(mes,flujoData)};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -1850,39 +1865,68 @@ function repararCatalogoFinanciero(){
 }
 
 function _normalizarBalanceGrupos(ss){
-  var sh=_balanceGroupsSheet(ss),orden={Activo:BALANCE_GRUPOS_ACTIVOS,Pasivo:BALANCE_GRUPOS_PASIVOS};
-  var alias={'tarjeta de credito':'Tarjeta de Crédito','préstamos':'Préstamos'};
-  var D=sh.getDataRange().getValues();
-  for(var i=1;i<D.length;i++){
-    var tipo=_balanceNombreTipo(D[i][0]),nombre=_s(D[i][1]),canon=alias[_normKey(nombre)]||nombre;
-    if(canon!==nombre) sh.getRange(i+1,2).setValue(canon);
-    if(orden[tipo].indexOf(canon)<0) sh.getRange(i+1,4).setValue(false);
-  }
-  ['Activo','Pasivo'].forEach(function(tipo){
-    orden[tipo].forEach(function(nombre,idx){
-      var vals=sh.getDataRange().getValues(),found=false;
-      for(var r=1;r<vals.length;r++){
-        if(_s(vals[r][0])===tipo&&_normKey(vals[r][1])===_normKey(nombre)){
-          sh.getRange(r+1,2,1,3).setValues([[nombre,idx+1,true]]);
-          found=true;
-          break;
+  try{
+    ss=ss||getSS();
+    var alias={
+      'efectivo y equivalentes':'Efectivo y Equivalentes',
+      'efectivo equivalentes':'Efectivo y Equivalentes',
+      'activos financieros':'Activos Financieros',
+      'cuentas por cobrar':'Cuentas por Cobrar',
+      'inventarios':'Inventarios',
+      'inmuebles':'Inmuebles',
+      'propiedades y equipo':'Equipos',
+      'equipos':'Equipos',
+      'tarjeta de credito':'Tarjeta de Crédito',
+      'tarjetas de credito':'Tarjeta de Crédito',
+      'prestamos':'Préstamos',
+      'pasivos fijos':'Pasivos Fijos'
+    };
+    function canon(g){return alias[_normKey(g)]||_s(g);}
+    var sh=_balanceGroupsSheet(ss),orden={Activo:BALANCE_GRUPOS_ACTIVOS,Pasivo:BALANCE_GRUPOS_PASIVOS};
+    var D=sh.getDataRange().getValues();
+    for(var i=1;i<D.length;i++){
+      var tipo=_balanceNombreTipo(D[i][0]),nombre=_s(D[i][1]),c=canon(nombre);
+      if(c!==nombre) sh.getRange(i+1,2).setValue(c);
+      if(orden[tipo].indexOf(c)<0) sh.getRange(i+1,4).setValue(false);
+    }
+    ['Activo','Pasivo'].forEach(function(tipo){
+      orden[tipo].forEach(function(nombre,idx){
+        var vals=sh.getDataRange().getValues(),found=false;
+        for(var r=1;r<vals.length;r++){
+          if(_s(vals[r][0])===tipo&&_normKey(vals[r][1])===_normKey(nombre)){
+            sh.getRange(r+1,2,1,3).setValues([[nombre,idx+1,true]]);
+            found=true;
+            break;
+          }
         }
-      }
-      if(!found) sh.appendRow([tipo,nombre,idx+1,true]);
+        if(!found) sh.appendRow([tipo,nombre,idx+1,true]);
+      });
     });
-  });
+    var ov=ss.getSheetByName('_BALANCE_ITEM_OVERRIDES');
+    if(ov&&ov.getLastRow()>1){
+      var rows=ov.getRange(2,1,ov.getLastRow()-1,5).getValues(),updates=[],changed=false;
+      for(var j=0;j<rows.length;j++){
+        var g=_s(rows[j][1]),c2=canon(g);
+        updates.push([c2]);
+        if(g!==c2) changed=true;
+      }
+      if(changed) ov.getRange(2,2,updates.length,1).setValues(updates);
+    }
+  }catch(e){}
 }
 
 function _normalizarBalanceCustom(ss){
+  ss=ss||getSS();
   var sh=ss.getSheetByName('_BALANCE_CUSTOM');
   if(!sh) return;
   _balanceCustomSheet(ss);
   var D=sh.getDataRange().getValues();
   for(var i=1;i<D.length;i++){
-    var nombre=_s(D[i][1]),tipo=_balanceNombreTipo(D[i][2]),grupo=_s(D[i][7]);
-    if(_normKey(grupo)==='tarjeta de credito') grupo='Tarjeta de Crédito';
-    if(_normKey(grupo)==='préstamos') grupo='Préstamos';
-    if(_normKey(nombre)==='préstamo terreno'||_normKey(nombre)==='préstamo papi'){tipo='Activo';grupo='Cuentas por Cobrar';}
+    var nombre=_s(D[i][1]),tipo=_balanceNombreTipo(D[i][2]),grupo=_balanceGrupoCanon(tipo,D[i][7],nombre);
+    if(_normKey(nombre)==='prestamo terreno'||_normKey(nombre)==='prestamo papi'||_normKey(nombre)==='prestamo emergente'){
+      tipo='Activo';
+      grupo='Cuentas por Cobrar';
+    }
     if(grupo) sh.getRange(i+1,8).setValue(grupo);
     sh.getRange(i+1,3).setValue(tipo);
   }
