@@ -830,6 +830,28 @@ function _normalizarMesNombre(mes){
   return (idx>=0?MESES_NOM[idx]:p[0].charAt(0).toUpperCase()+p[0].slice(1).toLowerCase())+' '+yy;
 }
 
+function _ordenMesNombre(mes){
+  mes=_normalizarMesNombre(mes);
+  var p=String(mes||'').split(' ');
+  if(p.length<2) return -1;
+  var idx=MESES_NOM.indexOf(p[0]),yy=parseInt(p[1],10);
+  if(idx<0||isNaN(yy)) return -1;
+  return (2000+yy)*12+idx;
+}
+
+function _mesesDisponiblesDesde(ss,mesInicio){
+  var min=_ordenMesNombre(mesInicio),out=[];
+  if(min<0) return out;
+  ss.getSheets().forEach(function(sh){
+    var n=sh.getName();
+    if(ESPECIALES.indexOf(n)!==-1) return;
+    var ord=_ordenMesNombre(n);
+    if(ord>=min) out.push({nombre:_normalizarMesNombre(n),orden:ord});
+  });
+  out.sort(function(a,b){return a.orden-b.orden;});
+  return out.map(function(x){return x.nombre;});
+}
+
 function _mesDesdeFechaMovimiento(fecha){
   var p=_fechaPartesSimple(fecha);
   if(!p) return '';
@@ -1782,11 +1804,64 @@ function _catDistribBlock(sh,cfg){
 }
 
 function _findCatDistribRow(block,cfg,nombre){
-  nombre=_s(nombre).toLowerCase();
+  nombre=_normKey(nombre);
   for(var r=block.startRow;r<block.totalRow;r++){
-    if(_s(block.data[r-1][cfg.nameCol-1]).toLowerCase()===nombre) return r;
+    if(_normKey(block.data[r-1][cfg.nameCol-1])===nombre) return r;
   }
   return 0;
+}
+
+function _tipoDesdeCategoriaDistrib(categoria){
+  var c=_s(categoria);
+  if(c==='Ahorros') return 'ahorro';
+  if(c==='Deudas') return 'deuda';
+  if(c==='Necesidades') return 'necesidad';
+  if(c==='Deseos') return 'deseo';
+  return '';
+}
+
+function _tieneMovimientoCategoriaMes(ss,mes,categoria,nombre){
+  var reg=ss.getSheetByName('Registro');
+  if(!reg) return false;
+  var tipo=_tipoDesdeCategoriaDistrib(categoria);
+  var nombreKey=_normKey(_normalizarSubcategoriaMovimiento(tipo,nombre));
+  var D=reg.getDataRange().getValues();
+  for(var i=1;i<D.length;i++){
+    var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
+    var tipoFila=_s(D[i][3]);
+    if(mesFila!==mes||tipoFila!==tipo) continue;
+    var sub=_normalizarSubcategoriaMovimiento(tipoFila,D[i][5]);
+    if(_normKey(sub)===nombreKey) return true;
+  }
+  return false;
+}
+
+function _quitarItemDistribucionSiLibre(ss,mes,categoria,nombre){
+  var sh=ss.getSheetByName(mes);
+  if(!sh) return {ok:true,deleted:false,kept:false};
+  var cfg=_catDistribConfig(categoria,mes);
+  if(!cfg) return {ok:false,error:'Categoria no soportada: '+categoria};
+  var block=_catDistribBlock(sh,cfg);
+  var row=_findCatDistribRow(block,cfg,nombre);
+  if(!row) return {ok:true,deleted:false,kept:false};
+  if(_n(block.data[row-1][cfg.actualCol-1])>0) return {ok:true,deleted:false,kept:true};
+  if(_tieneMovimientoCategoriaMes(ss,mes,categoria,nombre)) return {ok:true,deleted:false,kept:true};
+  sh.deleteRows(row,1);
+  return {ok:true,deleted:true,kept:false};
+}
+
+function _propagarEliminacionDistribucion(ss,mesInicio,categoria,nombre){
+  var meses=_mesesDisponiblesDesde(ss,mesInicio),res={deleted:0,kept:0};
+  meses.forEach(function(mes){
+    try{
+      var r=_quitarItemDistribucionSiLibre(ss,mes,categoria,nombre);
+      if(r&&r.deleted) res.deleted++;
+      if(r&&r.kept) res.kept++;
+    }catch(e){
+      Logger.log('No se pudo quitar '+nombre+' en '+mes+': '+e);
+    }
+  });
+  return res;
 }
 
 function _updateRegistroSubcategoriaMes(ss,mes,oldNombre,newNombre){
@@ -1859,16 +1934,10 @@ function gestionarItemCategoria(params){
       if(!oldNombre) return{ok:false,error:'Selecciona el item a eliminar'};
       var drow=_findCatDistribRow(block,cfg,oldNombre);
       if(!drow) return{ok:false,error:'Item no encontrado'};
-      var data=getMesData(mes);
-      var sec={Necesidades:data.necesidades,Deseos:data.deseos,Deudas:data.deudas,Ahorros:data.ahorros}[cfg.categoria];
-      var item=null;
-      if(sec&&sec.items) sec.items.forEach(function(x){if(_s(x.nombre).toLowerCase()===oldNombre.toLowerCase()) item=x;});
       if(esBalanceCat){
         _setCatalogEstado(ss,tipoCat,oldNombre,'inactivo');
-        if(item&&_n(item.actual)>0) return{ok:true,mesData:getMesData(mes)};
       }
-      if(item&&_n(item.actual)>0) return{ok:false,error:'No se puede eliminar un item con movimientos. Edita el presupuesto o cambia sus movimientos primero.'};
-      sh.deleteRows(drow,1);
+      _propagarEliminacionDistribucion(ss,mes,cfg.categoria,oldNombre);
     }else{
       return{ok:false,error:'Acción no soportada'};
     }
