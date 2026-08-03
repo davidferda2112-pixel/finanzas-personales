@@ -1524,10 +1524,11 @@ function catalogSubcats(tipo){
   var c=G.catalogo&&G.catalogo.subcats?G.catalogo.subcats[tipo]:null;
   var base=(SUBCATS[tipo]||[]).slice();
   if(tipo==='ingreso') return uniqCanon(base.concat(c||[]));
-  if(tipo==='necesidad'||tipo==='deseo'||tipo==='ahorro'||tipo==='deuda'){
+  if(tipo==='necesidad'||tipo==='deseo'){
     var mesItems=subcatsDesdeMesActual(tipo);
     if(mesItems&&mesItems.length)return mesItems;
   }
+  if(tipo==='ahorro'||tipo==='deuda') return uniqCanon(c&&c.length?c:[]);
   return uniqCanon(c&&c.length?c:base);
 }
 function loadCatalogo(){
