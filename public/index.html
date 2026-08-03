@@ -1524,7 +1524,7 @@ function catalogSubcats(tipo){
   var c=G.catalogo&&G.catalogo.subcats?G.catalogo.subcats[tipo]:null;
   var base=(SUBCATS[tipo]||[]).slice();
   if(tipo==='ingreso') return uniqCanon(base.concat(c||[]));
-  if(tipo==='necesidad'||tipo==='deseo'){
+  if(tipo==='necesidad'||tipo==='deseo'||tipo==='ahorro'||tipo==='deuda'){
     var mesItems=subcatsDesdeMesActual(tipo);
     if(mesItems&&mesItems.length)return mesItems;
   }
@@ -4282,6 +4282,15 @@ function renderMovimientoSubcats(t){
   if(!sub)return;
   t=normalizarTipoMovimiento(t);
   var opts=catalogSubcats(t);
+  if((t==='ahorro'||t==='deuda')&&(!opts||!opts.length)){
+    sub.innerHTML='<option value="">Sin ítems activos</option>';
+    if(!G.catalogo){
+      loadCatalogo().then(function(){renderMovimientoSubcats(t);})
+        .catch(function(){sub.innerHTML='<option value="">No pude cargar opciones</option>';});
+    }
+    sub.onchange=actualizarBalanceBox;
+    return;
+  }
   if(!opts||!opts.length)opts=(SUBCATS[t]||[]).slice();
   sub.innerHTML='<option value="">Selecciona...</option>'
     +opts.map(function(s){return'<option value="'+hEsc(s)+'">'+hEsc(s)+'</option>';}).join('');
