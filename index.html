@@ -1524,7 +1524,7 @@ function catalogSubcats(tipo){
   var c=G.catalogo&&G.catalogo.subcats?G.catalogo.subcats[tipo]:null;
   var base=(SUBCATS[tipo]||[]).slice();
   if(tipo==='ingreso') return uniqCanon(base.concat(c||[]));
-  if(tipo==='necesidad'||tipo==='deseo'){
+  if(tipo==='necesidad'||tipo==='deseo'||tipo==='ahorro'||tipo==='deuda'){
     var mesItems=subcatsDesdeMesActual(tipo);
     if(mesItems&&mesItems.length)return mesItems;
   }

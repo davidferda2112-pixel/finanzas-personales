@@ -1169,9 +1169,7 @@ function _normalizarSubcategoriaMovimiento(tipo,nombre){
   return nombre;
 }
 function _catalogActivoPermitido(tipo,nombre){
-  var key=_normKey(nombre),lista=tipo==='ahorro'?CATALOGO_AHORROS_ACTIVOS:CATALOGO_DEUDAS_ACTIVAS;
-  for(var i=0;i<lista.length;i++) if(_normKey(lista[i])===key) return true;
-  return false;
+  return true;
 }
 
 var INGRESO_DEVOLUCION_AHORRO = 'Devolución de ahorro';
@@ -1274,8 +1272,13 @@ function _balanceDestinoNombre(ss,codigo){
 }
 function _ensureCatalog(ss){
   ss=ss||getSS();
-  var sh=_catalogSheet(ss),D=sh.getDataRange().getValues(),seen={};
+  var sh=_catalogSheet(ss),D=sh.getDataRange().getValues(),seen={},hasTipo={ahorro:false,deuda:false};
+  for(var ht=1;ht<D.length;ht++){
+    var tipoExistente=_s(D[ht][1]);
+    if(tipoExistente==='ahorro'||tipoExistente==='deuda') hasTipo[tipoExistente]=true;
+  }
   ['ahorro','deuda'].forEach(function(tipo){
+    if(hasTipo[tipo]) return;
     _catalogLegacyNames(ss,tipo).forEach(function(nombre,idx){
       var canon=_catalogNombreCanon(tipo,nombre),key=tipo+'|'+_normKey(canon);
       if(seen[key]) return;
@@ -1306,7 +1309,6 @@ function _ensureCatalog(ss){
     var tipoR=_s(D[r][1]),canonR=_catalogNombreCanon(tipoR,D[r][2]);
     if(tipoR==='ahorro'||tipoR==='deuda'){
       sh.getRange(r+1,3).setValue(canonR);
-      if(!_catalogActivoPermitido(tipoR,canonR)) sh.getRange(r+1,4).setValue('inactivo');
     }
   }
   return sh;
@@ -1317,7 +1319,6 @@ function _catalogRows(ss,includeInactive){
     var tipo=_s(D[i][1]),nombre=_catalogNombreCanon(tipo,D[i][2]);
     if(!tipo||!nombre) continue;
     var estado=_s(D[i][3])||'activo';
-    if((tipo==='ahorro'||tipo==='deuda')&&!_catalogActivoPermitido(tipo,nombre)) estado='inactivo';
     var key=tipo+'|'+_normKey(nombre);
     if(seen[key]){
       if(estado==='activo') out[seen[key]-1].estado='activo';
