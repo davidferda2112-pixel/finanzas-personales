@@ -1136,6 +1136,16 @@ function _catalogNombreCanon(tipo,nombre){
   for(var i=0;i<lista.length;i++) if(_normKey(lista[i])===key) return lista[i];
   return _s(nombre);
 }
+function _normalizarSubcategoriaMovimiento(tipo,nombre){
+  tipo=_s(tipo);
+  nombre=_s(nombre);
+  if(tipo==='ahorro'||tipo==='deuda') return _catalogNombreCanon(tipo,nombre);
+  if(tipo==='ingreso'){
+    if(_normKey(nombre)===_normKey(INGRESO_DEVOLUCION_AHORRO)) return INGRESO_DEVOLUCION_AHORRO;
+    if(_normKey(nombre)===_normKey(INGRESO_PRESTAMO_RECIBIDO)) return INGRESO_PRESTAMO_RECIBIDO;
+  }
+  return nombre;
+}
 function _catalogActivoPermitido(tipo,nombre){
   var key=_normKey(nombre),lista=tipo==='ahorro'?CATALOGO_AHORROS_ACTIVOS:CATALOGO_DEUDAS_ACTIVAS;
   for(var i=0;i<lista.length;i++) if(_normKey(lista[i])===key) return true;
@@ -1537,12 +1547,17 @@ function registrarMovimiento(params){
     }
     _ensureRegistroBalanceCols(reg);
     var monto=parseFloat(String(params.monto).replace(',','.'))||0;
+    var tipoMov=_s(params.tipo);
+    var subMov=_normalizarSubcategoriaMovimiento(tipoMov,params.subcategoria);
+    params.tipo=tipoMov;
+    params.subcategoria=subMov;
+    params.categoria=_s(params.categoria||tipoMov)||tipoMov;
     var balMeta=_movimientoBalanceMeta(ss,params,monto);
     if(!balMeta.ok) return balMeta;
     var id=new Date().getTime().toString();
     var ultimaFila=reg.getLastRow()+1;
     reg.getRange(ultimaFila,1,1,14).setValues([[
-      id,_nowLocal(),mes,params.tipo,params.categoria,params.subcategoria,monto,
+      id,_nowLocal(),mes,tipoMov,params.categoria,subMov,monto,
       _fechaISOTexto(params.fecha),params.notas||'',mesCaja,
       balMeta.meta.id||'',balMeta.meta.tipo||'',balMeta.meta.nombre||'',balMeta.meta.grupo||''
     ]]);
@@ -1675,10 +1690,12 @@ function getDesgloseSub(mes,subcategoria){
     var ss=getSS();
     var reg=ss.getSheetByName('Registro');
     if(!reg) return{ok:true,data:[]};
+    var mesBuscado=_normalizarMesNombre(mes);
+    var subBuscada=_normKey(subcategoria);
     var D=reg.getDataRange().getValues(),result=[];
     for(var i=1;i<D.length;i++){
-      var mesFila=_s(D[i][2]).replace(/^'+/,'');
-      if(mesFila===mes&&_s(D[i][5])===subcategoria)
+      var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
+      if(mesFila===mesBuscado&&_normKey(D[i][5])===subBuscada)
         result.push({id:_s(D[i][0]),tipo:_s(D[i][3]),categoria:_s(D[i][4]),subcategoria:_s(D[i][5]),fecha:_fmtFechaSimple(D[i][7]),monto:_n(D[i][6]),notas:_s(D[i][8])});
     }
     return{ok:true,data:result};
@@ -1985,7 +2002,10 @@ function actualizarMovimiento(params){
       newMes=newMes.charAt(0).toUpperCase()+newMes.slice(1);
       var newMesCaja=_normalizarMesNombre(params.mesRegistro||_mesDesdeFechaMovimiento(params.fecha)||newMes);
       var newTipo=_s(params.tipo);
-      var newSub=_s(params.subcategoria);
+      var newSub=_normalizarSubcategoriaMovimiento(newTipo,params.subcategoria);
+      params.tipo=newTipo;
+      params.subcategoria=newSub;
+      params.categoria=_s(params.categoria||newTipo)||newTipo;
       var newMonto=parseFloat(String(params.monto).replace(',','.'))||0;
 
       _ajustarImpactoRegistro(ss,D[i],-oldMonto);
@@ -2125,30 +2145,35 @@ function _enriquecerConRegistros(d,mes){
     var D=reg.getDataRange().getValues();
     if(D.length<=1) return d;
 
-    var totalEgrApp=0,totalIngApp=0,sumasPorSub={};
+    var totalEgrApp=0,totalIngApp=0,sumasPorTipo={ingreso:{},necesidad:{},deseo:{},deuda:{},ahorro:{}};
     for(var i=1;i<D.length;i++){
       var mesFila=_normalizarMesNombre(_s(D[i][2]).replace(/^'+/,''));
-      var tipo=_s(D[i][3]),sub=_s(D[i][5]),monto=_n(D[i][6]);
+      var tipo=_s(D[i][3]),sub=_normalizarSubcategoriaMovimiento(tipo,D[i][5]),monto=_n(D[i][6]);
       if(mesFila===mes){
         if(tipo==='ingreso') totalIngApp+=monto;
         else totalEgrApp+=monto;
       }
       if(mesFila!==mes) continue;
-      sumasPorSub[sub]=(sumasPorSub[sub]||0)+monto;
+      if(sumasPorTipo[tipo]){
+        var subKey=_normKey(sub);
+        sumasPorTipo[tipo][subKey]=(sumasPorTipo[tipo][subKey]||0)+monto;
+      }
     }
     var vg0=d.vistaGeneral||{};
     var saldoSheet=vg0.saldoFinal?vg0.saldoFinal.actual:0;
     var saldoBase=_saldoSheetConArrastre(ss,mes,vg0);
     var saldoNecesitaArrastre=Math.abs(_n(saldoBase)-_n(saldoSheet))>0.004;
-    if(Object.keys(sumasPorSub).length===0&&totalIngApp===0&&totalEgrApp===0&&!saldoNecesitaArrastre) return d;
+    var haySumas=Object.keys(sumasPorTipo.ingreso).length+Object.keys(sumasPorTipo.necesidad).length+
+      Object.keys(sumasPorTipo.deseo).length+Object.keys(sumasPorTipo.deuda).length+Object.keys(sumasPorTipo.ahorro).length;
+    if(haySumas===0&&totalIngApp===0&&totalEgrApp===0&&!saldoNecesitaArrastre) return d;
 
     // Clonar para no mutar el objeto cacheado
     var dc=JSON.parse(JSON.stringify(d));
 
-    function actSec(sec){
+    function actSec(sec,tipoSec){
       if(!sec||!sec.items) return sec;
       sec.items=sec.items.map(function(it){
-        var ex=sumasPorSub[it.nombre]||0;
+        var ex=(sumasPorTipo[tipoSec]||{})[_normKey(it.nombre)]||0;
         if(ex===0) return it;
         it.actual=(it.actual||0)+ex;
         it.sobrante=(it.presupuesto||it.préstamo||0)-it.actual;
@@ -2159,14 +2184,14 @@ function _enriquecerConRegistros(d,mes){
       return sec;
     }
 
-    dc.necesidades=actSec(dc.necesidades);
-    dc.deseos=actSec(dc.deseos);
-    dc.deudas=actSec(dc.deudas);
-    dc.ahorros=actSec(dc.ahorros);
+    dc.necesidades=actSec(dc.necesidades,'necesidad');
+    dc.deseos=actSec(dc.deseos,'deseo');
+    dc.deudas=actSec(dc.deudas,'deuda');
+    dc.ahorros=actSec(dc.ahorros,'ahorro');
 
     if(dc.ingresos&&dc.ingresos.items){
       dc.ingresos.items=dc.ingresos.items.map(function(it){
-        var ex=sumasPorSub[it.nombre]||0;
+        var ex=(sumasPorTipo.ingreso||{})[_normKey(it.nombre)]||0;
         if(ex===0) return it;
         it.actual=(it.actual||0)+ex;
         return it;
