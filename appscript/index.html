@@ -3765,19 +3765,24 @@ function getResumenTdc(t){
   var meses=G.tdcAnio===2026?t.meses2026:t.meses2025;
   var mesCorto=mes?mes.split(' ')[0].slice(0,3)+' '+mes.split(' ')[1]:'';
   var idx=meses?meses.indexOf(mesCorto):-1;
-  var out={mes:mes,idx:idx,meses:meses,hist:hist,consumos:0,pagos:0,saldoRot:0,saldoReal:0,saldoDiferido:0,saldoRotAnt:0,pendiente:0,saldoFavor:0,alDia:false};
+  var out={mes:mes,idx:idx,meses:meses,hist:hist,consumos:0,pagos:0,pagosMes:0,pagoRotativo:0,pagoDiferido:0,saldoRot:0,saldoReal:0,saldoDiferido:0,saldoRotAnt:0,pendiente:0,saldoFavor:0,alDia:false};
   if(!hist||idx<0)return out;
   var idxPago=idx+1<meses.length?idx+1:idx;
+  var pagosSiguiente=0,tieneRecogido=false;
   hist.forEach(function(f){
     var v=f[meses[idx]]||0;
     var vp=f[meses[idxPago]]||0;
     if(conceptoTdcEs(f.concepto,'Consumos')) out.consumos=v;
-    if(conceptoTdcEs(f.concepto,'Pagos / Créditos')) out.pagos=vp;
+    if(conceptoTdcEs(f.concepto,'Pagos / Créditos')){out.pagosMes=v;pagosSiguiente=vp;}
+    if(f.concepto==='Aplicado a rotativo') out.pagoRotativo=v;
+    if(f.concepto==='Aplicado a diferido') out.pagoDiferido=v;
+    if(f.concepto==='Valor recogido'){out.pagos=v;tieneRecogido=true;}
     if(conceptoTdcEs(f.concepto,'Total/ Saldo Rotativo')) out.saldoRot=v;
     if(conceptoTdcEs(f.concepto,'Saldo Diferido')) out.saldoDiferido=v;
     if(conceptoTdcEs(f.concepto,'Saldo Real')) out.saldoReal=v;
     if(idx>0&&conceptoTdcEs(f.concepto,'Total/ Saldo Rotativo')) out.saldoRotAnt=f[meses[idx-1]]||0;
   });
+  if(!tieneRecogido) out.pagos=pagosSiguiente;
   var delta=Math.round((out.consumos-out.pagos+Number.EPSILON)*100)/100;
   out.pendiente=delta>0?delta:0;
   out.saldoFavor=delta<0?Math.abs(delta):0;
@@ -3824,11 +3829,12 @@ function renderHistorialTarjeta(){
   hist.forEach(function(fila){
     var esSR=fila.concepto==='Saldo Real',esSRot=fila.concepto==='Total/ Saldo Rotativo';
     var esC=conceptoTdcEs(fila.concepto,'Consumos'),esP=conceptoTdcEs(fila.concepto,'Pagos / Créditos');
+    var esAplicado=fila.concepto==='Aplicado a rotativo'||fila.concepto==='Aplicado a diferido',esRecogido=fila.concepto==='Valor recogido';
     html+='<tr style="'+(esSR?'background:rgba(0,122,255,0.03)':esSRot?'background:rgba(255,59,48,0.03)':'')+'">'
-      +'<td style="padding:9px 14px;font-weight:'+(esSR||esSRot?'700':'500')+';color:'+(esSR?'var(--blue)':esSRot?'var(--over)':'var(--t1)')+';white-space:nowrap;border-bottom:0.5px solid rgba(0,0,0,0.04);position:sticky;left:0;background:'+(esSR?'rgba(230,242,255,0.95)':esSRot?'rgba(255,235,232,0.95)':'rgba(255,255,255,0.92)')+';z-index:1">'+fila.concepto+'</td>';
+      +'<td style="padding:9px 14px;padding-left:'+(esAplicado?'24px':'14px')+';font-weight:'+(esSR||esSRot?'700':esAplicado?'400':'500')+';color:'+(esSR?'var(--blue)':esSRot?'var(--over)':esAplicado?'var(--t3)':esRecogido?'var(--blue)':'var(--t1)')+';white-space:nowrap;border-bottom:0.5px solid rgba(0,0,0,0.04);position:sticky;left:0;background:'+(esSR?'rgba(230,242,255,0.95)':esSRot?'rgba(255,235,232,0.95)':'rgba(255,255,255,0.92)')+';z-index:1">'+fila.concepto+'</td>';
     meses.forEach(function(m){
       var v=fila[m]||0;
-      var col=esSR?'var(--blue)':esSRot?(v>0?'var(--over)':'var(--t3)'):esP?(v>0?'var(--ok)':'var(--t3)'):esC?(v>0?'var(--over)':'var(--t3)'):(v>0?'var(--t1)':'var(--t3)');
+      var col=esSR?'var(--blue)':esSRot?(v>0?'var(--over)':'var(--t3)'):(esP||esAplicado)?(v>0?'var(--ok)':'var(--t3)'):esRecogido?(v>0?'var(--blue)':'var(--t3)'):esC?(v>0?'var(--over)':'var(--t3)'):(v>0?'var(--t1)':'var(--t3)');
       html+='<td style="text-align:right;padding:9px 8px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:12px;font-weight:'+(esSR||esSRot?'700':'400')+';color:'+col+';border-bottom:0.5px solid rgba(0,0,0,0.04);white-space:nowrap">'+(v!==0?fmt(v):'-')+'</td>';
     });
     html+='</tr>';
