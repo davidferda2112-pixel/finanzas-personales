@@ -747,6 +747,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .tc-hist-mobile{display:none;}
 .tc-hist-card{background:rgba(255,255,255,0.94);border:1px solid rgba(0,0,0,0.05);border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:0 3px 14px rgba(0,0,0,0.05);}
 .tc-hist-card .fl-row:first-child{border-top:none;}
+.tdc-payments-row{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.tdc-payments-row:active{background:rgba(52,199,89,.08)!important;}
+.tdc-payments-toggle{display:flex;align-items:center;gap:7px;width:100%;min-height:32px;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:600;text-align:left;cursor:pointer;touch-action:manipulation;}
+.tdc-payments-chevron{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:var(--ok);font-size:15px;line-height:1;flex:0 0 18px;}
 
 .flujo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
 @media(max-width:600px){.flujo-grid{grid-template-columns:1fr 1fr;}}
@@ -1466,7 +1470,7 @@ var G={
   notifOpen:false,srchOpen:false,
   balEdit:false,japEdit:false,pintEdit:false,
   tcIdx:0,tdcAnio:2026,tcMesActual:null,
-  tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcAbonoCargoId:null,tdcExpanded:false,tdcDifMode:null,tdcDiferidos:[],
+  tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcAbonoCargoId:null,tdcExpanded:false,tdcPagosExpanded:false,tdcDifMode:null,tdcDiferidos:[],
   tdcMovsAplicados:[],
   calFecha:new Date(),prCats:null,catResumen:null,
   catManage:null,
@@ -3830,8 +3834,12 @@ function renderHistorialTarjeta(){
     var esSR=fila.concepto==='Saldo Real',esSRot=fila.concepto==='Total/ Saldo Rotativo';
     var esC=conceptoTdcEs(fila.concepto,'Consumos'),esP=conceptoTdcEs(fila.concepto,'Pagos / Créditos');
     var esAplicado=fila.concepto==='Aplicado a rotativo'||fila.concepto==='Aplicado a diferido',esRecogido=fila.concepto==='Valor recogido';
-    html+='<tr style="'+(esSR?'background:rgba(0,122,255,0.03)':esSRot?'background:rgba(255,59,48,0.03)':'')+'">'
-      +'<td style="padding:9px 14px;padding-left:'+(esAplicado?'24px':'14px')+';font-weight:'+(esSR||esSRot?'700':esAplicado?'400':'500')+';color:'+(esSR?'var(--blue)':esSRot?'var(--over)':esAplicado?'var(--t3)':esRecogido?'var(--blue)':'var(--t1)')+';white-space:nowrap;border-bottom:0.5px solid rgba(0,0,0,0.04);position:sticky;left:0;background:'+(esSR?'rgba(230,242,255,0.95)':esSRot?'rgba(255,235,232,0.95)':'rgba(255,255,255,0.92)')+';z-index:1">'+fila.concepto+'</td>';
+    if(esAplicado&&!G.tdcPagosExpanded)return;
+    var conceptoHtml=esP
+      ?'<button type="button" class="tdc-payments-toggle" onclick="toggleDetallePagosTdc(event)" aria-expanded="'+(G.tdcPagosExpanded?'true':'false')+'" aria-label="'+(G.tdcPagosExpanded?'Ocultar':'Mostrar')+' detalle de pagos y créditos"><span class="tdc-payments-chevron" aria-hidden="true">'+(G.tdcPagosExpanded?'&#9662;':'&#9656;')+'</span><span>Pagos / Créditos</span></button>'
+      :fila.concepto;
+    html+='<tr'+(esP?' class="tdc-payments-row" onclick="toggleDetallePagosTdc(event)"':'')+' style="'+(esSR?'background:rgba(0,122,255,0.03)':esSRot?'background:rgba(255,59,48,0.03)':'')+'">'
+      +'<td style="padding:9px 14px;padding-left:'+(esAplicado?'39px':'14px')+';font-weight:'+(esSR||esSRot?'700':esAplicado?'400':'500')+';color:'+(esSR?'var(--blue)':esSRot?'var(--over)':esAplicado?'var(--t3)':esRecogido?'var(--blue)':'var(--t1)')+';white-space:nowrap;border-bottom:0.5px solid rgba(0,0,0,0.04);position:sticky;left:0;background:'+(esSR?'rgba(230,242,255,0.95)':esSRot?'rgba(255,235,232,0.95)':'rgba(255,255,255,0.92)')+';z-index:1">'+conceptoHtml+'</td>';
     meses.forEach(function(m){
       var v=fila[m]||0;
       var col=esSR?'var(--blue)':esSRot?(v>0?'var(--over)':'var(--t3)'):(esP||esAplicado)?(v>0?'var(--ok)':'var(--t3)'):esRecogido?(v>0?'var(--blue)':'var(--t3)'):esC?(v>0?'var(--over)':'var(--t3)'):(v>0?'var(--t1)':'var(--t3)');
@@ -3843,6 +3851,12 @@ function renderHistorialTarjeta(){
   eid('tc-hist').innerHTML='<div class="tc-hist-desktop" style="overflow-x:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:20px">'+html+'</div>';
   if(G._tdcMovsReadyKey===t.id+'|'+G.tcMesActual){renderMovsTdc();return;}
   loadMovsTdc();
+}
+
+function toggleDetallePagosTdc(ev){
+  if(ev){ev.preventDefault();ev.stopPropagation();}
+  G.tdcPagosExpanded=!G.tdcPagosExpanded;
+  renderHistorialTarjeta();
 }
 
 function _mesLargoACortoJS(mes){
