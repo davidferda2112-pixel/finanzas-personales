@@ -9,9 +9,9 @@ var MESES_NOM = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
 
 var ESPECIALES = ['Balance General','Flujo TDC Papi','Flujo de Caja',
                   'Viaje a Japón','Registro','TDC_App','TDC_VISA','TDC_MC','_NOTIF',
-                  'Balance_App','_BALANCE_LOG','_BALANCE_DELETED','_BALANCE_CUSTOM','_CATALOGO_ITEMS','_BALANCE_GROUPS','PINTURAS'];
+                  'Balance_App','_BALANCE_LOG','_BALANCE_DELETED','_BALANCE_CUSTOM','_CATALOGO_ITEMS','_BALANCE_GROUPS','_TDC_DIFERIDOS','PINTURAS'];
 
-var TDC_DIFERIDOS = {
+var TDC_DIFERIDOS_SEED = {
   VISA: [{nombre:'Diferido Artefacta', inicial:366.68, cuota:30.56, cuotasAlMesBase:3, mesBase:'May 26'}],
   MC:   [{nombre:'Television Said', inicial:414.95, cuota:34.58, cuotasAlMesBase:6, mesBase:'May 26'}]
 };
@@ -641,6 +641,52 @@ function actualizarJapon(params){
   }catch(e){return{ok:false,error:e.toString()};}
 }
 
+function _tdcDiferidosSheet(ss){
+  var sh=ss.getSheetByName('_TDC_DIFERIDOS');
+  if(!sh){
+    sh=ss.insertSheet('_TDC_DIFERIDOS');
+    sh.appendRow(['ID','Tarjeta','Nombre','SaldoInicial','Cuota','CuotasAlMesBase','MesBase','Estado','MesLiquidacion','Fecha','BalanceId']);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function _ensureTdcDiferidos(ss){
+  var sh=_tdcDiferidosSheet(ss),D=sh.getDataRange().getValues();
+  if(D.length>1) return sh;
+  Object.keys(TDC_DIFERIDOS_SEED).forEach(function(tarjeta){
+    (TDC_DIFERIDOS_SEED[tarjeta]||[]).forEach(function(d,idx){
+      sh.appendRow([
+        'DIF-'+tarjeta+'-'+(idx+1),tarjeta,d.nombre,d.inicial,d.cuota,d.cuotasAlMesBase,
+        d.mesBase,'activo','',_nowLocal(),tarjeta==='VISA'&&_normKey(d.nombre)==='diferido artefacta'?'2010301.2':''
+      ]);
+    });
+  });
+  return sh;
+}
+
+function _tdcDiferidosRows(ss,tarjeta,includeLiquidated){
+  var sh=_ensureTdcDiferidos(ss),D=sh.getDataRange().getValues(),out=[];
+  for(var i=1;i<D.length;i++){
+    if(tarjeta&&_s(D[i][1])!==tarjeta) continue;
+    var estado=_s(D[i][7])||'activo';
+    if(!includeLiquidated&&estado!=='activo') continue;
+    out.push({
+      id:_s(D[i][0]),row:i+1,tarjeta:_s(D[i][1]),nombre:_s(D[i][2]),inicial:_n(D[i][3]),cuota:_n(D[i][4]),
+      cuotasAlMesBase:_n(D[i][5]),mesBase:_s(D[i][6]),estado:estado,mesLiquidacion:_s(D[i][8]),balanceId:_s(D[i][10])
+    });
+  }
+  return out;
+}
+
+function getDiferidosTdc(tarjeta,mes){
+  try{
+    var rows=_tdcDiferidosRows(getSS(),_s(tarjeta),false),mesCorto=_mesLargoACorto(mes);
+    rows.forEach(function(d){d.saldoActual=_calcularSaldoDiferidoTdc(d.tarjeta,mesCorto,0,[d]);});
+    return{ok:true,data:rows};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
 function parseTarjetas(){
   try{
     var ss=getSS();
@@ -694,6 +740,7 @@ function parseTarjetas(){
        historial2026:bloqueGC,meses2026:meses2026,
        historial2025:papi2025,meses2025:meses2025}
     ];
+    tarjetas.forEach(function(t){t.diferidos=_tdcDiferidosRows(ss,t.id,true);});
     _enriquecerTarjetasConApp(ss, tarjetas);
     return{ok:true,tarjetas:tarjetas};
   }catch(e){return{ok:false,error:e.toString()};}
@@ -733,7 +780,7 @@ function _recalcularHistorialTdc(t){
 
   meses.forEach(function(m,idx){
     if(idx>0) saldoAnt[m]=_tdcMoney(rotativo[meses[idx-1]]);
-    diferido[m]=_calcularSaldoDiferidoTdc(t.id,m,diferido[m]);
+    diferido[m]=_calcularSaldoDiferidoTdc(t.id,m,diferido[m],t.diferidos);
     rotativo[m]=_tdcMoney((saldoAnt[m]||0)+(consumos[m]||0)-(pagos[m]||0));
     real[m]=_tdcMoney((rotativo[m]||0)+(diferido[m]||0));
   });
@@ -748,13 +795,15 @@ function _filaTdc(hist, concepto){
   return fila;
 }
 
-function _calcularSaldoDiferidoTdc(tarjeta, mesCorto, valorHoja){
-  var cfg=TDC_DIFERIDOS[tarjeta]||[];
+function _calcularSaldoDiferidoTdc(tarjeta, mesCorto, valorHoja,cfg){
+  cfg=cfg||[];
   if(!cfg.length) return _tdcMoney(valorHoja||0);
   var total=0;
   cfg.forEach(function(d){
-    var idxMes=_idxMesCorto(mesCorto),idxBase=_idxMesCorto(d.mesBase);
+    var idxMes=_ordenMesCorto(mesCorto),idxBase=_ordenMesCorto(d.mesBase);
     if(idxMes<0||idxBase<0){total+=_n(valorHoja);return;}
+    var idxLiquidacion=_ordenMesCorto(_mesLargoACorto(d.mesLiquidacion));
+    if(d.estado==='liquidado'&&idxLiquidacion>=0&&idxMes>=idxLiquidacion) return;
     var cuotasCobradas=(d.cuotasAlMesBase||0)+(idxMes-idxBase);
     if(cuotasCobradas<0) cuotasCobradas=0;
     var saldo=(d.inicial||0)-((d.cuota||0)*cuotasCobradas);
@@ -766,6 +815,13 @@ function _calcularSaldoDiferidoTdc(tarjeta, mesCorto, valorHoja){
 function _idxMesCorto(mesCorto){
   var abbr=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   return abbr.indexOf(String(mesCorto||'').split(' ')[0]);
+}
+
+function _ordenMesCorto(mesCorto){
+  var p=String(mesCorto||'').split(' '),idx=_idxMesCorto(mesCorto),yy=parseInt(p[1],10);
+  if(idx<0||isNaN(yy)) return -1;
+  if(yy<100) yy+=2000;
+  return yy*12+idx;
 }
 
 function getTarjetasState(opts){
@@ -879,6 +935,121 @@ function _sumarFilaTdc(hist, concepto, mesCorto, monto){
   }
 }
 
+function _tdcAppSheet(ss){
+  var sh=ss.getSheetByName('TDC_App');
+  var heads=['ID','Timestamp','Mes','Tarjeta','Tipo','Monto','Fecha','Notas','Origen','RegistroID','Categoria','Subcategoria','CargoID','DiferidoID'];
+  if(!sh){
+    sh=ss.insertSheet('TDC_App');
+    sh.getRange(1,1,1,heads.length).setValues([heads]);
+    sh.setFrozenRows(1);
+  }else{
+    for(var i=0;i<heads.length;i++) if(_s(sh.getRange(1,i+1).getValue())!==heads[i]) sh.getRange(1,i+1).setValue(heads[i]);
+  }
+  return sh;
+}
+
+function _appendTdcApp(sh,data){
+  var id=data.id||Utilities.getUuid();
+  sh.appendRow([
+    id,new Date().toISOString(),_normalizarMesNombre(data.mes),data.tarjeta,data.tipo,_n(data.monto),
+    _fechaISOTexto(data.fecha)||'',data.notas||'',data.origen||'',data.registroId||'',data.categoria||'',
+    data.subcategoria||'',data.cargoId||'',data.diferidoId||''
+  ]);
+  var row=sh.getLastRow();
+  sh.getRange(row,3).setNumberFormat('@STRING@').setValue(_normalizarMesNombre(data.mes));
+  sh.getRange(row,7).setNumberFormat('@STRING@').setValue(_fechaISOTexto(data.fecha)||'');
+  return id;
+}
+
+function registrarDiferidoTdc(params){
+  try{
+    params=params||{};
+    var ss=getSS(),tarjeta=_s(params.tarjeta),nombre=_s(params.nombre),inicial=_n(params.inicial),cuota=_n(params.cuota);
+    var mesInicio=_normalizarMesNombre(params.mesInicio),balanceId=_s(params.balanceId),grupo=_s(params.grupo)||'Tarjeta de Crédito';
+    if(['VISA','MC'].indexOf(tarjeta)===-1) return{ok:false,error:'Tarjeta inválida'};
+    if(!nombre) return{ok:false,error:'Escribe el nombre del diferido'};
+    if(inicial<=0||cuota<=0) return{ok:false,error:'Ingresa saldo y cuota válidos'};
+    if(!mesInicio) return{ok:false,error:'Selecciona el primer mes de cobro'};
+    var nuevoBalance=false;
+    if(!balanceId&&_s(params.balanceNombreNuevo)){
+      var creado=guardarBalanceItem({tipo:'Pasivo',nombre:_s(params.balanceNombreNuevo),valor:inicial,grupo:grupo,nota:'Nuevo diferido '+tarjeta});
+      if(!creado||!creado.ok) return creado;
+      balanceId=creado.codigo;nuevoBalance=true;
+    }
+    var pasivo=_findBalanceItem(ss,balanceId);
+    if(!pasivo||pasivo.tipo!=='Pasivo') return{ok:false,error:'Selecciona o crea el pasivo relacionado'};
+    if(!nuevoBalance){
+      var antesBal=getBalanceGeneral(),antes=0;
+      if(antesBal&&antesBal.ok) (antesBal.pasivos||[]).some(function(x){if(x.codigo===balanceId){antes=x.valor;return true;}return false;});
+      _actualizarBalanceApp(ss,[{codigo:balanceId,op:'pasivo',signo:1}],inicial);
+      _appendBalanceLog(ss,{codigo:balanceId,nombre:pasivo.nombre,tipo:'Pasivo',accion:'nuevo diferido',anterior:antes,nuevo:antes+inicial,nota:nombre});
+    }
+    var cat=_guardarCatalogoItem(ss,{tipo:'deuda',nombre:nombre,estado:'activo',balanceCodigo:balanceId,grupo:grupo,nota:'Diferido '+tarjeta});
+    if(!cat||!cat.ok) return cat;
+    var id='DIF-'+tarjeta+'-'+new Date().getTime();
+    _ensureTdcDiferidos(ss).appendRow([id,tarjeta,nombre,inicial,cuota,1,_mesLargoACorto(mesInicio),'activo','',_nowLocal(),balanceId]);
+    var shTdc=_tdcAppSheet(ss),restante=inicial,mes=mesInicio,idx=0;
+    while(restante>0.004&&idx<120){
+      var valor=Math.min(cuota,restante);
+      _appendTdcApp(shTdc,{mes:mes,tarjeta:tarjeta,tipo:'cargo',monto:valor,notas:nombre,origen:'diferido',diferidoId:id});
+      restante=_tdcMoney(restante-valor);mes=_mesSiguienteNombre(mes);idx++;
+    }
+    cDel('flujo');
+    return{ok:true,id:id,state:_postCambioState({homeMes:params.homeMes||mesInicio,histMes:params.histMes||mesInicio,includeHome:false,tdcMovs:true,cardMes:params.cardMes||mesInicio,cardId:tarjeta,cardIdx:params.cardIdx,cardYear:params.cardYear})};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
+function liquidarDiferidoTdc(params){
+  try{
+    params=params||{};
+    var ss=getSS(),tarjeta=_s(params.tarjeta),id=_s(params.diferidoId),mesPago=_normalizarMesNombre(params.mesPago);
+    var total=_n(params.total),montoSaldo=_n(params.montoSaldo),montoActivo=_n(params.montoActivo),activoId=_s(params.activoId);
+    var difs=_tdcDiferidosRows(ss,tarjeta,true),dif=null;
+    for(var d=0;d<difs.length;d++) if(difs[d].id===id){dif=difs[d];break;}
+    if(!dif||dif.estado!=='activo') return{ok:false,error:'Diferido no encontrado o ya liquidado'};
+    if(total<=0||Math.abs((montoSaldo+montoActivo)-total)>0.01) return{ok:false,error:'Los orígenes deben sumar el total a liquidar'};
+    if(montoActivo>0&&!activoId) return{ok:false,error:'Selecciona el activo de donde sale el dinero'};
+    var registroId='';
+    if(montoSaldo>0){
+      var r=registrarMovimiento({mes:_normalizarMesNombre(params.mesGasto||params.homeMes||mesPago),mesRegistro:_mesDesdeFechaMovimiento(params.fecha)||_normalizarMesNombre(params.homeMes||mesPago),tipo:'deuda',categoria:'deuda',subcategoria:dif.nombre,monto:String(montoSaldo),fecha:params.fecha,notas:'Liquidación '+dif.nombre+' · '+tarjeta,fast:true});
+      if(!r||!r.ok) return r;
+      registroId=r.id||'';
+    }
+    if(montoActivo>0){
+      var activo=_findBalanceItem(ss,activoId);
+      if(!activo||activo.tipo!=='Activo') return{ok:false,error:'Activo de origen no encontrado'};
+      var balAntes=getBalanceGeneral(),valorActivo=0,valorPasivo=0;
+      if(balAntes&&balAntes.ok){
+        (balAntes.activos||[]).some(function(x){if(x.codigo===activoId){valorActivo=x.valor;return true;}return false;});
+        (balAntes.pasivos||[]).some(function(x){if(x.codigo===dif.balanceId){valorPasivo=x.valor;return true;}return false;});
+      }
+      _actualizarBalanceApp(ss,[{codigo:activoId,op:'activo',signo:-1}],montoActivo);
+      if(dif.balanceId) _actualizarBalanceApp(ss,[{codigo:dif.balanceId,op:'pasivo',signo:-1}],montoActivo);
+      _appendBalanceLog(ss,{codigo:activoId,nombre:activo.nombre,tipo:'Activo',accion:'liquidar diferido',anterior:valorActivo,nuevo:valorActivo-montoActivo,nota:dif.nombre});
+      if(dif.balanceId) _appendBalanceLog(ss,{codigo:dif.balanceId,nombre:dif.nombre,tipo:'Pasivo',accion:'liquidar diferido',anterior:valorPasivo,nuevo:Math.max(0,valorPasivo-montoActivo-montoSaldo),nota:tarjeta});
+    }
+    var shTdc=_tdcAppSheet(ss),D=shTdc.getDataRange().getValues(),borrar=[],cargoIds={};
+    for(var i=1;i<D.length;i++){
+      var mismoDif=_s(D[i][13])===id||(_s(D[i][3])===tarjeta&&_normKey(D[i][7])===_normKey(dif.nombre));
+      if(mismoDif&&_s(D[i][4])==='cargo'&&_ordenMesNombre(D[i][2])>=_ordenMesNombre(mesPago)){
+        borrar.push(i+1);cargoIds[_s(D[i][0])]=true;
+      }
+    }
+    for(var c=1;c<D.length;c++) if(cargoIds[_s(D[c][12])]) shTdc.getRange(c+1,13).setValue('');
+    borrar.sort(function(a,b){return b-a;}).forEach(function(row){shTdc.deleteRow(row);});
+    _appendTdcApp(shTdc,{mes:mesPago,tarjeta:tarjeta,tipo:'abono',monto:total,fecha:params.fecha,notas:'Liquidación '+dif.nombre,origen:'liquidacion',registroId:registroId,categoria:'deuda',subcategoria:dif.nombre,diferidoId:id});
+    var shDif=_ensureTdcDiferidos(ss);
+    shDif.getRange(dif.row,8,1,3).setValues([['liquidado',mesPago,_nowLocal()]]);
+    _setCatalogEstado(ss,'deuda',dif.nombre,'inactivo');
+    if(dif.balanceId){
+      var deleted=_getBalanceDeletedMap(ss);
+      if(!deleted[dif.balanceId]) _balanceDeletedSheet(ss).appendRow([new Date(),dif.balanceId,dif.nombre,'Pasivo','Liquidación total']);
+    }
+    cDel('flujo');
+    return{ok:true,state:_postCambioState({homeMes:params.homeMes||mesPago,histMes:params.histMes||params.homeMes||mesPago,includeHome:montoSaldo>0,tdcMovs:true,cardMes:params.cardMes||params.mesGasto||mesPago,cardId:tarjeta,cardIdx:params.cardIdx,cardYear:params.cardYear})};
+  }catch(e){return{ok:false,error:e.toString()};}
+}
+
 function registrarMovimientoTarjeta(params){
   try{
     var ss=getSS();
@@ -912,22 +1083,8 @@ function registrarMovimientoTarjeta(params){
       mesCajaRespuesta=r.mesCaja||mesRegistro;
     }
 
-    var sh=ss.getSheetByName('TDC_App');
-    if(!sh){
-      sh=ss.insertSheet('TDC_App');
-      sh.appendRow(['ID','Timestamp','Mes','Tarjeta','Tipo','Monto','Fecha','Notas','Origen','RegistroID','Categoria','Subcategoria','CargoID']);
-      sh.setFrozenRows(1);
-    }else if(sh.getLastColumn()<13){
-      sh.getRange(1,13).setValue('CargoID');
-    }
-    var id=new Date().getTime().toString();
-    sh.appendRow([
-      id,new Date().toISOString(),mes,tarjeta,tipo,monto,_fechaISOTexto(params.fecha)||'',params.notas||'',
-      params.origen||'',registroId,params.egresoTipo||'',params.subcategoria||'',params.cargoId||''
-    ]);
-    var ultimaFila=sh.getLastRow();
-    sh.getRange(ultimaFila,3).setNumberFormat('@STRING@').setValue(mes);
-    sh.getRange(ultimaFila,7).setNumberFormat('@STRING@').setValue(_fechaISOTexto(params.fecha));
+    var sh=_tdcAppSheet(ss);
+    var id=_appendTdcApp(sh,{mes:mes,tarjeta:tarjeta,tipo:tipo,monto:monto,fecha:params.fecha,notas:params.notas,origen:params.origen,registroId:registroId,categoria:params.egresoTipo,subcategoria:params.subcategoria,cargoId:params.cargoId,diferidoId:params.diferidoId});
     var mesCaja=_mesDesdeFechaMovimiento(params.fecha);
     cDel('flujo');
     cDel('mes_'+mes.replace(/ /g,'_'));
@@ -975,7 +1132,7 @@ function getMovimientosTarjeta(mes,tarjeta){
       result.push({
         id:_s(D[i][0]),orden:i,timestamp:_s(D[i][1]),mes:mesFila,tarjeta:_s(D[i][3]),
         tipo:_s(D[i][4]),monto:_n(D[i][5]),fecha:_fmtFechaSimple(D[i][6]),fechaOrden:_fechaMsSimple(D[i][6]),notas:_s(D[i][7]),
-        origen:_s(D[i][8]),registroId:_s(D[i][9]),categoria:_s(D[i][10]),subcategoria:_s(D[i][11]),cargoId:_s(D[i][12])
+        origen:_s(D[i][8]),registroId:_s(D[i][9]),categoria:_s(D[i][10]),subcategoria:_s(D[i][11]),cargoId:_s(D[i][12]),diferidoId:_s(D[i][13])
       });
     }
     result.sort(function(a,b){

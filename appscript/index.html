@@ -871,6 +871,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .tdc-abono-target{display:none}
 .tdc-abono-target.open{display:block}
 .tdc-target-hint{font-size:11px;color:var(--t2);line-height:1.35;margin-top:-5px;margin-bottom:8px}
+.tdc-deferred-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:9px;margin:12px 0 4px}
+.tdc-deferred-actions .btn{min-width:0;min-height:44px;padding:10px 8px;font-size:13px}
+.tdc-source-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:9px}
 .tdc-form-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(136px,.56fr);gap:10px;align-items:end}
 .tdc-form-row:not(.has-target){grid-template-columns:1fr}
 .tdc-form-row:not(.has-target) .tdc-date-box{grid-column:1/-1}
@@ -1082,6 +1085,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="card cr12 mb14" id="tc-app-movs"></div>
       <div class="lup mb10">Historial transaccional</div>
       <div class="card mb14" style="overflow-x:auto" id="tc-hist"></div>
+      <div class="tdc-deferred-actions">
+        <button class="btn bgh" onclick="abrirDiferidoTdc('agregar')">+ Agregar diferido</button>
+        <button class="btn br" onclick="abrirDiferidoTdc('liquidar')">Liquidar diferido</button>
+      </div>
     </div>
   </div>
 
@@ -1334,7 +1341,40 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   </div>
 </div>
 
-<!-- MODAL CONFIRMAR ELIMINACIN TDC -->
+<!-- MODAL DIFERIDOS TDC -->
+<div class="mov" id="mov-tdc-dif" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="msh" style="max-height:88vh;overflow-y:auto">
+    <div class="mhnd"></div>
+    <div class="mti" id="tdc-dif-title">Diferido</div>
+    <div id="tdc-dif-add">
+      <div class="fg"><div class="fl">Nombre</div><input class="fi" id="tdc-dif-nombre" type="text" placeholder="Nombre del diferido"></div>
+      <div class="tdc-source-grid">
+        <div class="fg"><div class="fl">Saldo total ($)</div><input class="fi bn" id="tdc-dif-total" type="text" inputmode="decimal" placeholder="0.00"></div>
+        <div class="fg"><div class="fl">Cuota mensual ($)</div><input class="fi bn" id="tdc-dif-cuota" type="text" inputmode="decimal" placeholder="0.00"></div>
+      </div>
+      <div class="fg"><div class="fl">Primer mes de cobro</div><select class="fs" id="tdc-dif-inicio"></select></div>
+      <div class="fg"><div class="fl">Pasivo relacionado</div><select class="fs" id="tdc-dif-pasivo" onchange="toggleNuevoPasivoDiferido()"></select></div>
+      <div class="fg" id="tdc-dif-pasivo-new-box" style="display:none"><div class="fl">Nombre del nuevo pasivo</div><input class="fi" id="tdc-dif-pasivo-new" type="text" placeholder="Nombre para Balance General"></div>
+    </div>
+    <div id="tdc-dif-pay" style="display:none">
+      <div class="fg"><div class="fl">Diferido activo</div><select class="fs" id="tdc-dif-select" onchange="actualizarLiquidacionDiferido()"></select></div>
+      <div class="tdc-source-grid">
+        <div class="fg"><div class="fl">Total a liquidar ($)</div><input class="fi bn" id="tdc-liq-total" type="text" inputmode="decimal" readonly></div>
+        <div class="fg"><div class="fl">Pagos / Créditos</div><select class="fs" id="tdc-liq-mes"></select></div>
+      </div>
+      <div class="fg"><div class="fl">Fecha</div><input class="fi" id="tdc-liq-fecha" type="date"></div>
+      <div class="lup mb10">Origen del dinero</div>
+      <div class="tdc-source-grid">
+        <div class="fg"><div class="fl">Saldo disponible ($)</div><input class="fi bn" id="tdc-liq-saldo" type="text" inputmode="decimal" value="0.00"></div>
+        <div class="fg"><div class="fl">Activo del balance ($)</div><input class="fi bn" id="tdc-liq-activo-monto" type="text" inputmode="decimal" value="0.00"></div>
+      </div>
+      <div class="fg"><div class="fl">Activo de origen</div><select class="fs" id="tdc-liq-activo"></select></div>
+    </div>
+    <div class="fr g8"><button class="btn bgh bful" onclick="eid('mov-tdc-dif').classList.remove('open')">Cancelar</button><button class="btn bb bful" id="btn-tdc-dif-save" onclick="guardarDiferidoTdc()">Guardar</button></div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAR ELIMINACIÓN TDC -->
 <div class="mov" id="mov-tdc-del" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="msh">
     <div class="mhnd"></div>
@@ -1426,7 +1466,7 @@ var G={
   notifOpen:false,srchOpen:false,
   balEdit:false,japEdit:false,pintEdit:false,
   tcIdx:0,tdcAnio:2026,tcMesActual:null,
-  tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcAbonoCargoId:null,tdcExpanded:false,
+  tdcAccion:null,tdcMovs:[],tdcEditId:null,tdcDeleteId:null,tdcAbonoCargoId:null,tdcExpanded:false,tdcDifMode:null,tdcDiferidos:[],
   tdcMovsAplicados:[],
   calFecha:new Date(),prCats:null,catResumen:null,
   catManage:null,
@@ -3725,7 +3765,7 @@ function getResumenTdc(t){
   var meses=G.tdcAnio===2026?t.meses2026:t.meses2025;
   var mesCorto=mes?mes.split(' ')[0].slice(0,3)+' '+mes.split(' ')[1]:'';
   var idx=meses?meses.indexOf(mesCorto):-1;
-  var out={mes:mes,idx:idx,meses:meses,hist:hist,consumos:0,pagos:0,saldoRot:0,saldoReal:0,saldoRotAnt:0,pendiente:0,saldoFavor:0,alDia:false};
+  var out={mes:mes,idx:idx,meses:meses,hist:hist,consumos:0,pagos:0,saldoRot:0,saldoReal:0,saldoDiferido:0,saldoRotAnt:0,pendiente:0,saldoFavor:0,alDia:false};
   if(!hist||idx<0)return out;
   var idxPago=idx+1<meses.length?idx+1:idx;
   hist.forEach(function(f){
@@ -3734,6 +3774,7 @@ function getResumenTdc(t){
     if(conceptoTdcEs(f.concepto,'Consumos')) out.consumos=v;
     if(conceptoTdcEs(f.concepto,'Pagos / Créditos')) out.pagos=vp;
     if(conceptoTdcEs(f.concepto,'Total/ Saldo Rotativo')) out.saldoRot=v;
+    if(conceptoTdcEs(f.concepto,'Saldo Diferido')) out.saldoDiferido=v;
     if(conceptoTdcEs(f.concepto,'Saldo Real')) out.saldoReal=v;
     if(idx>0&&conceptoTdcEs(f.concepto,'Total/ Saldo Rotativo')) out.saldoRotAnt=f[meses[idx-1]]||0;
   });
@@ -4058,6 +4099,79 @@ function confirmarEliminarTdc(){
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
     .eliminarMovimientoTarjeta({id:G.tdcDeleteId,fast:true,returnState:true,homeMes:G.mesActual,histMes:G.histMes||G.mesActual,cardMes:G.tcMesActual||G.mesActual,cardIdx:G.tcIdx||0,cardYear:G.tdcAnio||2026});
+}
+
+function llenarMesesDiferido(id,valor){
+  var el=eid(id);if(!el)return;
+  var meses=(G.meses||[]).slice(),base=G.tcMesActual||G.mesActual;
+  if(base&&meses.indexOf(base)<0)meses.push(base);
+  var sig=mesSiguienteNombre(base);if(sig&&meses.indexOf(sig)<0)meses.push(sig);
+  el.innerHTML=meses.map(function(m){return'<option value="'+hEsc(m)+'">'+hEsc(m)+'</option>';}).join('');
+  el.value=valor&&meses.indexOf(valor)>=0?valor:(sig||base||meses[0]||'');
+}
+
+function toggleNuevoPasivoDiferido(){
+  eid('tdc-dif-pasivo-new-box').style.display=eid('tdc-dif-pasivo').value==='__new'?'block':'none';
+}
+
+function abrirDiferidoTdc(modo){
+  var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
+  G.tdcDifMode=modo;
+  eid('tdc-dif-title').textContent=modo==='agregar'?'Agregar diferido a '+t.nombre:'Liquidar diferido de '+t.nombre;
+  eid('tdc-dif-add').style.display=modo==='agregar'?'block':'none';
+  eid('tdc-dif-pay').style.display=modo==='liquidar'?'block':'none';
+  eid('tdc-liq-fecha').value=todayISO();
+  llenarMesesDiferido('tdc-dif-inicio',G.tcMesActual||G.mesActual);
+  llenarMesesDiferido('tdc-liq-mes',mesSiguienteNombre(G.tcMesActual||G.mesActual));
+  var abrir=function(){eid('mov-tdc-dif').classList.add('open');};
+  var prepCatalog=function(){
+    if(modo==='agregar'){
+      fillBalanceDestinoSelect('tdc-dif-pasivo','Pasivo','',true);
+      eid('tdc-dif-nombre').value='';eid('tdc-dif-total').value='';eid('tdc-dif-cuota').value='';
+      eid('tdc-dif-pasivo').value='__new';eid('tdc-dif-pasivo-new').value='';toggleNuevoPasivoDiferido();abrir();return;
+    }
+    gsRun('getDiferidosTdc',[t.id,G.tcMesActual||G.mesActual]).then(function(res){
+      G.tdcDiferidos=res&&res.ok?res.data||[]:[];
+      if(!G.tdcDiferidos.length){showToast('No hay diferidos activos en esta tarjeta','err');return;}
+      eid('tdc-dif-select').innerHTML=G.tdcDiferidos.map(function(d){return'<option value="'+hEsc(d.id)+'">'+hEsc(d.nombre)+'</option>';}).join('');
+      fillBalanceDestinoSelect('tdc-liq-activo','Activo','',false);
+      actualizarLiquidacionDiferido();abrir();
+    }).catch(function(e){showToast('Error al cargar diferidos: '+e,'err');});
+  };
+  if(!G.catalogo)loadCatalogo().then(prepCatalog);else prepCatalog();
+}
+
+function actualizarLiquidacionDiferido(){
+  var id=eid('tdc-dif-select').value,d=(G.tdcDiferidos||[]).filter(function(x){return x.id===id;})[0];
+  var total=d?moneyVal(d.saldoActual):0;
+  eid('tdc-liq-total').value=total.toFixed(2);
+  eid('tdc-liq-saldo').value='0.00';eid('tdc-liq-activo-monto').value=total.toFixed(2);
+}
+
+function guardarDiferidoTdc(){
+  var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
+  var btn=eid('btn-tdc-dif-save');btn.disabled=true;btn.textContent='Guardando...';
+  var fn,params;
+  if(G.tdcDifMode==='agregar'){
+    var pasivo=eid('tdc-dif-pasivo').value,nombre=eid('tdc-dif-nombre').value.trim();
+    params={tarjeta:t.id,nombre:nombre,inicial:String(moneyVal(eid('tdc-dif-total').value)),cuota:String(moneyVal(eid('tdc-dif-cuota').value)),mesInicio:eid('tdc-dif-inicio').value,balanceId:pasivo==='__new'?'':pasivo,balanceNombreNuevo:pasivo==='__new'?(eid('tdc-dif-pasivo-new').value.trim()||nombre):'',grupo:'Tarjeta de Crédito',homeMes:G.mesActual,histMes:G.histMes||G.mesActual,cardMes:G.tcMesActual||G.mesActual,cardIdx:G.tcIdx||0,cardYear:G.tdcAnio||2026};
+    if(!nombre||!moneyVal(params.inicial)||!moneyVal(params.cuota)){btn.disabled=false;btn.textContent='Guardar';showToast('Completa nombre, saldo y cuota','err');return;}
+    fn='registrarDiferidoTdc';
+  }else{
+    var total=moneyVal(eid('tdc-liq-total').value),saldo=moneyVal(eid('tdc-liq-saldo').value),activoMonto=moneyVal(eid('tdc-liq-activo-monto').value);
+    if(Math.abs((saldo+activoMonto)-total)>0.01){btn.disabled=false;btn.textContent='Guardar';showToast('Los orígenes deben sumar '+fmt(total),'err');return;}
+    if(activoMonto>0&&!eid('tdc-liq-activo').value){btn.disabled=false;btn.textContent='Guardar';showToast('Selecciona el activo de origen','err');return;}
+    if(!confirm('Se liquidará el diferido por '+fmt(total)+' y su saldo quedará en cero. ¿Continuar?')){btn.disabled=false;btn.textContent='Guardar';return;}
+    params={tarjeta:t.id,diferidoId:eid('tdc-dif-select').value,total:String(total),montoSaldo:String(saldo),montoActivo:String(activoMonto),activoId:eid('tdc-liq-activo').value,mesPago:eid('tdc-liq-mes').value,mesGasto:G.tcMesActual||G.mesActual,fecha:eid('tdc-liq-fecha').value,homeMes:G.mesActual,histMes:G.histMes||G.mesActual,cardMes:G.tcMesActual||G.mesActual,cardIdx:G.tcIdx||0,cardYear:G.tdcAnio||2026};
+    fn='liquidarDiferidoTdc';
+  }
+  gsRun(fn,[params]).then(function(res){
+    btn.disabled=false;btn.textContent='Guardar';
+    if(!res||!res.ok){showToast('Error: '+(res?res.error:'desconocido'),'err');return;}
+    eid('mov-tdc-dif').classList.remove('open');showToast(G.tdcDifMode==='agregar'?'Diferido agregado':'Diferido liquidado','ok');
+    G.catalogo=null;loadCatalogo();
+    if(res.state)aplicarPostChangeState(res.state);else syncTrasCambio({delay:80,mesInicio:G.mesActual,mesHist:G.histMes||G.mesActual,tarjetas:true,historial:true,balance:true});
+  }).catch(function(e){btn.disabled=false;btn.textContent='Guardar';showToast('Error: '+e,'err');});
 }
 
 function abrirModalTDC(){
