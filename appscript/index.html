@@ -1090,8 +1090,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="lup mb10">Historial transaccional</div>
       <div class="card mb14" style="overflow-x:auto" id="tc-hist"></div>
       <div class="tdc-deferred-actions">
-        <button class="btn bgh" onclick="abrirDiferidoTdc('agregar')">+ Agregar diferido</button>
-        <button class="btn br" onclick="abrirDiferidoTdc('liquidar')">Liquidar diferido</button>
+        <button type="button" class="btn bgh" onclick="abrirDiferidoTdc('agregar')">+ Agregar diferido</button>
+        <button type="button" class="btn br" onclick="abrirDiferidoTdc('liquidar')">Liquidar diferido</button>
       </div>
     </div>
   </div>
@@ -1350,6 +1350,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="msh" style="max-height:88vh;overflow-y:auto">
     <div class="mhnd"></div>
     <div class="mti" id="tdc-dif-title">Diferido</div>
+    <div id="tdc-dif-status" style="display:none;margin:-4px 0 14px;padding:10px 12px;border-radius:10px;background:rgba(0,122,255,.08);color:var(--blue);font-size:12px;line-height:1.35"></div>
     <div id="tdc-dif-add">
       <div class="fg"><div class="fl">Nombre</div><input class="fi" id="tdc-dif-nombre" type="text" placeholder="Nombre del diferido"></div>
       <div class="tdc-source-grid">
@@ -3834,6 +3835,7 @@ function renderHistorialTarjeta(){
     var esSR=fila.concepto==='Saldo Real',esSRot=fila.concepto==='Total/ Saldo Rotativo';
     var esC=conceptoTdcEs(fila.concepto,'Consumos'),esP=conceptoTdcEs(fila.concepto,'Pagos / Créditos');
     var esAplicado=fila.concepto==='Aplicado a rotativo'||fila.concepto==='Aplicado a diferido',esRecogido=fila.concepto==='Valor recogido';
+    if(esRecogido)return;
     if(esAplicado&&!G.tdcPagosExpanded)return;
     var conceptoHtml=esP
       ?'<button type="button" class="tdc-payments-toggle" onclick="toggleDetallePagosTdc(event)" aria-expanded="'+(G.tdcPagosExpanded?'true':'false')+'" aria-label="'+(G.tdcPagosExpanded?'Ocultar':'Mostrar')+' detalle de pagos y créditos"><span class="tdc-payments-chevron" aria-hidden="true">'+(G.tdcPagosExpanded?'&#9662;':'&#9656;')+'</span><span>Pagos / Créditos</span></button>'
@@ -4134,31 +4136,80 @@ function toggleNuevoPasivoDiferido(){
   eid('tdc-dif-pasivo-new-box').style.display=eid('tdc-dif-pasivo').value==='__new'?'block':'none';
 }
 
+function estadoCargaDiferido(msg,tipo){
+  var box=eid('tdc-dif-status');if(!box)return;
+  if(!msg){box.style.display='none';box.textContent='';return;}
+  box.style.display='block';box.textContent=msg;
+  box.style.background=tipo==='err'?'rgba(255,59,48,.09)':'rgba(0,122,255,.08)';
+  box.style.color=tipo==='err'?'var(--over)':'var(--blue)';
+}
+
 function abrirDiferidoTdc(modo){
-  var t=G.tarjetas&&G.tarjetas[G.tcIdx];if(!t)return;
+  var t=G.tarjetas&&G.tarjetas[G.tcIdx];
+  if(!t){showToast('Espera a que carguen las tarjetas','err');return;}
+  modo=modo==='liquidar'?'liquidar':'agregar';
   G.tdcDifMode=modo;
+  G._tdcDifLoadSeq=(G._tdcDifLoadSeq||0)+1;
+  var loadSeq=G._tdcDifLoadSeq;
+  var btn=eid('btn-tdc-dif-save');btn.disabled=true;btn.textContent='Cargando...';
   eid('tdc-dif-title').textContent=modo==='agregar'?'Agregar diferido a '+t.nombre:'Liquidar diferido de '+t.nombre;
   eid('tdc-dif-add').style.display=modo==='agregar'?'block':'none';
   eid('tdc-dif-pay').style.display=modo==='liquidar'?'block':'none';
   eid('tdc-liq-fecha').value=todayISO();
   llenarMesesDiferido('tdc-dif-inicio',G.tcMesActual||G.mesActual);
   llenarMesesDiferido('tdc-liq-mes',mesSiguienteNombre(G.tcMesActual||G.mesActual));
-  var abrir=function(){eid('mov-tdc-dif').classList.add('open');};
-  var prepCatalog=function(){
-    if(modo==='agregar'){
+  estadoCargaDiferido(modo==='agregar'?'Cargando opciones del balance...':'Cargando diferidos activos...');
+  if(modo==='agregar'){
+    eid('tdc-dif-nombre').value='';eid('tdc-dif-total').value='';eid('tdc-dif-cuota').value='';
+    eid('tdc-dif-pasivo').disabled=true;
+    eid('tdc-dif-pasivo').innerHTML='<option value="">Cargando...</option>';
+    eid('tdc-dif-pasivo-new').value='';eid('tdc-dif-pasivo-new-box').style.display='none';
+  }else{
+    G.tdcDiferidos=[];
+    eid('tdc-dif-select').disabled=true;
+    eid('tdc-dif-select').innerHTML='<option value="">Cargando...</option>';
+    eid('tdc-liq-activo').disabled=true;
+    eid('tdc-liq-activo').innerHTML='<option value="">Cargando...</option>';
+    eid('tdc-liq-total').value='0.00';eid('tdc-liq-saldo').value='0.00';eid('tdc-liq-activo-monto').value='0.00';
+  }
+  eid('mov-tdc-dif').classList.add('open');
+
+  var catalogPromise=G.catalogo?Promise.resolve(G.catalogo):loadCatalogo();
+  if(modo==='agregar'){
+    catalogPromise.then(function(catalogo){
+      if(loadSeq!==G._tdcDifLoadSeq)return;
+      if(!catalogo)throw new Error('No se pudo cargar el balance');
       fillBalanceDestinoSelect('tdc-dif-pasivo','Pasivo','',true);
-      eid('tdc-dif-nombre').value='';eid('tdc-dif-total').value='';eid('tdc-dif-cuota').value='';
-      eid('tdc-dif-pasivo').value='__new';eid('tdc-dif-pasivo-new').value='';toggleNuevoPasivoDiferido();abrir();return;
-    }
-    gsRun('getDiferidosTdc',[t.id,G.tcMesActual||G.mesActual]).then(function(res){
+      eid('tdc-dif-pasivo').disabled=false;eid('tdc-dif-pasivo').value='__new';toggleNuevoPasivoDiferido();
+      estadoCargaDiferido('');btn.disabled=false;btn.textContent='Guardar';
+    }).catch(function(e){
+      if(loadSeq!==G._tdcDifLoadSeq)return;
+      estadoCargaDiferido('No se pudieron cargar los pasivos. Revisa la conexión e inténtalo otra vez.','err');
+      btn.disabled=true;btn.textContent='Sin conexión';
+    });
+    return;
+  }
+
+  Promise.all([catalogPromise,gsRun('getDiferidosTdc',[t.id,G.tcMesActual||G.mesActual])]).then(function(all){
+      if(loadSeq!==G._tdcDifLoadSeq)return;
+      if(!all[0])throw new Error('No se pudo cargar el balance');
+      var res=all[1];
       G.tdcDiferidos=res&&res.ok?res.data||[]:[];
-      if(!G.tdcDiferidos.length){showToast('No hay diferidos activos en esta tarjeta','err');return;}
+      if(!G.tdcDiferidos.length){
+        eid('tdc-dif-select').innerHTML='<option value="">Sin diferidos activos</option>';
+        estadoCargaDiferido('Esta tarjeta no tiene diferidos activos para liquidar.');
+        btn.disabled=true;btn.textContent='Sin diferidos';return;
+      }
       eid('tdc-dif-select').innerHTML=G.tdcDiferidos.map(function(d){return'<option value="'+hEsc(d.id)+'">'+hEsc(d.nombre)+'</option>';}).join('');
+      eid('tdc-dif-select').disabled=false;
       fillBalanceDestinoSelect('tdc-liq-activo','Activo','',false);
-      actualizarLiquidacionDiferido();abrir();
-    }).catch(function(e){showToast('Error al cargar diferidos: '+e,'err');});
-  };
-  if(!G.catalogo)loadCatalogo().then(prepCatalog);else prepCatalog();
+      eid('tdc-liq-activo').disabled=false;
+      actualizarLiquidacionDiferido();estadoCargaDiferido('');btn.disabled=false;btn.textContent='Guardar';
+    }).catch(function(e){
+      if(loadSeq!==G._tdcDifLoadSeq)return;
+      estadoCargaDiferido('No se pudieron cargar los diferidos. Revisa la conexión e inténtalo otra vez.','err');
+      btn.disabled=true;btn.textContent='Sin conexión';
+    });
 }
 
 function actualizarLiquidacionDiferido(){
