@@ -9,6 +9,7 @@ const {
   nativeRead,
   SUPPORTED_READS
 } = require('../lib/jaeger-supabase-read');
+const { nativeWrite, SUPPORTED_WRITES } = require('../lib/jaeger-supabase-write');
 
 const READ_TTL_MS = {
   getBootState: 12 * 1000,
@@ -150,6 +151,28 @@ module.exports = async function handler(req, res) {
     const args = Array.isArray(body.args) ? body.args : [];
     let supabaseGeneration = null;
     let persistent = { configured: false, hit: false };
+
+    if (WRITE_METHODS.has(body.fn) && SUPPORTED_WRITES.has(body.fn)) {
+      let direct;
+      try {
+        direct = await nativeWrite(body.fn, args, body.requestId);
+      } catch (error) {
+        // Once a native write is attempted, never cross-fallback to Sheets: a
+        // lost response could otherwise duplicate the financial operation.
+        return res.status(502).json({
+          ok: false,
+          error: 'No se pudo confirmar el registro en Supabase. Reintenta la misma operación.'
+        });
+      }
+      if (direct && direct.handled) {
+        clearReadCache();
+        await invalidateAllCachedResponses();
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('X-Jaeger-Source', 'supabase-native-write');
+        if (direct.enrichmentDeferred) res.setHeader('X-Jaeger-State', 'refresh-deferred');
+        return res.status(200).send(JSON.stringify(direct.response));
+      }
+    }
 
     if (WRITE_METHODS.has(body.fn)) {
       try {

@@ -48,7 +48,16 @@
     return key;
   }
 
-  function postToBridge(fn, args, retried) {
+  function makeRequestId() {
+    try { if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID(); } catch (e) {}
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+    });
+  }
+
+  function postToBridge(fn, args, retried, requestId) {
+    requestId = requestId || makeRequestId();
     var key = getAccessKey(false);
     return fetch('/api/apps-script', {
       method: 'POST',
@@ -56,14 +65,14 @@
         'Content-Type': 'application/json',
         'X-App-Key': key
       },
-      body: JSON.stringify({ fn: fn, args: args || [] })
+      body: JSON.stringify({ fn: fn, args: args || [], requestId: requestId })
     }).then(function (response) {
       return response.text().then(function (text) {
         var data = text ? JSON.parse(text) : null;
         if (response.status === 401 && !retried) {
           try { localStorage.removeItem('jaeger_access_key'); } catch (e) {}
           getAccessKey(true);
-          return postToBridge(fn, args, true);
+          return postToBridge(fn, args, true, requestId);
         }
         if (!response.ok) {
           throw new Error((data && data.error) || ('HTTP ' + response.status));
@@ -84,7 +93,7 @@
         }
         return function () {
           var args = Array.prototype.slice.call(arguments);
-          postToBridge(String(prop), args, false).then(function (result) {
+          postToBridge(String(prop), args, false, makeRequestId()).then(function (result) {
             if (successHandler) successHandler(result);
           }).catch(function (error) {
             if (failureHandler) failureHandler(error.message || error);
