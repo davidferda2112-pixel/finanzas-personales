@@ -92,7 +92,7 @@ async function runShadowRead(fn, args, sheetsData, timing) {
   try {
     return await Promise.race([
       compareAndRecord(fn, args, sheetsData, timing),
-      new Promise((resolve) => setTimeout(() => resolve({ status: 'timeout' }), 1200))
+      new Promise((resolve) => setTimeout(() => resolve({ status: 'timeout' }), 500))
     ]);
   } catch (_) {
     return { status: 'error' };
