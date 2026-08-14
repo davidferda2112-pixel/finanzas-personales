@@ -1,3 +1,9 @@
+const {
+  getCachedResponse: getSupabaseCachedResponse,
+  invalidateAllCachedResponses,
+  storeCachedResponse: storeSupabaseCachedResponse
+} = require('../lib/jaeger-supabase-cache');
+
 const READ_TTL_MS = {
   getMesesDisponibles: 5 * 60 * 1000,
   getInitialState: 15 * 1000,
@@ -107,11 +113,30 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ ok: false, error: 'Funcion no valida' });
     }
     const args = Array.isArray(body.args) ? body.args : [];
-    const cached = cachedResponse(body.fn, args);
-    if (cached) {
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('X-Jaeger-Cache', 'hit');
-      return res.status(200).send(cached);
+    let supabaseGeneration = null;
+    let persistent = { configured: false, hit: false };
+
+    if (!WRITE_METHODS.has(body.fn) && READ_TTL_MS[body.fn]) {
+      persistent = await getSupabaseCachedResponse(body.fn, args);
+      supabaseGeneration = persistent.generation;
+      if (persistent.hit) {
+        const persistentText = JSON.stringify(persistent.response);
+        storeReadCache(body.fn, args, persistentText);
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('X-Jaeger-Cache', 'supabase');
+        return res.status(200).send(persistentText);
+      }
+    }
+
+    // The process-local cache is only safe when Supabase is not configured.
+    // Across concurrent server instances, the shared generation is authoritative.
+    if (!persistent.configured) {
+      const cached = cachedResponse(body.fn, args);
+      if (cached) {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('X-Jaeger-Cache', 'memory');
+        return res.status(200).send(cached);
+      }
     }
 
     const upstream = await fetch(appsScriptUrl, {
@@ -134,8 +159,27 @@ module.exports = async function handler(req, res) {
       }
     }
     if (upstream.ok) {
-      if (WRITE_METHODS.has(body.fn)) clearReadCache();
-      else storeReadCache(body.fn, args, text);
+      if (WRITE_METHODS.has(body.fn)) {
+        clearReadCache();
+        const invalidation = await invalidateAllCachedResponses();
+        res.setHeader('X-Jaeger-Sync', invalidation.ok ? 'invalidated' : 'deferred');
+      } else {
+        storeReadCache(body.fn, args, text);
+        try {
+          const parsed = text ? JSON.parse(text) : null;
+          const stored = await storeSupabaseCachedResponse(
+            body.fn,
+            args,
+            parsed,
+            READ_TTL_MS[body.fn],
+            supabaseGeneration
+          );
+          res.setHeader('X-Jaeger-Sync', stored.ok ? 'stored' : 'deferred');
+        } catch (_) {
+          res.setHeader('X-Jaeger-Sync', 'deferred');
+        }
+        res.setHeader('X-Jaeger-Cache', 'sheets');
+      }
     }
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res
@@ -155,3 +199,6 @@ module.exports = async function handler(req, res) {
     return res.status(502).json({ ok: false, error: error.message || String(error) });
   }
 };
+
+module.exports.READ_TTL_MS = READ_TTL_MS;
+module.exports.WRITE_METHODS = WRITE_METHODS;
