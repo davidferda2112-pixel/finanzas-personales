@@ -1,0 +1,3 @@
+-- Historical marker: the remote project received the canonical
+-- card_history_effective definition with the Unicode escape corrected. A clean
+-- migration run already creates that final definition in the preceding file.

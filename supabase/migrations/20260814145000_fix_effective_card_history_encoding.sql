@@ -1,0 +1,4 @@
+-- Historical marker: the remote migration transport first reapplied the view
+-- after detecting a text-encoding mismatch. The canonical definition in
+-- 20260814144500_add_effective_card_history.sql now uses an ASCII-safe Unicode
+-- escape, so a clean migration run requires no additional DDL here.
