@@ -2766,7 +2766,7 @@ function actualizarLiquidacionDiferido(){
   var id=eid('tdc-dif-select').value,d=(G.tdcDiferidos||[]).filter(function(x){return x.id===id;})[0];
   var total=d?moneyVal(d.saldoActual):0;
   eid('tdc-liq-total').value=total.toFixed(2);
-  eid('tdc-liq-saldo').value='0.00';eid('tdc-liq-activo-monto').value=total.toFixed(2);
+  eid('tdc-liq-saldo').value='0.00';eid('tdc-liq-activo-monto').value=total.toFixed(2);eid('tdc-liq-externo').value='0.00';
 }
 
 function guardarDiferidoTdc(){
@@ -2779,11 +2779,11 @@ function guardarDiferidoTdc(){
     if(!nombre||!moneyVal(params.inicial)||!moneyVal(params.cuota)){btn.disabled=false;btn.textContent='Guardar';showToast('Completa nombre, saldo y cuota','err');return;}
     fn='registrarDiferidoTdc';
   }else{
-    var total=moneyVal(eid('tdc-liq-total').value),saldo=moneyVal(eid('tdc-liq-saldo').value),activoMonto=moneyVal(eid('tdc-liq-activo-monto').value);
-    if(Math.abs((saldo+activoMonto)-total)>0.01){btn.disabled=false;btn.textContent='Guardar';showToast('Los orígenes deben sumar '+fmt(total),'err');return;}
+    var total=moneyVal(eid('tdc-liq-total').value),saldo=moneyVal(eid('tdc-liq-saldo').value),activoMonto=moneyVal(eid('tdc-liq-activo-monto').value),externo=moneyVal(eid('tdc-liq-externo').value);
+    if(Math.abs((saldo+activoMonto+externo)-total)>0.01){btn.disabled=false;btn.textContent='Guardar';showToast('Los orígenes deben sumar '+fmt(total),'err');return;}
     if(activoMonto>0&&!eid('tdc-liq-activo').value){btn.disabled=false;btn.textContent='Guardar';showToast('Selecciona el activo de origen','err');return;}
     if(!confirm('Se liquidará el diferido por '+fmt(total)+' y su saldo quedará en cero. ¿Continuar?')){btn.disabled=false;btn.textContent='Guardar';return;}
-    params={tarjeta:t.id,diferidoId:eid('tdc-dif-select').value,total:String(total),montoSaldo:String(saldo),montoActivo:String(activoMonto),activoId:eid('tdc-liq-activo').value,mesPago:eid('tdc-liq-mes').value,mesGasto:G.tcMesActual||G.mesActual,fecha:eid('tdc-liq-fecha').value,homeMes:G.mesActual,histMes:G.histMes||G.mesActual,cardMes:G.tcMesActual||G.mesActual,cardIdx:G.tcIdx||0,cardYear:G.tdcAnio||2026};
+    params={tarjeta:t.id,diferidoId:eid('tdc-dif-select').value,total:String(total),montoSaldo:String(saldo),montoActivo:String(activoMonto),montoExterno:String(externo),activoId:eid('tdc-liq-activo').value,mesPago:eid('tdc-liq-mes').value,mesGasto:G.tcMesActual||G.mesActual,fecha:eid('tdc-liq-fecha').value,homeMes:G.mesActual,histMes:G.histMes||G.mesActual,cardMes:G.tcMesActual||G.mesActual,cardIdx:G.tcIdx||0,cardYear:G.tdcAnio||2026};
     fn='liquidarDiferidoTdc';
   }
   gsRun(fn,[params]).then(function(res){
