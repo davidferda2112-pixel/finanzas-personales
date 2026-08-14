@@ -716,16 +716,19 @@ function parseTarjetas(){
 
     var shPapi=ss.getSheetByName('Flujo TDC Papi');
     var papi2025=[];
+    var papi2025Vistos={};
     var meses2025=['Ene 25','Feb 25','Mar 25','Abr 25','May 25','Jun 25',
                    'Jul 25','Ago 25','Sep 25','Oct 25','Nov 25','Dic 25'];
     if(shPapi){
       var DP=shPapi.getDataRange().getValues();
       for(var j=0;j<DP.length;j++){
         var lp=_s(DP[j][0]);
-        if(conceptos.indexOf(lp)!==-1){
+        if(conceptos.indexOf(lp)!==-1&&!papi2025Vistos[lp]){
           var fp={concepto:lp};
           meses2025.forEach(function(m,idx){fp[m]=_n(DP[j][1+idx]);});
           papi2025.push(fp);
+          papi2025Vistos[lp]=true;
+          if(papi2025.length===conceptos.length) break;
         }
       }
     }

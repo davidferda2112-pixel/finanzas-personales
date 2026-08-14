@@ -22,6 +22,7 @@ Configura estas variables de entorno en Vercel:
 - `APP_ACCESS_KEY`: la clave personal que protege la API de Jaeger Spend.
 - `SUPABASE_URL`: la URL del proyecto `jaeger-spend`.
 - `SUPABASE_SECRET_KEY`: una clave secreta exclusiva del servidor. Nunca debe aparecer en los HTML ni en Git.
+- `SUPABASE_PRIMARY_READS`: usa `1` para habilitar las lecturas nativas solo mientras la compuerta de vigencia de Supabase esté validada.
 
 La migración SQL que crea la caché privada está en `supabase/migrations`. La tabla tiene RLS forzado, no concede acceso a `anon` ni `authenticated` y solo permite operar a `service_role`.
 

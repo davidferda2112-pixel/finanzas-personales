@@ -4,6 +4,7 @@ const {
   getCachedResponse,
   storeCachedResponse
 } = require('../lib/jaeger-supabase-cache');
+const { nativeRead, SUPPORTED_READS } = require('../lib/jaeger-supabase-read');
 
 async function callAppsScript(fn, args) {
   const appsScriptUrl = process.env.APPS_SCRIPT_URL;
@@ -54,6 +55,23 @@ module.exports = async function handler(req, res) {
     const args = Array.isArray(body.args) ? body.args : [];
     if (!fn || !READ_TTL_MS[fn]) {
       return res.status(400).json({ ok: false, error: 'Lectura no permitida' });
+    }
+
+    if (process.env.SUPABASE_PRIMARY_READS !== '0' && SUPPORTED_READS.has(fn)) {
+      try {
+        const native = await Promise.race([
+          nativeRead(fn, args, { requireFresh: true }),
+          new Promise((resolve) => setTimeout(() => resolve({ ok: false, timeout: true }), 1500))
+        ]);
+        if (native.ok && native.data && native.data.ok !== false) {
+          res.setHeader('X-Jaeger-Source', 'supabase-native');
+          res.setHeader('X-Jaeger-Native-Ms', String(native.durationMs || 0));
+          return res.status(200).json(native.data);
+        }
+        res.setHeader('X-Jaeger-Native', native.stale ? 'stale-fallback' : 'unavailable-fallback');
+      } catch (_) {
+        res.setHeader('X-Jaeger-Native', 'error-fallback');
+      }
     }
 
     const cached = await getCachedResponse(fn, args);

@@ -3,9 +3,15 @@ const {
   invalidateAllCachedResponses,
   storeCachedResponse: storeSupabaseCachedResponse
 } = require('../lib/jaeger-supabase-cache');
-const { compareAndRecord, SUPPORTED_READS } = require('../lib/jaeger-supabase-read');
+const {
+  compareAndRecord,
+  markNativeReadsStale,
+  nativeRead,
+  SUPPORTED_READS
+} = require('../lib/jaeger-supabase-read');
 
 const READ_TTL_MS = {
+  getBootState: 12 * 1000,
   getMesesDisponibles: 5 * 60 * 1000,
   getInitialState: 15 * 1000,
   getMesData: 18 * 1000,
@@ -99,6 +105,20 @@ async function runShadowRead(fn, args, sheetsData, timing) {
   }
 }
 
+async function runNativePrimary(fn, args) {
+  if (process.env.SUPABASE_PRIMARY_READS === '0' || !SUPPORTED_READS.has(fn)) {
+    return { ok: false, skipped: true };
+  }
+  try {
+    return await Promise.race([
+      nativeRead(fn, args, { requireFresh: true }),
+      new Promise((resolve) => setTimeout(() => resolve({ ok: false, timeout: true }), 1500))
+    ]);
+  } catch (error) {
+    return { ok: false, error: error.message || String(error) };
+  }
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
@@ -130,6 +150,28 @@ module.exports = async function handler(req, res) {
     const args = Array.isArray(body.args) ? body.args : [];
     let supabaseGeneration = null;
     let persistent = { configured: false, hit: false };
+
+    if (WRITE_METHODS.has(body.fn)) {
+      try {
+        await markNativeReadsStale(`legacy_write:${body.fn}`);
+      } catch (_) {
+        return res.status(503).json({
+          ok: false,
+          error: 'No se pudo proteger la vigencia de los datos antes de registrar el cambio.'
+        });
+      }
+    } else {
+      const native = await runNativePrimary(body.fn, args);
+      if (native.ok && native.data && native.data.ok !== false) {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('X-Jaeger-Source', 'supabase-native');
+        res.setHeader('X-Jaeger-Native-Ms', String(native.durationMs || 0));
+        return res.status(200).send(JSON.stringify(native.data));
+      }
+      if (native.stale) res.setHeader('X-Jaeger-Native', 'stale-fallback');
+      else if (native.timeout) res.setHeader('X-Jaeger-Native', 'timeout-fallback');
+      else if (native.error) res.setHeader('X-Jaeger-Native', 'error-fallback');
+    }
 
     if (!WRITE_METHODS.has(body.fn) && READ_TTL_MS[body.fn]) {
       persistent = await getSupabaseCachedResponse(body.fn, args);
