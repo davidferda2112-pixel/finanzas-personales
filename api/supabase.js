@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ ok: false, error: 'Lectura no permitida' });
     }
 
-    if (process.env.SUPABASE_PRIMARY_READS !== '0' && SUPPORTED_READS.has(fn)) {
+    if (SUPPORTED_READS.has(fn)) {
       try {
         const native = await Promise.race([
           nativeRead(fn, args, { requireFresh: true }),
@@ -68,9 +68,11 @@ module.exports = async function handler(req, res) {
           res.setHeader('X-Jaeger-Native-Ms', String(native.durationMs || 0));
           return res.status(200).json(native.data);
         }
-        res.setHeader('X-Jaeger-Native', native.stale ? 'stale-fallback' : 'unavailable-fallback');
+        return res.status(503).json({ ok: false,
+          error: 'Supabase no pudo confirmar una lectura vigente. Google Sheets quedó solo como respaldo.' });
       } catch (_) {
-        res.setHeader('X-Jaeger-Native', 'error-fallback');
+        return res.status(503).json({ ok: false,
+          error: 'No se pudo leer la fuente principal de Supabase.' });
       }
     }
 

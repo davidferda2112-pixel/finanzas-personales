@@ -25,7 +25,9 @@ const READ_TTL_MS = {
   getViajeJapon: 45 * 1000,
   getPinturasMes: 30 * 1000,
   getDesgloseSub: 18 * 1000,
-  getNotificaciones: 12 * 1000
+  getNotificaciones: 12 * 1000,
+  getCatalogoFinanciero: 30 * 1000,
+  getDiferidosTdc: 18 * 1000
 };
 
 const WRITE_METHODS = new Set([
@@ -49,7 +51,9 @@ const WRITE_METHODS = new Set([
   'eliminarMovimiento',
   'gestionarItemCategoria',
   'marcarNotifLeida',
-  'crearMesNuevo'
+  'crearMesNuevo',
+  'registrarDiferidoTdc',
+  'liquidarDiferidoTdc'
 ]);
 
 function getCache() {
@@ -107,7 +111,7 @@ async function runShadowRead(fn, args, sheetsData, timing) {
 }
 
 async function runNativePrimary(fn, args) {
-  if (process.env.SUPABASE_PRIMARY_READS === '0' || !SUPPORTED_READS.has(fn)) {
+  if (!SUPPORTED_READS.has(fn)) {
     return { ok: false, skipped: true };
   }
   try {
@@ -131,13 +135,6 @@ module.exports = async function handler(req, res) {
   const appsScriptUrl = process.env.APPS_SCRIPT_URL;
   const token = process.env.APPS_SCRIPT_TOKEN;
   const accessKey = process.env.APP_ACCESS_KEY;
-
-  if (!appsScriptUrl || !token) {
-    return res.status(500).json({
-      ok: false,
-      error: 'Faltan APPS_SCRIPT_URL o APPS_SCRIPT_TOKEN en las variables de entorno de Vercel.'
-    });
-  }
 
   if (accessKey && req.headers['x-app-key'] !== accessKey) {
     return res.status(401).json({ ok: false, error: 'No autorizado' });
@@ -191,9 +188,12 @@ module.exports = async function handler(req, res) {
         res.setHeader('X-Jaeger-Native-Ms', String(native.durationMs || 0));
         return res.status(200).send(JSON.stringify(native.data));
       }
-      if (native.stale) res.setHeader('X-Jaeger-Native', 'stale-fallback');
-      else if (native.timeout) res.setHeader('X-Jaeger-Native', 'timeout-fallback');
-      else if (native.error) res.setHeader('X-Jaeger-Native', 'error-fallback');
+      if (SUPPORTED_READS.has(body.fn)) {
+        return res.status(503).json({
+          ok: false,
+          error: 'Supabase no pudo confirmar una lectura vigente. No se usó Google Sheets para evitar mezclar fuentes.'
+        });
+      }
     }
 
     if (!WRITE_METHODS.has(body.fn) && READ_TTL_MS[body.fn]) {
@@ -224,6 +224,12 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    if (!appsScriptUrl || !token) {
+      return res.status(500).json({
+        ok: false,
+        error: 'La operación solicitada no está migrada y no está disponible el respaldo privado de Google Sheets.'
+      });
+    }
     const sheetsStartedAt = Date.now();
     const upstream = await fetch(appsScriptUrl, {
       method: 'POST',
