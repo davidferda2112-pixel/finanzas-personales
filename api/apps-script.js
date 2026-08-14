@@ -156,6 +156,11 @@ module.exports = async function handler(req, res) {
       } catch (error) {
         // Once a native write is attempted, never cross-fallback to Sheets: a
         // lost response could otherwise duplicate the financial operation.
+        console.error('[jaeger.write] native write unavailable', {
+          fn: body.fn,
+          requestId: body.requestId || null,
+          message: error && (error.message || String(error))
+        });
         return res.status(502).json({
           ok: false,
           error: 'No se pudo confirmar el registro en Supabase. Reintenta la misma operación.'
