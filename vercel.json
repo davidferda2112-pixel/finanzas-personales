@@ -1,0 +1,13 @@
+{
+  "headers": [
+    {
+      "source": "/(app.css|app.js|loading.webp|visa-logo.webp|mastercard-logo.webp|app-icon.png|logo-app.png|logo-header.png|sidebar-isotype.png|logo.svg)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
+}
