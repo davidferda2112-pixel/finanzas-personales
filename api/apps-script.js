@@ -3,6 +3,7 @@ const {
   invalidateAllCachedResponses,
   storeCachedResponse: storeSupabaseCachedResponse
 } = require('../lib/jaeger-supabase-cache');
+const { compareAndRecord, SUPPORTED_READS } = require('../lib/jaeger-supabase-read');
 
 const READ_TTL_MS = {
   getMesesDisponibles: 5 * 60 * 1000,
@@ -84,6 +85,20 @@ function storeReadCache(fn, args, text) {
   getCache().set(makeCacheKey(fn, args), { savedAt: Date.now(), text });
 }
 
+async function runShadowRead(fn, args, sheetsData, timing) {
+  if (process.env.SUPABASE_SHADOW_READS === '0' || !SUPPORTED_READS.has(fn)) {
+    return { status: 'unsupported' };
+  }
+  try {
+    return await Promise.race([
+      compareAndRecord(fn, args, sheetsData, timing),
+      new Promise((resolve) => setTimeout(() => resolve({ status: 'timeout' }), 1200))
+    ]);
+  } catch (_) {
+    return { status: 'error' };
+  }
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
@@ -122,8 +137,13 @@ module.exports = async function handler(req, res) {
       if (persistent.hit) {
         const persistentText = JSON.stringify(persistent.response);
         storeReadCache(body.fn, args, persistentText);
+        const shadow = await runShadowRead(body.fn, args, persistent.response, {
+          sheetsMs: 0,
+          sourceRefreshedAt: persistent.sourceRefreshedAt
+        });
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.setHeader('X-Jaeger-Cache', 'supabase');
+        res.setHeader('X-Jaeger-Shadow', shadow.status);
         return res.status(200).send(persistentText);
       }
     }
@@ -139,6 +159,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    const sheetsStartedAt = Date.now();
     const upstream = await fetch(appsScriptUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -175,8 +196,14 @@ module.exports = async function handler(req, res) {
             supabaseGeneration
           );
           res.setHeader('X-Jaeger-Sync', stored.ok ? 'stored' : 'deferred');
+          const shadow = await runShadowRead(body.fn, args, parsed, {
+            sheetsMs: Date.now() - sheetsStartedAt,
+            sourceRefreshedAt: new Date().toISOString()
+          });
+          res.setHeader('X-Jaeger-Shadow', shadow.status);
         } catch (_) {
           res.setHeader('X-Jaeger-Sync', 'deferred');
+          res.setHeader('X-Jaeger-Shadow', 'error');
         }
         res.setHeader('X-Jaeger-Cache', 'sheets');
       }
