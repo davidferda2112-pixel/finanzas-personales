@@ -2,8 +2,17 @@
 -- External money clears the related liability and card charge without reducing
 -- personal cash or an asset in the balance sheet.
 
-alter function public.jaeger_write_extended(text,uuid,text,jsonb)
-  rename to jaeger_write_extended_legacy;
+do $$
+begin
+  -- Keep the migration safe to re-run from the SQL editor or a future
+  -- migration deployment.  Once the legacy implementation exists, only the
+  -- wrapper below needs to be refreshed.
+  if to_regprocedure('public.jaeger_write_extended_legacy(text,uuid,text,jsonb)') is null then
+    alter function public.jaeger_write_extended(text,uuid,text,jsonb)
+      rename to jaeger_write_extended_legacy;
+  end if;
+end;
+$$;
 
 create or replace function public.jaeger_write_extended(
   p_operation text,p_request_id uuid,p_payload_hash text,p_payload jsonb
