@@ -1,6 +1,7 @@
 -- Production verification for Jaeger Spend.
--- The two financial writes run inside an explicit transaction that is always
--- rolled back before the final result is shown.
+-- The two financial writes run inside a PL/pgSQL subtransaction that is always
+-- rolled back before the final result is shown. This works in the Supabase SQL
+-- editor, which wraps the complete submitted script in its own transaction.
 
 drop table if exists pg_temp.jaeger_deploy_verify;
 
@@ -12,7 +13,8 @@ create temporary table jaeger_deploy_verify (
   movement_id text,
   installment_id text,
   installment_card text,
-  installment_amount numeric
+  installment_amount numeric,
+  external_test_result text not null default 'PENDING'
 ) on commit preserve rows;
 
 with context as (
@@ -75,35 +77,79 @@ from context c
 cross join public.jaeger_cache_control cc
 where cc.id = 1;
 
-begin;
-
 do $verify$
 declare
   v_check jaeger_deploy_verify%rowtype;
+  v_create_response jsonb;
+  v_liquidation_response jsonb;
+  v_external_request uuid;
+  v_test_id text;
+  v_test_card text;
+  v_test_balance_id text;
+  v_test_name text;
+  v_test_amount numeric;
+  v_liability_before numeric;
+  v_liability_after numeric;
+  v_external_verified boolean := false;
 begin
   select * into v_check from jaeger_deploy_verify limit 1;
 
-  if v_check.movement_id is not null then
-    perform public.jaeger_write(
-      'eliminarMovimiento',
-      gen_random_uuid(),
-      'deployment-rollback-delete-' || v_check.movement_id,
-      jsonb_build_object('id', v_check.movement_id)
-    );
-  end if;
+  begin
+    if v_check.movement_id is not null then
+      perform public.jaeger_write(
+        'eliminarMovimiento',
+        gen_random_uuid(),
+        'deployment-rollback-delete-' || v_check.movement_id,
+        jsonb_build_object('id', v_check.movement_id)
+      );
+    end if;
 
-  if v_check.installment_id is not null then
-    perform public.jaeger_write_extended(
+    if v_check.installment_id is not null then
+      v_test_id := v_check.installment_id;
+      v_test_card := v_check.installment_card;
+      v_test_amount := v_check.installment_amount;
+    else
+      v_test_card := 'VISA';
+      v_test_amount := 1;
+      v_test_name := 'QA externo ' || left(gen_random_uuid()::text, 8);
+      v_create_response := public.jaeger_write_extended(
+        'registrarDiferidoTdc',
+        gen_random_uuid(),
+        'deployment-rollback-create-' || v_test_name,
+        jsonb_build_object(
+          'tarjeta', v_test_card,
+          'nombre', v_test_name,
+          'inicial', v_test_amount,
+          'cuota', v_test_amount,
+          'mesInicio', v_check.target_month,
+          'balanceNombreNuevo', 'QA pasivo ' || v_test_name,
+          'grupo', 'Tarjeta de Crédito'
+        )
+      );
+      v_test_id := v_create_response->>'id';
+    end if;
+
+    select i.balance_id, b.current_value
+      into v_test_balance_id, v_liability_before
+    from jaeger.card_installments i
+    join jaeger.balance_items b on b.balance_id = i.balance_id and b.active
+    where i.legacy_id = v_test_id and i.card_code = v_test_card;
+    if v_test_balance_id is null or v_liability_before + 0.01 < v_test_amount then
+      raise exception 'El pasivo de prueba no cubre la liquidación externa';
+    end if;
+
+    v_external_request := gen_random_uuid();
+    v_liquidation_response := public.jaeger_write_extended(
       'liquidarDiferidoTdc',
-      gen_random_uuid(),
-      'deployment-rollback-external-' || v_check.installment_id,
+      v_external_request,
+      'deployment-rollback-external-' || v_test_id,
       jsonb_build_object(
-        'tarjeta', v_check.installment_card,
-        'diferidoId', v_check.installment_id,
-        'total', v_check.installment_amount,
+        'tarjeta', v_test_card,
+        'diferidoId', v_test_id,
+        'total', v_test_amount,
         'montoSaldo', 0,
         'montoActivo', 0,
-        'montoExterno', v_check.installment_amount,
+        'montoExterno', v_test_amount,
         'activoId', '',
         'mesPago', v_check.target_month,
         'mesGasto', v_check.target_month,
@@ -111,11 +157,48 @@ begin
         'fecha', to_char((now() at time zone 'America/Guayaquil')::date, 'YYYY-MM-DD')
       )
     );
+
+    select current_value into v_liability_after
+    from jaeger.balance_items where balance_id = v_test_balance_id;
+    if coalesce((v_liquidation_response->>'ok')::boolean, false) is not true
+       or (v_liquidation_response->>'montoExterno')::numeric <> v_test_amount
+       or coalesce((v_liquidation_response->>'linkedMovement')::boolean, true) is not false
+       or abs((0 + 0 + v_test_amount) - v_test_amount) > 0.01
+       or abs((v_liability_before - v_liability_after) - v_test_amount) > 0.01
+       or exists (
+         select 1 from jaeger.financial_movements where request_id = v_external_request
+       )
+       or not exists (
+         select 1 from jaeger.card_installments
+         where legacy_id = v_test_id and state = 'liquidado'
+       )
+       or not exists (
+         select 1 from jaeger.card_events
+         where request_id = v_external_request and event_type = 'abono'
+           and origin = 'externo' and amount = v_test_amount
+           and movement_legacy_id is null
+       )
+       or exists (
+         select 1 from jaeger.balance_items
+         where balance_id = v_test_balance_id and active
+       ) then
+      raise exception 'La identidad financiera de la liquidación externa no se cumplió';
+    end if;
+    v_external_verified := true;
+
+    raise exception 'JAEGER_DEPLOYMENT_ROLLBACK';
+  exception
+    when raise_exception then
+      if sqlerrm <> 'JAEGER_DEPLOYMENT_ROLLBACK' then
+        raise;
+      end if;
+  end;
+
+  if v_external_verified then
+    update jaeger_deploy_verify set external_test_result = 'OK';
   end if;
 end;
 $verify$;
-
-rollback;
 
 with card_state as (
   select public.jaeger_native_read_source(
@@ -145,11 +228,8 @@ select
     when exists (select 1 from jaeger.financial_movements m where m.legacy_id = v.movement_id)
       and (select count(*) from jaeger.financial_movements) = v.movement_count
     then 'OK' else 'ERROR' end as eliminacion_reversible,
-  case when v.installment_id is null then 'OMITIDO_SIN_CANDIDATO'
-    when exists (
-      select 1 from jaeger.card_installments i
-      where i.legacy_id = v.installment_id and i.state = 'activo'
-    ) and (select count(*) from jaeger.card_installments where state = 'activo') = v.active_installment_count
+  case when v.external_test_result = 'OK'
+      and (select count(*) from jaeger.card_installments where state = 'activo') = v.active_installment_count
     then 'OK' else 'ERROR' end as diferido_externo_reversible,
   case when cc.generation = v.cache_generation then 'OK' else 'ERROR' end as rollback_cache,
   case when cs.value->>'timezone' = 'America/Guayaquil'
