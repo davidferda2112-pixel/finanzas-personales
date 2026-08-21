@@ -2004,7 +2004,8 @@ function confirmarEliminar(){
         renderHistorialMovimientos();
         refrescarTrasMovimiento(res.mesCaja||G.histMes);
       }
-      syncTrasCambio({delay:350,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual,historial:true});
+      syncTrasCambio({delay:350,mesInicio:res.mesCaja||G.mesActual,mesHist:G.histMes||res.mesCaja||G.mesActual,
+        historial:true,tarjetas:Number(res.linkedCardEvents||0)>0});
       showToast('Movimiento eliminado','ok');
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Eliminar';showToast('Error: '+e,'err');})
@@ -2707,7 +2708,7 @@ function abrirDiferidoTdc(modo){
   eid('tdc-dif-pay').style.display=modo==='liquidar'?'block':'none';
   eid('tdc-liq-fecha').value=todayISO();
   llenarMesesDiferido('tdc-dif-inicio',G.tcMesActual||G.mesActual);
-  llenarMesesDiferido('tdc-liq-mes',mesSiguienteNombre(G.tcMesActual||G.mesActual));
+  llenarMesesDiferido('tdc-liq-mes',G.tcMesActual||G.mesActual);
   estadoCargaDiferido(modo==='agregar'?'Cargando opciones del balance...':'Cargando diferidos activos...');
   if(modo==='agregar'){
     eid('tdc-dif-nombre').value='';eid('tdc-dif-total').value='';eid('tdc-dif-cuota').value='';
@@ -2718,9 +2719,12 @@ function abrirDiferidoTdc(modo){
     G.tdcDiferidos=[];
     eid('tdc-dif-select').disabled=true;
     eid('tdc-dif-select').innerHTML='<option value="">Cargando...</option>';
+    eid('tdc-liq-origen').value='';
+    eid('tdc-liq-activo-box').style.display='none';
     eid('tdc-liq-activo').disabled=true;
     eid('tdc-liq-activo').innerHTML='<option value="">Cargando...</option>';
-    eid('tdc-liq-total').value='0.00';eid('tdc-liq-saldo').value='0.00';eid('tdc-liq-activo-monto').value='0.00';
+    eid('tdc-liq-total').value='0.00';
+    actualizarOrigenLiquidacion();
   }
   eid('mov-tdc-dif').classList.add('open');
 
@@ -2752,9 +2756,9 @@ function abrirDiferidoTdc(modo){
       }
       eid('tdc-dif-select').innerHTML=G.tdcDiferidos.map(function(d){return'<option value="'+hEsc(d.id)+'">'+hEsc(d.nombre)+'</option>';}).join('');
       eid('tdc-dif-select').disabled=false;
-      fillBalanceDestinoSelect('tdc-liq-activo','Activo','',false);
+      llenarActivosLiquidacion();
       eid('tdc-liq-activo').disabled=false;
-      actualizarLiquidacionDiferido();estadoCargaDiferido('');btn.disabled=false;btn.textContent='Guardar';
+      actualizarLiquidacionDiferido();actualizarOrigenLiquidacion();estadoCargaDiferido('');btn.disabled=false;btn.textContent='Guardar';
     }).catch(function(e){
       if(loadSeq!==G._tdcDifLoadSeq)return;
       estadoCargaDiferido('No se pudieron cargar los diferidos. Revisa la conexión e inténtalo otra vez.','err');
@@ -2762,11 +2766,40 @@ function abrirDiferidoTdc(modo){
     });
 }
 
+function saldoDiferidoEnMes(d,mes){
+  if(!d)return 0;
+  var destino=mesOrdenNombre(cortoALargo(mes)),base=mesOrdenNombre(cortoALargo(d.mesBase));
+  var cobradas=moneyVal(d.cuotasAlMesBase)+(destino>=0&&base>=0?destino-base:0);
+  if(!isFinite(cobradas)||cobradas<0)cobradas=0;
+  return Math.round(Math.max(0,moneyVal(d.inicial)-moneyVal(d.cuota)*cobradas)*100)/100;
+}
+
+function llenarActivosLiquidacion(){
+  var el=eid('tdc-liq-activo');if(!el)return;
+  var opts=['<option value="">Selecciona el activo</option>'];
+  balanceDestinos('Activo').forEach(function(x){
+    var nombre=(x.grupo?x.grupo+' > ':'')+x.nombre;
+    opts.push('<option value="'+hEsc(x.codigo)+'">'+hEsc(nombre+' · '+fmt(moneyVal(x.valor)))+'</option>');
+  });
+  el.innerHTML=opts.join('');
+}
+
+function actualizarOrigenLiquidacion(){
+  var origen=eid('tdc-liq-origen')?eid('tdc-liq-origen').value:'';
+  var box=eid('tdc-liq-activo-box'),activo=eid('tdc-liq-activo'),hint=eid('tdc-liq-origen-hint');
+  if(box)box.style.display=origen==='activo'?'block':'none';
+  if(activo)activo.disabled=origen!=='activo';
+  if(!hint)return;
+  if(origen==='saldo')hint.textContent='El total se registrará como pago de deuda y reducirá tu saldo disponible.';
+  else if(origen==='activo')hint.textContent='El total se descontará del activo que selecciones.';
+  else if(origen==='externo')hint.textContent='El total reducirá la deuda sin descontar tu saldo disponible ni tus activos.';
+  else hint.textContent='Selecciona el origen que cubrirá el total calculado.';
+}
+
 function actualizarLiquidacionDiferido(){
   var id=eid('tdc-dif-select').value,d=(G.tdcDiferidos||[]).filter(function(x){return x.id===id;})[0];
-  var total=d?moneyVal(d.saldoActual):0;
+  var total=d?saldoDiferidoEnMes(d,eid('tdc-liq-mes').value):0;
   eid('tdc-liq-total').value=total.toFixed(2);
-  eid('tdc-liq-saldo').value='0.00';eid('tdc-liq-activo-monto').value=total.toFixed(2);eid('tdc-liq-externo').value='0.00';
 }
 
 function guardarDiferidoTdc(){
@@ -2779,11 +2812,14 @@ function guardarDiferidoTdc(){
     if(!nombre||!moneyVal(params.inicial)||!moneyVal(params.cuota)){btn.disabled=false;btn.textContent='Guardar';showToast('Completa nombre, saldo y cuota','err');return;}
     fn='registrarDiferidoTdc';
   }else{
-    var total=moneyVal(eid('tdc-liq-total').value),saldo=moneyVal(eid('tdc-liq-saldo').value),activoMonto=moneyVal(eid('tdc-liq-activo-monto').value),externo=moneyVal(eid('tdc-liq-externo').value);
-    if(Math.abs((saldo+activoMonto+externo)-total)>0.01){btn.disabled=false;btn.textContent='Guardar';showToast('Los orígenes deben sumar '+fmt(total),'err');return;}
+    var total=moneyVal(eid('tdc-liq-total').value),origen=eid('tdc-liq-origen').value;
+    var saldo=origen==='saldo'?total:0,activoMonto=origen==='activo'?total:0,externo=origen==='externo'?total:0;
+    if(total<=0){btn.disabled=false;btn.textContent='Guardar';showToast('El diferido no tiene saldo en el mes seleccionado','err');return;}
+    if(!origen){btn.disabled=false;btn.textContent='Guardar';showToast('Selecciona de dónde sale el dinero','err');return;}
     if(activoMonto>0&&!eid('tdc-liq-activo').value){btn.disabled=false;btn.textContent='Guardar';showToast('Selecciona el activo de origen','err');return;}
-    if(!confirm('Se liquidará el diferido por '+fmt(total)+' y su saldo quedará en cero. ¿Continuar?')){btn.disabled=false;btn.textContent='Guardar';return;}
-    params={tarjeta:t.id,diferidoId:eid('tdc-dif-select').value,total:String(total),montoSaldo:String(saldo),montoActivo:String(activoMonto),montoExterno:String(externo),activoId:eid('tdc-liq-activo').value,mesPago:eid('tdc-liq-mes').value,mesGasto:G.tcMesActual||G.mesActual,fecha:eid('tdc-liq-fecha').value,homeMes:G.mesActual,histMes:G.histMes||G.mesActual,cardMes:G.tcMesActual||G.mesActual,cardIdx:G.tcIdx||0,cardYear:G.tdcAnio||2026};
+    var mesLiquidacion=eid('tdc-liq-mes').value;
+    if(!confirm('Se liquidará el diferido por '+fmt(total)+' en '+mesLiquidacion+'. ¿Continuar?')){btn.disabled=false;btn.textContent='Guardar';return;}
+    params={tarjeta:t.id,diferidoId:eid('tdc-dif-select').value,total:String(total),montoSaldo:String(saldo),montoActivo:String(activoMonto),montoExterno:String(externo),activoId:activoMonto>0?eid('tdc-liq-activo').value:'',mesPago:mesLiquidacion,mesGasto:mesLiquidacion,fecha:eid('tdc-liq-fecha').value,homeMes:G.mesActual,histMes:G.histMes||G.mesActual,cardMes:G.tcMesActual||G.mesActual,cardIdx:G.tcIdx||0,cardYear:G.tdcAnio||2026};
     fn='liquidarDiferidoTdc';
   }
   gsRun(fn,[params]).then(function(res){

@@ -536,17 +536,12 @@
       <div class="fg"><div class="fl">Diferido activo</div><select class="fs" id="tdc-dif-select" onchange="actualizarLiquidacionDiferido()"></select></div>
       <div class="tdc-source-grid">
         <div class="fg"><div class="fl">Total a liquidar ($)</div><input class="fi bn" id="tdc-liq-total" type="text" inputmode="decimal" readonly></div>
-        <div class="fg"><div class="fl">Pagos / Créditos</div><select class="fs" id="tdc-liq-mes"></select></div>
+        <div class="fg"><div class="fl">Mes de liquidación</div><select class="fs" id="tdc-liq-mes" onchange="actualizarLiquidacionDiferido()"></select></div>
       </div>
       <div class="fg"><div class="fl">Fecha</div><input class="fi" id="tdc-liq-fecha" type="date"></div>
-      <div class="lup mb10">Origen del dinero</div>
-      <div class="tdc-source-grid">
-        <div class="fg"><div class="fl">Saldo disponible ($)</div><input class="fi bn" id="tdc-liq-saldo" type="text" inputmode="decimal" value="0.00"></div>
-        <div class="fg"><div class="fl">Activo del balance ($)</div><input class="fi bn" id="tdc-liq-activo-monto" type="text" inputmode="decimal" value="0.00"></div>
-        <div class="fg"><div class="fl">Dinero externo ($)</div><input class="fi bn" id="tdc-liq-externo" type="text" inputmode="decimal" value="0.00"></div>
-      </div>
-      <div style="font-size:12px;color:var(--t3);margin:-2px 0 12px">El dinero externo reduce la deuda sin descontar tu saldo disponible ni tus activos.</div>
-      <div class="fg"><div class="fl">Activo de origen</div><select class="fs" id="tdc-liq-activo"></select></div>
+      <div class="fg"><div class="fl">Origen del total</div><select class="fs" id="tdc-liq-origen" onchange="actualizarOrigenLiquidacion()"><option value="">Selecciona de dónde sale el dinero</option><option value="saldo">Saldo disponible</option><option value="activo">Activo del balance</option><option value="externo">Dinero externo</option></select></div>
+      <div class="fg" id="tdc-liq-activo-box" style="display:none"><div class="fl">Activo de origen</div><select class="fs" id="tdc-liq-activo"></select></div>
+      <div id="tdc-liq-origen-hint" style="font-size:12px;color:var(--t3);margin:-2px 0 12px">Selecciona el origen que cubrirá el total calculado.</div>
     </div>
     <div class="fr g8"><button class="btn bgh bful" onclick="eid('mov-tdc-dif').classList.remove('open')">Cancelar</button><button class="btn bb bful" id="btn-tdc-dif-save" onclick="guardarDiferidoTdc()">Guardar</button></div>
   </div>
