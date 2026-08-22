@@ -4,7 +4,7 @@
 var G={
   meses:[],mesActual:null,mesData:null,
   histMes:null,histData:null,
-  balance:null,tarjetas:null,japon:null,pinturas:null,flujo:null,catalogo:null,
+  balance:null,tarjetas:null,japon:null,pinturas:null,flujo:null,catalogo:null,configuracion:null,
   txs:[],tipoModal:null,chFlujo:null,
   notifOpen:false,srchOpen:false,
   balEdit:false,japEdit:false,pintEdit:false,
@@ -2275,6 +2275,7 @@ function prepararMesesTarjeta(){
 
 function renderSelectorTarjeta(){
   var selected=G.tarjetas&&G.tarjetas[G.tcIdx];
+  var issuer=eid('tc-issuer');if(issuer)issuer.textContent=selected&&selected.emisor?selected.emisor:'Tarjetas de crédito';
   eid('tc-sel').className='tdc-wallet '+(selected?'stacked':'');
   eid('tc-sel').innerHTML='<div class="tdc-wallet-grid">'
     +(G.tarjetas||[]).map(function(t,i){
@@ -2285,8 +2286,9 @@ function renderSelectorTarjeta(){
     var monto=res.saldoFavor>0?fmt(res.saldoFavor):(alDia?'OK':fmt(res.pendiente));
     if(res.saldoFavor>0){estado='Saldo a favor';monto=fmt(res.saldoFavor);}
     var wrapClass=selected?(activo?'tdc-wallet-card-wrap active':'tdc-wallet-card-wrap back'):'tdc-wallet-card-wrap';
-    var brand=(t.clase||'').indexOf('mc-card')>=0?'mastercard':'visa';
+    var brand=String(t.red||t.logo||'other').toLowerCase();if(brand==='mc')brand='mastercard';
     var logo=CARD_LOGOS[brand]?'<img class="card-brand-logo '+(brand==='mastercard'?'mc':'visa')+'" src="'+CARD_LOGOS[brand]+'" alt="'+brand+'">':'';
+    if(!logo)logo='<span class="card-network-text">'+hEsc(brand==='other'?'Tarjeta':brand)+'</span>';
     return'<div class="'+wrapClass+'" onclick="selectTarjeta('+i+')">'
       +'<div class="bcard '+t.clase+'" style="cursor:pointer">'
       +logo
@@ -2881,6 +2883,150 @@ function abrirModalTDC(){
     +(appRows?'<div class="lup" style="padding:12px 14px 2px">Registrados en la app</div>'+appRows:'');
 }
 
+function configContext(){
+  return{homeMes:G.mesActual||mesActualCalendario(),cardMes:G.tcMesActual||G.mesActual||mesActualCalendario(),cardIdx:G.tcIdx||0,cardYear:G.tdcAnio||2026};
+}
+function abrirConfiguracion(foco){
+  eid('mov-config').classList.add('open');
+  cerrarEditorTarjeta();cerrarEditorAsignacion();
+  if(G.configuracion)renderConfiguracion(G.configuracion);
+  else{
+    eid('cfg-status').innerHTML='<span>Cargando configuración…</span>';
+    eid('cfg-card-list').innerHTML='<div class="settings-empty">Consultando tarjetas…</div>';
+    eid('cfg-allocation-list').innerHTML='<div class="settings-empty">Consultando activos…</div>';
+  }
+  gsRun('getConfiguracion',[]).then(function(res){
+    if(!res||res.ok===false)throw new Error((res&&res.error)||'No se pudo cargar');
+    G.configuracion=res;renderConfiguracion(res);
+    if(foco){var section=eid('cfg-section-'+foco);if(section)setTimeout(function(){section.scrollIntoView({behavior:'smooth',block:'start'});},80);}
+  }).catch(function(e){
+    eid('cfg-status').innerHTML='<span class="tov2">No se pudo cargar la configuración</span>';
+    showToast('Error: '+(e.message||e),'err');
+  });
+}
+function renderConfiguracion(d){
+  if(!d)return;
+  eid('cfg-status').innerHTML='<span>Fuente principal: <b>'+hEsc(String(d.fuente||'supabase').toUpperCase())+'</b></span><span>'+hEsc(d.timezone||'America/Guayaquil')+'</span>';
+  var cards=(d.tarjetas||[]).slice().sort(function(a,b){return(a.orden||0)-(b.orden||0);});
+  eid('cfg-card-list').innerHTML=cards.length?cards.map(function(card){
+    var inactive=!card.activo,network=String(card.red||'other').toUpperCase();
+    return'<div class="settings-row" style="'+(inactive?'opacity:.58':'')+'"><div class="settings-row-icon '+hEsc(card.estilo||'generic-card')+'">'+hEsc(network.slice(0,4))+'</div>'
+      +'<div class="settings-row-main"><b>'+hEsc(card.nombre||card.codigo)+'</b><span>'+hEsc(card.emisor||'Sin emisor')+' · •••• '+hEsc(card.ultimos4)+(inactive?' · Archivada':'')+'</span></div>'
+      +'<div class="settings-row-actions">'
+      +(inactive?'':'<button class="settings-icon-btn" onclick="moverTarjetaConfiguracionUI(\''+card.codigo+'\',-1)" title="Subir">↑</button><button class="settings-icon-btn" onclick="moverTarjetaConfiguracionUI(\''+card.codigo+'\',1)" title="Bajar">↓</button>')
+      +'<button class="settings-icon-btn" onclick="abrirEditorTarjeta(\''+card.codigo+'\')" title="'+(inactive?'Editar y reactivar':'Editar')+'">'+(inactive?'↻':'✎')+'</button>'
+      +(inactive?'':'<button class="settings-icon-btn danger" onclick="eliminarTarjetaConfiguracionUI(\''+card.codigo+'\')" title="Archivar">×</button>')
+      +'</div></div>';
+  }).join(''):'<div class="settings-empty">No hay tarjetas configuradas.</div>';
+
+  var assigned=(d.activos||[]).filter(function(asset){return Number(asset.asignadoJapon||0)>0;});
+  eid('cfg-goal-summary').innerHTML='<div class="settings-goal-kpi"><span>Asignado</span><b>'+fmt(d.totalAsignadoJapon||0)+'</b></div>'
+    +'<div class="settings-goal-kpi"><span>Respaldado hoy</span><b class="'+((d.totalEfectivoJapon||0)<(d.totalAsignadoJapon||0)?'settings-warning':'')+'">'+fmt(d.totalEfectivoJapon||0)+'</b></div>';
+  eid('cfg-allocation-list').innerHTML=assigned.length?assigned.map(function(asset){
+    var short=Number(asset.efectivoJapon||0)+.004<Number(asset.asignadoJapon||0);
+    return'<div class="settings-row"><div class="settings-row-main"><b>'+hEsc(asset.nombre)+'</b><span>'+hEsc(asset.grupo||'Activo')+' · Disponible '+fmt(asset.valor)+(short?' · respaldo insuficiente':'')+'</span></div>'
+      +'<div class="settings-row-main" style="flex:0 0 auto;text-align:right"><b class="'+(short?'settings-warning':'tok2')+'">'+fmt(asset.asignadoJapon)+'</b><span>para Japón</span></div>'
+      +'<div class="settings-row-actions"><button class="settings-icon-btn" onclick="abrirEditorAsignacion(\''+asset.codigo+'\')">✎</button><button class="settings-icon-btn danger" onclick="eliminarAsignacionMetaUI(\''+asset.codigo+'\')">×</button></div></div>';
+  }).join(''):'<div class="settings-empty">Aún no has vinculado activos a Japón.</div>';
+}
+function abrirEditorTarjeta(codigo){
+  var card=(G.configuracion&&G.configuracion.tarjetas||[]).filter(function(x){return x.codigo===codigo;})[0]||null;
+  eid('cfg-card-editor').style.display='block';
+  eid('cfg-card-editor-title').textContent=card?(card.activo?'Editar tarjeta':'Editar y reactivar tarjeta'):'Nueva tarjeta';
+  eid('cfg-card-code').value=card?card.codigo:'';eid('cfg-card-code').disabled=!!card;
+  eid('cfg-card-last4').value=card?card.ultimos4:'';
+  eid('cfg-card-name').value=card?card.nombre:'';
+  eid('cfg-card-issuer').value=card?card.emisor:'';
+  eid('cfg-card-network').value=card?card.red:'visa';
+  eid('cfg-card-style').value=card?card.estilo:'visa-card';
+  eid('cfg-card-editor').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function cerrarEditorTarjeta(){var box=eid('cfg-card-editor');if(box)box.style.display='none';}
+function guardarTarjetaConfiguracionUI(){
+  var code=String(eid('cfg-card-code').value||'').trim().toUpperCase();
+  var name=eid('cfg-card-name').value.trim(),last4=String(eid('cfg-card-last4').value||'').replace(/\D/g,'');
+  if(!/^[A-Z0-9][A-Z0-9_-]{1,15}$/.test(code)){showToast('Código: 2 a 16 letras o números','err');return;}
+  if(!name){showToast('Escribe el nombre de la tarjeta','err');return;}
+  if(!/^\d{4}$/.test(last4)){showToast('Escribe los últimos 4 dígitos','err');return;}
+  var params={codigo:code,nombre:name,emisor:eid('cfg-card-issuer').value.trim(),ultimos4:last4,
+    red:eid('cfg-card-network').value,estilo:eid('cfg-card-style').value,activo:true};
+  Object.assign(params,configContext());
+  var btn=eid('cfg-card-save');btn.disabled=true;btn.textContent='Guardando…';
+  gsRun('guardarTarjetaConfiguracion',[params]).then(function(res){
+    btn.disabled=false;btn.textContent='Guardar tarjeta';
+    if(!res||res.ok===false)throw new Error((res&&res.error)||'No se pudo guardar');
+    aplicarRespuestaConfiguracion(res);cerrarEditorTarjeta();showToast('Tarjeta guardada','ok');
+  }).catch(function(e){btn.disabled=false;btn.textContent='Guardar tarjeta';showToast('Error: '+(e.message||e),'err');});
+}
+function eliminarTarjetaConfiguracionUI(codigo){
+  var card=(G.configuracion&&G.configuracion.tarjetas||[]).filter(function(x){return x.codigo===codigo;})[0]||{};
+  if(!confirm('¿Archivar '+(card.nombre||codigo)+'? Su historial, cargos y diferidos se conservarán.'))return;
+  var params={codigo:codigo};Object.assign(params,configContext());
+  gsRun('eliminarTarjetaConfiguracion',[params]).then(function(res){
+    if(!res||res.ok===false)throw new Error((res&&res.error)||'No se pudo archivar');
+    aplicarRespuestaConfiguracion(res);showToast('Tarjeta archivada; historial conservado','ok');
+  }).catch(function(e){showToast('Error: '+(e.message||e),'err');});
+}
+function moverTarjetaConfiguracionUI(codigo,direccion){
+  var params={codigo:codigo,direccion:direccion};Object.assign(params,configContext());
+  gsRun('ordenarTarjetaConfiguracion',[params]).then(function(res){
+    if(!res||res.ok===false)throw new Error((res&&res.error)||'No se pudo ordenar');
+    aplicarRespuestaConfiguracion(res);
+  }).catch(function(e){showToast('Error: '+(e.message||e),'err');});
+}
+function abrirEditorAsignacion(codigo){
+  var assets=(G.configuracion&&G.configuracion.activos||[]).filter(function(asset){return asset.activo||asset.codigo===codigo;});
+  var select=eid('cfg-allocation-asset');
+  select.innerHTML=assets.map(function(asset){return'<option value="'+hEsc(asset.codigo)+'">'+hEsc((asset.grupo?asset.grupo+' · ':'')+asset.nombre)+' — '+fmt(asset.valor)+'</option>';}).join('');
+  if(codigo)select.value=codigo;
+  var selected=assets.filter(function(asset){return asset.codigo===select.value;})[0];
+  eid('cfg-allocation-amount').value=selected&&selected.asignadoJapon?String(selected.asignadoJapon):'';
+  eid('cfg-allocation-editor').style.display='block';actualizarHintAsignacion();
+  eid('cfg-allocation-editor').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function cerrarEditorAsignacion(){var box=eid('cfg-allocation-editor');if(box)box.style.display='none';}
+function actualizarHintAsignacion(){
+  var code=eid('cfg-allocation-asset').value;
+  var asset=(G.configuracion&&G.configuracion.activos||[]).filter(function(x){return x.codigo===code;})[0];
+  eid('cfg-allocation-hint').textContent=asset?'Disponible en '+asset.nombre+': '+fmt(asset.valor)+'. Esta asignación no mueve ni duplica dinero.':'';
+}
+function guardarAsignacionMetaUI(){
+  var code=eid('cfg-allocation-asset').value,amount=moneyVal(eid('cfg-allocation-amount').value);
+  var asset=(G.configuracion&&G.configuracion.activos||[]).filter(function(x){return x.codigo===code;})[0];
+  if(!asset){showToast('Selecciona un activo','err');return;}
+  if(amount<=0){showToast('Escribe un monto mayor a cero','err');return;}
+  if(amount>Number(asset.valor||0)+.004){showToast('El monto supera el valor del activo','err');return;}
+  guardarAsignacionMetaRequest(code,amount,false);
+}
+function eliminarAsignacionMetaUI(codigo){
+  if(!confirm('¿Quitar este activo de la meta Japón? El saldo del activo no cambiará.'))return;
+  guardarAsignacionMetaRequest(codigo,0,true);
+}
+function guardarAsignacionMetaRequest(codigo,monto,eliminando){
+  var params={meta:'japan',balanceCodigo:codigo,monto:String(monto)};Object.assign(params,configContext());
+  var btn=eid('cfg-allocation-save');if(btn){btn.disabled=true;btn.textContent='Guardando…';}
+  gsRun('guardarAsignacionMeta',[params]).then(function(res){
+    if(btn){btn.disabled=false;btn.textContent='Guardar asignación';}
+    if(!res||res.ok===false)throw new Error((res&&res.error)||'No se pudo guardar');
+    aplicarRespuestaConfiguracion(res);cerrarEditorAsignacion();showToast(eliminando?'Asignación eliminada':'Asignación guardada','ok');
+  }).catch(function(e){if(btn){btn.disabled=false;btn.textContent='Guardar asignación';}showToast('Error: '+(e.message||e),'err');});
+}
+function aplicarRespuestaConfiguracion(res){
+  if(res.configuracion){G.configuracion=res.configuracion;renderConfiguracion(res.configuracion);}
+  else gsRun('getConfiguracion',[]).then(function(cfg){if(cfg&&cfg.ok){G.configuracion=cfg;renderConfiguracion(cfg);}});
+  if(res.tarjetas)aplicarTarjetasState(res.tarjetas);
+  if(res.japon){G.japon=res.japon;paintHomeJapon(res.japon);renderModalJapon(res.japon);}
+}
+function abrirConfigCategoria(nombre){
+  eid('mov-config').classList.remove('open');
+  abrirModalCat(nombre);setTimeout(function(){abrirGestorCat();},80);
+}
+function abrirConfigBalance(tipo){
+  eid('mov-config').classList.remove('open');navTo('balance');
+  if(G.balance){G.balEdit=true;renderBalance(G.balance);showToast('Modo edición del Balance','ok');}
+  else showToast('Cargando Balance General…','ok');
+}
+
 function loadJapon(){
   google.script.run
     .withSuccessHandler(function(res){if(!res||!res.ok){showToast('Error Japón','err');return;}G.japon=res;renderJapon(res);})
@@ -2908,6 +3054,12 @@ function renderModalJapon(d){
       +(falt>0?'<span class="bdg over">-'+fmt(falt)+'</span>':'<span class="bdg ok">✓</span>')
       +'</div></div>';
   }).join('');
+  var allocations=(d.asignaciones||[]).map(function(a){
+    var short=Number(a.efectivo||0)+.004<Number(a.asignado||0);
+    return'<div class="japan-allocation-row"><div><b>'+hEsc(a.nombre||a.balanceId)+'</b><span>'+hEsc(a.grupo||'Activo')+' · Disponible '+fmt(a.disponible)+(short?' · respaldo insuficiente':'')+'</span></div>'
+      +'<strong class="'+(short?'settings-warning':'')+'">'+fmt(a.efectivo||0)+'</strong></div>';
+  }).join('');
+  var manual=Number(d.totalManual||0),linked=Number(d.totalVinculado||0);
   body.innerHTML=
     '<div class="card cs p20 mb14">'
     +'<div class="fb mb12"><div><div class="lup mb4">Total ahorrado</div><div class="ah tok2">'+fmt(d.totalActual||0)+'</div></div>'
@@ -2915,10 +3067,13 @@ function renderModalJapon(d){
     +'<div class="prog h12 mb10"><div class="pf ok" style="width:'+w+'%"></div></div>'
     +'<div class="fb" style="font-size:12px;color:var(--t2)"><span>Completado: <strong>'+pct+'</strong></span><span>Falta: <strong class="tov2">'+fmt(d.faltante||0)+'</strong></span></div>'
     +'</div>'
+    +'<div class="settings-goal-summary mb14"><div class="settings-goal-kpi"><span>Aportes manuales</span><b>'+fmt(manual)+'</b></div><div class="settings-goal-kpi"><span>Desde activos</span><b>'+fmt(linked)+'</b></div></div>'
+    +'<div class="lup mb10">Ahorro alojado en activos</div><div class="japan-allocation-list">'+(allocations||'<div class="settings-empty">Configura qué activos respaldan el viaje.</div>')+'</div>'
+    +'<button class="btn bgh bful mb14" onclick="eid(\'mov-japon\').classList.remove(\'open\');abrirConfiguracion(\'japon\')">Configurar activos de Japón</button>'
     +'<div class="lup mb10">Trámites pre-viaje</div><div class="mb14">'+(tram||'<div class="empty-state">Sin trámites registrados.</div>')+'</div>'
     +'<div class="lup mb10">Desglose del viaje</div><div class="mb14">'+(items||'<div class="empty-state">Sin desglose registrado.</div>')+'</div>'
     +'<div class="lup mb10">Calculadora</div><div class="card cr12 calc-row mb14"><span style="font-size:13px;color:var(--t2)">Si ahorro</span><input type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" id="calc-in" placeholder="200" oninput="calcJ()"><span style="font-size:13px;color:var(--t2)">$/mes</span><div class="cres" id="calc-out">ingresa un monto</div></div>'
-    +'<div class="card cr12 p14 mb14"><div style="font-size:13px;color:var(--t2);line-height:1.6">El ahorro de <strong>'+fmt(d.totalActual||0)+'</strong> proviene de los aportes registrados para el viaje y del fondo acumulado correspondiente.</div></div>'
+    +'<div class="card cr12 p14 mb14"><div style="font-size:13px;color:var(--t2);line-height:1.6">El progreso suma <strong>'+fmt(manual)+'</strong> de aportes manuales y <strong>'+fmt(linked)+'</strong> efectivamente respaldados por activos del Balance. Las asignaciones no mueven ni duplican dinero.</div></div>'
     +'<div class="detail-actions"><button class="btn bb bful" onclick="tgEditJap()">'+(G.japEdit?'Terminar edición':'Editar meta')+'</button><button class="btn bgh bful" onclick="eid(\'mov-japon\').classList.remove(\'open\')">Cerrar</button></div>';
 }
 function abrirModalJapon(){

@@ -27,7 +27,8 @@ const READ_TTL_MS = {
   getDesgloseSub: 18 * 1000,
   getNotificaciones: 12 * 1000,
   getCatalogoFinanciero: 30 * 1000,
-  getDiferidosTdc: 18 * 1000
+  getDiferidosTdc: 18 * 1000,
+  getConfiguracion: 18 * 1000
 };
 
 const WRITE_METHODS = new Set([
@@ -53,7 +54,11 @@ const WRITE_METHODS = new Set([
   'marcarNotifLeida',
   'crearMesNuevo',
   'registrarDiferidoTdc',
-  'liquidarDiferidoTdc'
+  'liquidarDiferidoTdc',
+  'guardarTarjetaConfiguracion',
+  'eliminarTarjetaConfiguracion',
+  'ordenarTarjetaConfiguracion',
+  'guardarAsignacionMeta'
 ]);
 
 function getCache() {
@@ -135,8 +140,10 @@ module.exports = async function handler(req, res) {
   const appsScriptUrl = process.env.APPS_SCRIPT_URL;
   const token = process.env.APPS_SCRIPT_TOKEN;
   const accessKey = process.env.APP_ACCESS_KEY;
+  const internalToken = req.headers['x-apps-script-token'];
+  const internalAuthorized = Boolean(token && internalToken && internalToken === token);
 
-  if (accessKey && req.headers['x-app-key'] !== accessKey) {
+  if (accessKey && req.headers['x-app-key'] !== accessKey && !internalAuthorized) {
     return res.status(401).json({ ok: false, error: 'No autorizado' });
   }
 

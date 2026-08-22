@@ -3081,6 +3081,27 @@ function _getApiToken(){
   return token;
 }
 
+function _jaegerConfigSupabase(fn, params){
+  var response = UrlFetchApp.fetch('https://finanzas-personales-5aac.vercel.app/api/apps-script', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {'X-Apps-Script-Token': _getApiToken()},
+    payload: JSON.stringify({fn: fn, args: params===undefined?[]:[params], requestId: Utilities.getUuid()}),
+    muteHttpExceptions: true
+  });
+  var code=response.getResponseCode();
+  var text=response.getContentText();
+  var data=text?JSON.parse(text):{ok:false,error:'Respuesta vacia'};
+  if(code<200||code>=300) throw new Error(data.error||('HTTP '+code));
+  return data;
+}
+
+function getConfiguracion(){ return _jaegerConfigSupabase('getConfiguracion'); }
+function guardarTarjetaConfiguracion(params){ return _jaegerConfigSupabase('guardarTarjetaConfiguracion',params||{}); }
+function eliminarTarjetaConfiguracion(params){ return _jaegerConfigSupabase('eliminarTarjetaConfiguracion',params||{}); }
+function ordenarTarjetaConfiguracion(params){ return _jaegerConfigSupabase('ordenarTarjetaConfiguracion',params||{}); }
+function guardarAsignacionMeta(params){ return _jaegerConfigSupabase('guardarAsignacionMeta',params||{}); }
+
 var API_METHODS = {
   getMesesDisponibles: getMesesDisponibles,
   getMesData: getMesData,
@@ -3120,7 +3141,12 @@ var API_METHODS = {
   eliminarMovimiento: eliminarMovimiento,
   getNotificaciones: getNotificaciones,
   marcarNotifLeida: marcarNotifLeida,
-  crearMesNuevo: crearMesNuevo
+  crearMesNuevo: crearMesNuevo,
+  getConfiguracion: getConfiguracion,
+  guardarTarjetaConfiguracion: guardarTarjetaConfiguracion,
+  eliminarTarjetaConfiguracion: eliminarTarjetaConfiguracion,
+  ordenarTarjetaConfiguracion: ordenarTarjetaConfiguracion,
+  guardarAsignacionMeta: guardarAsignacionMeta
 };
 
 function doPost(e){
