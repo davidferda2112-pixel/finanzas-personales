@@ -282,6 +282,10 @@ function mesOrdenNombre(m){
   var idx=MESES_NOM_JS.indexOf(p[0]),yy=parseInt(p[1],10);
   return idx<0||isNaN(yy)?-1:yy*12+idx;
 }
+function anioDesdeMesNombre(m){
+  var p=String(m||'').trim().split(/\s+/),yy=parseInt(p[1],10);
+  return p.length===2&&!isNaN(yy)?2000+yy:(new Date().getFullYear());
+}
 function aplicarSaldoEsperado(d,mes){
   return d;
 }
@@ -936,26 +940,57 @@ function fillSels(m){
   var btn=eid('btn-nmes');if(btn)btn.style.display='none';
 }
 
+var __homeMonthSeq=0;
 function cambiarMes(nombre){cambiarMesInicio(nombre);}
 function cambiarMesInicio(nombre){
   if(!nombre)return;
+  var requestSeq=++__homeMonthSeq;
   ++__syncSeq;
   G.mesActual=nombre;
+  G.histMes=nombre;
+  G.tcMesActual=nombre;
+  G.tdcAnio=anioDesdeMesNombre(nombre);
+  G.movimientosMes=null;
+  G.pinturas=null;
   cacheSet('mesActual',nombre);
   var sh=eid('sel-h');if(sh)sh.value=nombre;
-  eid('home').innerHTML='<div class="empty-state">Cargando '+nombre+'...</div>';
+  var sp=eid('sel-pr');if(sp)sp.value=nombre;
+  var cached=cacheGetBootHome(nombre);
+  if(cached){
+    G.mesData=cached;G.histData=cached;renderHome(cached);
+    showToast('Mostrando '+nombre+'. Actualizando…','ok');
+  }else{
+    eid('h-hero').innerHTML='<div class="card empty-state">Cargando resumen de '+nombre+'...</div>';
+    eid('h-ing-card').innerHTML='<div class="empty-state">Consultando ingresos, egresos y ahorros…</div>';
+    eid('h-cats').innerHTML='<div class="empty-state">Cargando distribución del mes…</div>';
+    eid('h-dev').innerHTML='';
+  }
   gsRun('getMesData',[nombre]).then(function(res){
-    if(G.mesActual!==nombre)return;
-    if(!res||res.ok===false||res.error){showToast('No pude cargar '+nombre,'err');return;}
+    if(requestSeq!==__homeMonthSeq||G.mesActual!==nombre)return;
+    if(!res||res.ok===false||res.error)throw new Error((res&&res.error)||'Respuesta incompleta');
+    if(res.mes&&res.mes!==nombre)throw new Error('El servidor devolvió '+res.mes+' en lugar de '+nombre);
     G.mesData=aplicarSaldoEsperado(res,nombre);
+    G.histData=G.mesData;
     cacheSetBootHome(nombre,G.mesData);
     cacheSet('lastGoodHome',{mes:nombre,data:G.mesData});
     renderHome(G.mesData);
-    cargarTarjetasState({mes:G.tcMesActual||nombre,idx:G.tcIdx||0,anio:G.tdcAnio||2026},6500);
+    showToast(nombre+' actualizado','ok');
   }).catch(function(e){
+    if(requestSeq!==__homeMonthSeq||G.mesActual!==nombre)return;
     console.warn('mes inicio',e);
-    showToast('No pude cargar '+nombre,'err');
+    if(cached){
+      showToast('No pude actualizar '+nombre+'; conservé el último dato guardado','err');
+    }else{
+      eid('h-hero').innerHTML='<div class="card empty-state">No pude cargar '+nombre+'.<br><button class="btn bgh" style="margin-top:12px" onclick="cambiarMesInicio(\''+nombre+'\')">Reintentar</button></div>';
+      eid('h-ing-card').innerHTML='';eid('h-cats').innerHTML='';eid('h-dev').innerHTML='';
+      showToast('No pude cargar '+nombre,'err');
+    }
   });
+  withTimeout(gsRun('getTarjetasState',[{mes:nombre,idx:G.tcIdx||0,anio:anioDesdeMesNombre(nombre)}]),6500,'tarjetas de '+nombre)
+    .then(function(res){
+      if(requestSeq!==__homeMonthSeq||G.mesActual!==nombre)return;
+      if(res&&res.ok!==false&&!res.timeout)aplicarTarjetasState(res);
+    }).catch(function(e){console.warn('tarjetas del mes',e);});
 }
 
 function cambiarMesHistorial(nombre){

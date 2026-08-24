@@ -119,10 +119,11 @@ async function runNativePrimary(fn, args) {
   if (!SUPPORTED_READS.has(fn)) {
     return { ok: false, skipped: true };
   }
+  const timeoutMs = fn === 'getMesData' || fn === 'getTarjetasState' ? 4500 : 2500;
   try {
     return await Promise.race([
       nativeRead(fn, args, { requireFresh: true }),
-      new Promise((resolve) => setTimeout(() => resolve({ ok: false, timeout: true }), 1500))
+      new Promise((resolve) => setTimeout(() => resolve({ ok: false, timeout: true }), timeoutMs))
     ]);
   } catch (error) {
     return { ok: false, error: error.message || String(error) };
