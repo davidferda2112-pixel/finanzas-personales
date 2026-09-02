@@ -3280,6 +3280,18 @@ function guardar(){
   if(!monto||monto<=0){showToast('Ingresa un monto válido','err');return;}
   if(!sub){showToast('Selecciona una subcategoría','err');return;}
   if(!G.mesActual){showToast('No hay mes seleccionado','err');return;}
+  if(G.tipoModal==='ahorro'||G.tipoModal==='deuda'){
+    var itemCatalogo=catalogFind(G.tipoModal,sub);
+    var deudaFija=itemCatalogo&&G.tipoModal==='deuda'&&nE(itemCatalogo.grupo)===nE('Pasivos Fijos');
+    if(!itemCatalogo){
+      showToast('“'+sub+'” no está activo en el catálogo. Corrígelo desde Gestionar antes de registrar.','err');
+      return;
+    }
+    if(!itemCatalogo.balanceId&&!deudaFija){
+      showToast('“'+sub+'” no tiene un destino de balance asignado. Corrígelo desde Gestionar.','err');
+      return;
+    }
+  }
   var btn=eid('btn-sv');btn.textContent='Guardando...';btn.disabled=true;
   var mesAplicado=G.mesActual;
   var mesRegistro=mesDesdeFechaISO(fecha)||G.mesActual;
@@ -3320,7 +3332,7 @@ function guardar(){
         syncTrasCambio({delay:80,mesInicio:G.mesActual||mesAplicado,mesHist:G.histMes||mesAplicado,historial:true,flujo:true,balance:true});
       }
     })
-    .withFailureHandler(function(e){btn.textContent='Guardar';btn.disabled=false;showToast('Error de conexión','err');syncTrasCambio({delay:80,mesInicio:G.mesActual||mesAplicado,mesHist:G.histMes||mesAplicado,historial:true,flujo:true,balance:true});})
+    .withFailureHandler(function(e){btn.textContent='Guardar';btn.disabled=false;showToast('No se pudo comunicar con el servidor: '+(e&&e.message?e.message:e||'reintenta la operación.'),'err');syncTrasCambio({delay:80,mesInicio:G.mesActual||mesAplicado,mesHist:G.histMes||mesAplicado,historial:true,flujo:true,balance:true});})
     .registrarMovimiento(params);
 }
 

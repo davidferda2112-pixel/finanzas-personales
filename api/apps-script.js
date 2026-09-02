@@ -101,6 +101,14 @@ function storeReadCache(fn, args, text) {
   getCache().set(makeCacheKey(fn, args), { savedAt: Date.now(), text });
 }
 
+function nativeWriteValidationMessage(error) {
+  if (!error || Number(error.status) < 400 || Number(error.status) >= 500) return '';
+  if (error.supabaseCode === 'P0001' && error.publicMessage) return error.publicMessage;
+  if (error.supabaseCode === '23505') return 'Ya existe un registro con esos datos.';
+  if (error.supabaseCode === '23503') return 'El registro depende de una configuración que ya no está disponible.';
+  return 'Supabase rechazó el registro porque los datos no cumplen las reglas financieras vigentes.';
+}
+
 async function runShadowRead(fn, args, sheetsData, timing) {
   if (process.env.SUPABASE_SHADOW_READS === '0' || !SUPPORTED_READS.has(fn)) {
     return { status: 'unsupported' };
@@ -169,6 +177,10 @@ module.exports = async function handler(req, res) {
           requestId: body.requestId || null,
           message: error && (error.message || String(error))
         });
+        const validationMessage = nativeWriteValidationMessage(error);
+        if (validationMessage) {
+          return res.status(200).json({ ok: false, error: validationMessage });
+        }
         return res.status(502).json({
           ok: false,
           error: 'No se pudo confirmar el registro en Supabase. Reintenta la misma operación.'
