@@ -107,11 +107,20 @@ function catalogSubcats(tipo){
   var c=G.catalogo&&G.catalogo.subcats?G.catalogo.subcats[tipo]:null;
   var base=(SUBCATS[tipo]||[]).slice();
   if(tipo==='ingreso') return uniqCanon(base.concat(c||[]));
-  if(tipo==='necesidad'||tipo==='deseo'||tipo==='ahorro'||tipo==='deuda'){
+  if(tipo==='ahorro'||tipo==='deuda'){
+    var mesBalanceItems=subcatsDesdeMesActual(tipo);
+    var activos=uniqCanon(c&&c.length?c:[]);
+    if(mesBalanceItems&&mesBalanceItems.length){
+      return mesBalanceItems.filter(function(nombre){
+        return activos.some(function(activo){return nE(activo)===nE(nombre);});
+      });
+    }
+    return activos;
+  }
+  if(tipo==='necesidad'||tipo==='deseo'){
     var mesItems=subcatsDesdeMesActual(tipo);
     if(mesItems&&mesItems.length)return mesItems;
   }
-  if(tipo==='ahorro'||tipo==='deuda') return uniqCanon(c&&c.length?c:[]);
   return uniqCanon(c&&c.length?c:base);
 }
 function loadCatalogo(){
@@ -2109,7 +2118,11 @@ function catItemsGestionActivos(){
   var actuales=catItemsActuales();
   if(!tipo) return actuales;
   var activos=G.catalogo&&G.catalogo.subcats&&G.catalogo.subcats[tipo]?G.catalogo.subcats[tipo]:SUBCATS[tipo]||[];
-  return activos.map(function(nombre){
+  var nombres=activos.slice();
+  if(G.catManage&&G.catManage.modo==='eliminar'){
+    nombres=uniqCanon(nombres.concat(actuales.filter(function(x){return x&&x.nombre;}).map(function(x){return x.nombre;})));
+  }
+  return nombres.map(function(nombre){
     var item=actuales.filter(function(x){return nE(x.nombre)===nE(nombre);})[0]||{};
     return {
       nombre:nombre,
@@ -2139,6 +2152,7 @@ function abrirGestorCat(){
 function setCatManageMode(modo){
   if(!G.catManage)return;
   G.catManage.modo=modo;
+  G.catManage.items=catItemsGestionActivos();
   renderGestorCat();
 }
 
