@@ -197,14 +197,19 @@ function catBalanceDestChange(){
 
 function tipoLabel(t){return t==='ingreso'?'Ingreso':t==='ahorro'?'Ahorro':esEgresoTipo(t)?'Egreso':(t||'-');}
 function esEgresoTipo(t){return['necesidad','deseo','deuda'].indexOf(t)>=0;}
+function presupuestoSeccion(seccion){
+  var items=seccion&&seccion.items?seccion.items:[];
+  return items.reduce(function(total,item){
+    return total+(parseFloat(item&&(item.presupuesto||item.préstamo))||0);
+  },0);
+}
 function getCategoriasDetalle(d){
   if(!d)return[];
-  var vg=d.vistaGeneral||{},ing=d.ingresos?d.ingresos.totalActual:(vg.ingresos?vg.ingresos.actual:0),mt=d.metricas||{};
   return[
-    {t:'Necesidades',d:d.necesidades,v:d.necesidades?d.necesidades.total:0,meta:mt.necDeudas?mt.necDeudas.valEst*0.65:ing*0.325,aho:false},
-    {t:'Deseos',d:d.deseos,v:d.deseos?d.deseos.total:0,meta:mt.deseos?mt.deseos.valEst:ing*0.30,aho:false},
-    {t:'Deudas',d:d.deudas,v:d.deudas?d.deudas.total:0,meta:mt.necDeudas?mt.necDeudas.valEst*0.35:ing*0.175,aho:false},
-    {t:'Ahorros',d:d.ahorros,v:d.ahorros?(d.ahorros.total||d.ahorros.totalCalculado||0):0,meta:mt.ahorros?mt.ahorros.valEst:ing*0.20,aho:true}
+    {t:'Necesidades',d:d.necesidades,v:d.necesidades?d.necesidades.total:0,meta:presupuestoSeccion(d.necesidades),aho:false},
+    {t:'Deseos',d:d.deseos,v:d.deseos?d.deseos.total:0,meta:presupuestoSeccion(d.deseos),aho:false},
+    {t:'Deudas',d:d.deudas,v:d.deudas?d.deudas.total:0,meta:presupuestoSeccion(d.deudas),aho:false},
+    {t:'Ahorros',d:d.ahorros,v:d.ahorros?(d.ahorros.total||d.ahorros.totalCalculado||0):0,meta:presupuestoSeccion(d.ahorros),aho:true}
   ];
 }
 function porcentajesDistribucion(cats){
@@ -1128,11 +1133,10 @@ function renderHome(d){
     +'<div class="card p12 cr12"><div class="lup">Ahorros</div><div class="amd tokb">'+fmt(ahoR)+'</div></div>'
     +'</div>';
 
-  var mt=d.metricas||{};
-  var metaN=mt.necDeudas?mt.necDeudas.valEst*0.65:ing*0.325;
-  var metaD=mt.deseos?mt.deseos.valEst:ing*0.30;
-  var metaDeu=mt.necDeudas?mt.necDeudas.valEst*0.35:ing*0.175;
-  var metaA=mt.ahorros?mt.ahorros.valEst:ing*0.20;
+  var metaN=presupuestoSeccion(d.necesidades);
+  var metaD=presupuestoSeccion(d.deseos);
+  var metaDeu=presupuestoSeccion(d.deudas);
+  var metaA=presupuestoSeccion(d.ahorros);
 
   var cats=[
     {t:'Necesidades',v:necR,meta:metaN,grad:'linear-gradient(135deg,#0062cc,#007AFF,#34AADC)',ic:'🏠',aho:false},
