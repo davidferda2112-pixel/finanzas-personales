@@ -2073,16 +2073,17 @@ function abrirModalCat(nombre){
   var tot=cat.d?(cat.d.total||cat.d.totalCalculado||0):0;
   var totP=items.reduce(function(a,x){return a+(x.presupuesto||x.préstamo||0);},0);
   var sobrante=totP-tot;
-  var s2=cat.aho?(tot>=totP?'ok':(tot>=totP*0.85?'warn':'over')):st(totP,tot);
+  var s2=totP>0?(cat.aho?(tot>=totP?'ok':(tot>=totP*0.85?'warn':'over')):st(totP,tot)):'unplanned';
 
   eid('cat-modal-title').textContent=({'Necesidades':'🏠','Deseos':'🎮','Deudas':'💳','Ahorros':'🏦'}[nombre]||'')+' '+nombre;
-  eid('cat-modal-badge').innerHTML='<span class="bdg '+(s2==='ok'?'ok':s2==='warn'?'warn':'over')+'">'+(s2==='ok'?'En objetivo':s2==='warn'?'Cerca':'Excedido')+'</span>';
+  eid('cat-modal-badge').innerHTML='<span class="bdg '+(s2==='ok'?'ok':s2==='warn'||s2==='unplanned'?'warn':'over')+'">'+(s2==='unplanned'?'Sin presupuesto':s2==='ok'?'En objetivo':s2==='warn'?'Cerca':'Excedido')+'</span>';
 
-  eid('cat-modal-res').innerHTML=[
+  var resumen=[
     {l:'Presupuesto',v:totP,c:'var(--t2)'},
-    {l:'Gastado',    v:tot, c:s2==='ok'?'var(--ok)':s2==='over'?'var(--over)':'var(--warn)'},
-    {l:sobrante>=0?'Sobrante':'Excedido',v:Math.abs(sobrante),c:sobrante>=0?'var(--ok)':'var(--over)'}
-  ].map(function(r){
+    {l:cat.aho?'Ahorrado':'Gastado',v:tot,c:s2==='ok'||cat.aho?'var(--ok)':s2==='over'?'var(--over)':'var(--warn)'}
+  ];
+  if(totP>0)resumen.push({l:sobrante>=0?'Sobrante':'Excedido',v:Math.abs(sobrante),c:sobrante>=0?'var(--ok)':'var(--over)'});
+  eid('cat-modal-res').innerHTML=resumen.map(function(r){
     return'<div class="card p12 cr12"><div class="lup">'+r.l+'</div><div class="amd" style="color:'+r.c+'">'+fmt(r.v)+'</div></div>';
   }).join('');
 
@@ -2096,13 +2097,13 @@ function abrirModalCat(nombre){
 
   items.filter(function(i){return(i.presupuesto||i.préstamo||0)>0||i.actual>0;}).forEach(function(i){
     var pres=i.presupuesto||i.préstamo||0,act=i.actual||0,sob=pres-act;
-    var is2=cat.aho?(act>=pres?'ok':(act>=pres*0.85?'warn':'over')):st(pres,act);
-    var colA=is2==='ok'?'var(--ok)':is2==='over'?'var(--over)':'var(--warn)';
+    var is2=pres>0?(cat.aho?(act>=pres?'ok':(act>=pres*0.85?'warn':'over')):st(pres,act)):'unplanned';
+    var colA=is2==='ok'||cat.aho?'var(--ok)':is2==='over'?'var(--over)':'var(--warn)';
     tbl+='<tr>'
       +'<td style="padding:10px 0;border-bottom:0.5px solid rgba(0,0,0,0.05);font-weight:600;color:var(--t1)">'+i.nombre+'</td>'
       +'<td style="padding:10px 4px;border-bottom:0.5px solid rgba(0,0,0,0.05);text-align:right;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;color:var(--t2)">'+fmt(pres)+'</td>'
       +'<td style="padding:10px 4px;border-bottom:0.5px solid rgba(0,0,0,0.05);text-align:right;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-weight:700;color:'+colA+'">'+fmt(act)+'</td>'
-      +'<td style="padding:10px 0;border-bottom:0.5px solid rgba(0,0,0,0.05);text-align:right;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;color:'+(sob>=0?'var(--ok)':'var(--over)')+'">'+fmt(sob)+'</td></tr>';
+      +'<td style="padding:10px 0;border-bottom:0.5px solid rgba(0,0,0,0.05);text-align:right;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;color:'+(sob>=0?'var(--ok)':'var(--over)')+'">'+(pres>0?fmt(sob):'—')+'</td></tr>';
   });
   tbl+='</tbody></table></div>';
   eid('cat-modal-tabla').innerHTML=tbl;
