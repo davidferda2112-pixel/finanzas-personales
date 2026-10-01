@@ -1149,17 +1149,17 @@ function renderHome(d){
     +cats.map(function(cat,idx){
       var pct=cat.meta>0?Math.min((cat.v/cat.meta)*100,100):0;
       var pctIng=pctDist[idx]||0;
-      var s2=cat.aho?(cat.v>=cat.meta?'ok':(cat.v>=cat.meta*0.85?'warn':'over')):st(cat.meta,cat.v);
+      var s2=cat.meta>0?(cat.aho?(cat.v>=cat.meta?'ok':(cat.v>=cat.meta*0.85?'warn':'over')):st(cat.meta,cat.v)):'unplanned';
       var sob=cat.meta-cat.v;
       return'<div class="cat-card" style="background:'+cat.grad+'" onclick="abrirModalCat(\''+cat.t+'\')">'
         +'<div><div class="cat-ic">'+cat.ic+'</div>'
         +'<div class="cat-name">'+cat.t+' '+pctIng+'% del mes</div>'
         +'<div class="cat-amt">'+fmt(cat.v)+'</div>'
-        +'<div class="cat-sub">'+(s2==='over'&&!cat.aho?'↑ '+fmt(Math.abs(sob))+' excedido':s2==='ok'?'✓ en objetivo':fmt(Math.abs(sob))+' de margen')+'</div>'
+        +'<div class="cat-sub">'+(s2==='unplanned'?'Sin presupuesto':s2==='over'&&!cat.aho?'↑ '+fmt(Math.abs(sob))+' excedido':s2==='ok'?'✓ en objetivo':fmt(Math.abs(sob))+' de margen')+'</div>'
         +'</div>'
         +'<div><div style="display:flex;justify-content:space-between;margin-bottom:4px">'
-        +'<span style="font-size:10px;color:rgba(255,255,255,0.6)">de '+fmt(cat.meta)+'</span>'
-        +'<span style="font-size:10px;color:rgba(255,255,255,0.92);font-weight:700">'+pct.toFixed(0)+'%</span>'
+        +'<span style="font-size:10px;color:rgba(255,255,255,0.6)">'+(cat.meta>0?'de '+fmt(cat.meta):'Sin presupuesto')+'</span>'
+        +'<span style="font-size:10px;color:rgba(255,255,255,0.92);font-weight:700">'+(cat.meta>0?pct.toFixed(0)+'%':'—')+'</span>'
         +'</div>'
         +'<div class="cat-bar"><div class="cat-bar-fill" style="width:'+pct+'%"></div></div>'
         +'</div></div>';
