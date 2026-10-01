@@ -1171,8 +1171,8 @@ function renderHome(d){
   var totalAhorro=todos.reduce(function(a,i){return a+((i.sobrante>0&&i.presupuesto>0)?i.sobrante:0);},0);
   var totalSobregasto=todos.reduce(function(a,i){return a+(i.sobrante<0?Math.abs(i.sobrante):0);},0);
   eid('h-dev').innerHTML=
-    '<div class="card lc quick-kpi" onclick="abrirModalKpi(\'ahorro\')"><div class="lup mb4">Ahorro mensual</div>'
-    +'<span class="kpi-num tok2">'+fmt(totalAhorro)+'</span><div class="kpi-caption">'+(bien.length?bien.length+' subcategorías con margen':'sin ahorros destacados')+'</div>'
+    '<div class="card lc quick-kpi" onclick="abrirModalKpi(\'ahorro\')"><div class="lup mb4">Margen del presupuesto</div>'
+    +'<span class="kpi-num tok2">'+fmt(totalAhorro)+'</span><div class="kpi-caption">'+(bien.length?bien.length+' subcategorías con margen':'sin categorías con margen')+'</div>'
     +'</div>'
     +'<div class="card lc quick-kpi" onclick="abrirModalKpi(\'sobregasto\')"><div class="lup mb4">Sobregasto</div>'
     +'<span class="kpi-num '+(totalSobregasto>0?'tov2':'tok2')+'">'+fmt(totalSobregasto)+'</span><div class="kpi-caption">'+(mal.length?mal.length+' subcategorías excedidas':'todo en orden')+'</div>'
@@ -1454,7 +1454,7 @@ function limpiarPinturas(){
 
 function abrirModalKpi(tipo){
   var data=tipo==='ahorro'?(G.kpiAhorro||[]):(G.kpiSobregasto||[]);
-  eid('kpi-modal-title').textContent=tipo==='ahorro'?'Ahorro mensual':'Sobregasto';
+  eid('kpi-modal-title').textContent=tipo==='ahorro'?'Margen del presupuesto':'Sobregasto';
   eid('kpi-modal-sub').textContent=tipo==='ahorro'
     ?'Subcategorías donde estás gastando menos de lo presupuestado'
     :'Subcategorías donde estás excediendo el presupuesto';
