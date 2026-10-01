@@ -1155,7 +1155,7 @@ function renderHome(d){
         +'<div><div class="cat-ic">'+cat.ic+'</div>'
         +'<div class="cat-name">'+cat.t+' '+pctIng+'% del mes</div>'
         +'<div class="cat-amt">'+fmt(cat.v)+'</div>'
-        +'<div class="cat-sub">'+(s2==='unplanned'?'Sin presupuesto':s2==='over'&&!cat.aho?'↑ '+fmt(Math.abs(sob))+' excedido':s2==='ok'?'✓ en objetivo':fmt(Math.abs(sob))+' de margen')+'</div>'
+        +'<div class="cat-sub">'+(s2==='unplanned'?(cat.v>0?'Movimiento registrado':'Sin movimientos'):s2==='over'&&!cat.aho?'↑ '+fmt(Math.abs(sob))+' excedido':s2==='ok'?'✓ en objetivo':fmt(Math.abs(sob))+' de margen')+'</div>'
         +'</div>'
         +'<div><div style="display:flex;justify-content:space-between;margin-bottom:4px">'
         +'<span style="font-size:10px;color:rgba(255,255,255,0.6)">'+(cat.meta>0?'de '+fmt(cat.meta):'Sin presupuesto')+'</span>'
