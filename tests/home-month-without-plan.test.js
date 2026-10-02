@@ -13,6 +13,7 @@ test('Inicio suma movimientos del mes aunque todavía no exista un presupuesto',
   });
 
   assert.equal(month.ingresos.totalActual, 280);
+  assert.equal(month.planConfigured, false);
   assert.deepEqual(month.ingresos.items.map(({ nombre, actual }) => [nombre, actual]), [['Sueldo', 280]]);
   assert.equal(month.ahorros.total, 70);
   assert.equal(month.ahorros.totalCalculado, 70);
@@ -36,6 +37,7 @@ test('Inicio suma una categoría sin plan y evita duplicar movimientos en filas 
   });
 
   assert.equal(month.ingresos.totalActual, 280);
+  assert.equal(month.planConfigured, true);
   assert.equal(month.ingresos.items.filter((item) => item.actual === 280).length, 1);
   assert.equal(month.ahorros.total, 80);
   assert.equal(month.ahorros.items.find((item) => item.nombre === 'Devolución Ahorro 1').actual, 70);

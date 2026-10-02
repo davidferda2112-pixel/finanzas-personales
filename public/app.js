@@ -1206,6 +1206,31 @@ function renderHome(d){
   */
 
   eid('sb-s').textContent=fmt(saldo);
+  asegurarPresupuestoMesActual(d);
+}
+
+function asegurarPresupuestoMesActual(d){
+  if(!d||d.planConfigured!==false||d.mes!==mesActualCalendario()||G._mesPlanSolicitado===d.mes)return;
+  G._mesPlanSolicitado=d.mes;
+  gsRun('crearMesNuevo',[d.mes]).then(function(res){
+    if(!res||res.ok===false)throw new Error((res&&res.error)||'No se pudo crear el presupuesto mensual');
+    return gsRun('getMesData',[d.mes]);
+  }).then(function(actualizado){
+    if(!actualizado||actualizado.ok===false||!actualizado.planConfigured)throw new Error('El presupuesto mensual no se pudo verificar');
+    cacheSetBootHome(d.mes,actualizado);
+    if(G.mesActual===d.mes){
+      G.mesData=actualizado;
+      if(G.histMes===d.mes)G.histData=actualizado;
+      renderHome(actualizado);
+      showToast('Presupuesto de '+d.mes+' cargado','ok');
+    }
+    gsRun('getMesesDisponibles',[]).then(function(meses){
+      if(meses&&meses.ok&&meses.data)fillSels(meses.data);
+    }).catch(function(e){console.warn('meses tras presupuesto',e);});
+  }).catch(function(e){
+    console.warn('presupuesto mensual',e);
+    showToast('No pude cargar el presupuesto de '+d.mes+'. Recarga Inicio para reintentar.','err');
+  });
 }
 
 function aplicarMovimientoHomeLocal(params){
