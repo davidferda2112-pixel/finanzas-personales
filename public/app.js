@@ -1155,7 +1155,7 @@ function renderHome(d){
         +'<div><div class="cat-ic">'+cat.ic+'</div>'
         +'<div class="cat-name">'+cat.t+' '+pctIng+'% del mes</div>'
         +'<div class="cat-amt">'+fmt(cat.v)+'</div>'
-        +'<div class="cat-sub">'+(s2==='unplanned'?(cat.v>0?'Movimiento registrado':'Sin movimientos'):s2==='over'&&!cat.aho?'↑ '+fmt(Math.abs(sob))+' excedido':s2==='ok'?'✓ en objetivo':fmt(Math.abs(sob))+' de margen')+'</div>'
+        +'<div class="cat-sub">'+(s2==='unplanned'?(cat.v>0?'Movimiento registrado':'Sin movimientos'):cat.aho?(cat.v>=cat.meta?'✓ meta cumplida':'Faltan '+fmt(Math.max(0,sob))+' para la meta'):s2==='over'?'↑ '+fmt(Math.abs(sob))+' excedido':s2==='ok'?'✓ en objetivo':fmt(Math.abs(sob))+' de margen')+'</div>'
         +'</div>'
         +'<div><div style="display:flex;justify-content:space-between;margin-bottom:4px">'
         +'<span style="font-size:10px;color:rgba(255,255,255,0.6)">'+(cat.meta>0?'de '+fmt(cat.meta):'Sin presupuesto')+'</span>'
@@ -2098,10 +2098,11 @@ function abrirModalCat(nombre){
   var tot=cat.d?(cat.d.total||cat.d.totalCalculado||0):0;
   var totP=items.reduce(function(a,x){return a+(x.presupuesto||x.préstamo||0);},0);
   var sobrante=totP-tot;
-  var s2=totP>0?(cat.aho?(tot>=totP?'ok':(tot>=totP*0.85?'warn':'over')):st(totP,tot)):'unplanned';
+  var s2=totP<=0?'unplanned':cat.aho?(tot>=totP?'ok':'warn'):tot>totP?'over':tot>=totP*0.85?'warn':'ok';
+  var badge=s2==='unplanned'?'Sin presupuesto':cat.aho?(s2==='ok'?'Meta cumplida':'Aún por ahorrar'):s2==='over'?'Excedido':tot===0?'Sin gastos':s2==='warn'?'Cerca del límite':'Dentro del presupuesto';
 
   eid('cat-modal-title').textContent=({'Necesidades':'🏠','Deseos':'🎮','Deudas':'💳','Ahorros':'🏦'}[nombre]||'')+' '+nombre;
-  eid('cat-modal-badge').innerHTML='<span class="bdg '+(s2==='ok'?'ok':s2==='warn'||s2==='unplanned'?'warn':'over')+'">'+(s2==='unplanned'?'Sin presupuesto':s2==='ok'?'En objetivo':s2==='warn'?'Cerca':'Excedido')+'</span>';
+  eid('cat-modal-badge').innerHTML='<span class="bdg '+(s2==='ok'?'ok':s2==='warn'||s2==='unplanned'?'warn':'over')+'">'+badge+'</span>';
 
   var resumen=[
     {l:'Presupuesto',v:totP,c:'var(--t2)'},
