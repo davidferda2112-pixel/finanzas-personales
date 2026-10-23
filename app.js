@@ -111,9 +111,9 @@ function catalogSubcats(tipo){
     var mesBalanceItems=subcatsDesdeMesActual(tipo);
     var activos=uniqCanon(c&&c.length?c:[]);
     if(mesBalanceItems&&mesBalanceItems.length){
-      return mesBalanceItems.filter(function(nombre){
+      return uniqCanon(mesBalanceItems.filter(function(nombre){
         return activos.some(function(activo){return nE(activo)===nE(nombre);});
-      });
+      }).concat(activos));
     }
     return activos;
   }
@@ -169,7 +169,8 @@ function actualizarBalanceBox(){
   eid('m-balance-new').style.display='none';eid('m-balance-grupo').style.display='none';
   eid('m-balance-dest').onchange=null;
   if(isCat){
-    var it=catalogFind(tipo,sub);
+    var selectedBalance=eid('m-sub').selectedOptions[0]&&eid('m-sub').selectedOptions[0].dataset.balanceId;
+    var it=catalogItems(tipo).find(function(x){return x.nombre===sub&&(!selectedBalance||x.balanceId===selectedBalance);})||catalogFind(tipo,sub);
     eid('m-balance-label').textContent='Destino balance';
     eid('m-balance-dest').style.display='none';
     eid('m-balance-hint').textContent=it&&it.balanceNombre?'Se alojara en '+it.grupo+' > '+it.balanceNombre:'Debes asignarlo desde Gestionar antes de guardar.';
@@ -1592,7 +1593,9 @@ function abrirBalanceItem(modo,codigo,tipo){
     var item=codigo?findBalanceItemLocal(codigo):null;
     if(codigo&&!item){showToast('Item no encontrado','err');return;}
     var tipoItem=item?(item.tipo||tipo||'Activo'):(tipo||'Activo');
-    G.balItem={modo:modo||'crear',codigo:codigo||''};
+    G.balItem={modo:modo||'crear',codigo:codigo||'',originalValue:item?Number(item.valor):null};
+    eid('bal-create-kind').hidden=!!item;
+    setBalanceCreateKind('item');
     eid('bal-item-title').textContent=item?'Editar item':'Agregar item';
     eid('bal-item-tipo').disabled=!!item;
     eid('bal-item-tipo').value=tipoItem;
@@ -1609,6 +1612,7 @@ function abrirBalanceItem(modo,codigo,tipo){
 }
 function guardarBalanceItemUI(){
   var btn=eid('bal-item-save');
+  if(G.balCreateKind==='group'){guardarBalanceGrupoUI();return;}
   var nombre=eid('bal-item-nombre').value.trim();
   var valor=moneyVal(eid('bal-item-valor').value);
   if(!nombre){showToast('Escribe el nombre','err');return;}
@@ -1618,7 +1622,8 @@ function guardarBalanceItemUI(){
     nombre:nombre,
     grupo:eid('bal-item-grupo').value,
     valor:String(valor),
-    nota:eid('bal-item-nota').value||''
+    nota:eid('bal-item-nota').value||'',
+    preserveBalance:!!(G.balItem&&G.balItem.codigo&&Number(valor)===G.balItem.originalValue)
   };
   btn.disabled=true;btn.textContent='Guardando...';
   google.script.run
@@ -1628,6 +1633,7 @@ function guardarBalanceItemUI(){
       eid('mov-bal-item').classList.remove('open');
       if(res.balance){G.balance=res.balance;G._dirtyBalance=false;renderBalance(res.balance);}
       else syncTrasCambio({delay:80,balance:true});
+      loadCatalogo();
       showToast(params.codigo?'Balance actualizado':'Item agregado','ok');
     })
     .withFailureHandler(function(e){btn.disabled=false;btn.textContent='Guardar';showToast('Error: '+e,'err');})
@@ -2145,7 +2151,6 @@ function abrirModalCat(nombre){
   });
   tbl+='</tbody></table></div>';
   eid('cat-modal-tabla').innerHTML=tbl;
-  renderCategoryFunding(items,cat);
   eid('mov-cat').classList.add('open');
 }
 
@@ -3241,7 +3246,7 @@ function abrirModal(tipo){
   try{
     G.savingsMode=false;G.savingsEditingId=null;G.savingsRequest=null;
     eid('savings-panel').hidden=true;eid('savings-preview').hidden=true;
-    eid('savings-entry').hidden=false;eid('m-sub').parentElement.hidden=false;
+    eid('savings-entry').hidden=tipo!=='egreso'&&!!tipo;eid('m-sub').parentElement.hidden=false;
     eid('mov').querySelector('.tsb').parentElement.hidden=false;
     tipo=tipo||'egreso';
     var tipoReal=tipoModalInicial(tipo);
@@ -3272,9 +3277,14 @@ function abrirModal(tipo){
       else if(tipo==='ahorro') b.style.display=bt==='ahorro'?'flex':'none';
       else                     b.style.display=(bt==='necesidad'||bt==='deseo'||bt==='deuda')?'flex':'none';
     });
-    if(!G.catalogo){
+    {
       loadCatalogo().then(function(){
-        if(eid('mov')&&eid('mov').classList.contains('open')) renderMovimientoSubcats(G.tipoModal);
+        if(eid('mov')&&eid('mov').classList.contains('open')&&!G.savingsMode){
+          var select=eid('m-sub'),previous=select.value,account=select.selectedOptions[0]&&select.selectedOptions[0].dataset.balanceId;
+          renderMovimientoSubcats(G.tipoModal);
+          var option=Array.from(select.options).find(function(o){return o.value===previous&&(!account||o.dataset.balanceId===account);});
+          if(option){option.selected=true;actualizarBalanceBox();}
+        }
       }).catch(function(e){console.warn('catalogo modal',e);});
     }
     setTimeout(function(){var m=eid('m-monto');if(m)m.focus();},220);
@@ -3316,7 +3326,10 @@ function renderMovimientoSubcats(t){
   }
   if(!opts||!opts.length)opts=(SUBCATS[t]||[]).slice();
   sub.innerHTML='<option value="">Selecciona...</option>'
-    +opts.map(function(s){return'<option value="'+hEsc(s)+'">'+hEsc(s)+'</option>';}).join('');
+    +((t==='ahorro'||t==='deuda')?catalogItems(t).map(function(item){
+      var duplicate=catalogItems(t).filter(function(x){return x.nombre===item.nombre;}).length>1;
+      return '<option value="'+hEsc(item.nombre)+'" data-balance-id="'+hEsc(item.balanceId||'')+'">'+hEsc(item.nombre+(duplicate?' · '+item.grupo+' · '+item.balanceId.slice(-8):''))+'</option>';
+    }):opts.map(function(s){return'<option value="'+hEsc(s)+'">'+hEsc(s)+'</option>';})).join('');
   sub.onchange=actualizarBalanceBox;
 }
 function setMovimientoTipo(t){
@@ -3369,6 +3382,9 @@ function guardar(){
     params.balanceGrupo=eid('m-balance-grupo').value;
     if(G.tipoModal==='ingreso'&&sub==='Préstamos recibidos'&&!params.balanceCodigo&&!params.balanceNombreNuevo){showToast('Selecciona o crea el pasivo','err');btn.textContent='Guardar';btn.disabled=false;return;}
     if(G.tipoModal==='ingreso'&&sub==='Devolución de ahorro'&&!params.balanceCodigo){showToast('Selecciona el activo de retiro','err');btn.textContent='Guardar';btn.disabled=false;return;}
+  }
+  if(G.tipoModal==='ahorro'||G.tipoModal==='deuda'){
+    params.balanceCodigo=(eid('m-sub').selectedOptions[0]&&eid('m-sub').selectedOptions[0].dataset.balanceId)||(itemCatalogo&&itemCatalogo.balanceId)||'';
   }
   var tempId='tmp_'+Date.now();
   var operationCodes={'devolucion de ahorro':'savings_withdrawal','prestamos recibidos':'loan_received','cobro prestamos':'loan_collection'};

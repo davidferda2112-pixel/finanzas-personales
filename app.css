@@ -894,3 +894,13 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 #bal-log-modal-list details summary{cursor:pointer;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
 #bal-log-modal-list .btn{white-space:normal;overflow-wrap:anywhere}
 #savings-preview{font-size:12px;line-height:1.45}
+.movement-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.movement-heading .mti{margin:0;min-width:0;font-size:20px;line-height:1.25}
+.savings-icon{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border:1px solid rgba(0,122,255,.18);border-radius:14px;background:rgba(0,122,255,.08);color:var(--blue,#007aff);cursor:pointer}
+.savings-icon svg{width:25px;height:25px}
+.savings-icon:focus-visible{outline:3px solid var(--blue,#007aff);outline-offset:2px}
+.balance-create-kind{display:flex;gap:8px;margin-bottom:16px}
+.balance-create-kind .btn{flex:1;min-height:44px}
+.balance-create-kind [aria-pressed="true"]{background:rgba(0,122,255,.12);color:var(--blue,#007aff);box-shadow:inset 0 0 0 1px rgba(0,122,255,.5)}
+#mov-bal-item .msh{max-height:90dvh;overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:600px){.movement-heading .mti{font-size:19px}.movement-heading{gap:8px;margin-bottom:12px}#mov .msh{padding-top:10px}#mov .fg{margin-bottom:12px}}

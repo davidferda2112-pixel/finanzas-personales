@@ -14,7 +14,13 @@ El modal habitual permite registrar gastos y pagos de deuda con un activo como o
 
 ## Despliegue
 
-Aplicar, en orden, las migraciones `20261022184346_savings_funding_and_traceability.sql` y `20261022235107_reconciliation_cases.sql` antes de desplegar la interfaz. Las correcciones de datos personales y sus respaldos permanecen fuera del repositorio público.
+Aplicar, en orden, las migraciones `20261022184346_savings_funding_and_traceability.sql`, `20261022235107_reconciliation_cases.sql`, `20261023121900_history_semantics.sql` y `20261023124500_stable_asset_identity.sql` antes de desplegar la interfaz. Las correcciones de datos personales y sus respaldos permanecen fuera del repositorio público.
+
+El botón + del balance permite crear un grupo o un ítem. El catálogo incorpora todos los activos activos y mantiene su `balance_id` al cambiar de grupo. Mover un ítem sin editar su importe conserva el saldo bloqueado en la base de datos, incluso si hubo movimientos después de abrir el formulario. Los aportes y gastos siguen usando ese identificador permanente.
+
+En móvil, el acceso a gastos desde ahorros es un icono junto al título de Registrar Egreso. No aparece en Ingreso ni Ahorro. Las tarjetas de distribución mantienen el detalle presupuestario; la financiación se consulta desde los historiales. `tests/mobile-customization.cjs` comprueba este recorrido a 360 píxeles de ancho.
+
+Una observación de efectivo confirmada por el usuario se conserva como evidencia de conciliación, sin crear ingresos ni movimientos artificiales. El saldo disponible incorpora los movimientos posteriores a esa observación.
 
 `npm ci && npm test` ejecuta las pruebas sintéticas. `supabase/tests/savings_production_rollback.sql` verifica PostgreSQL real y revierte todos sus datos de prueba. La prueba paralela de PGlite comprueba saldo limitado con peticiones encoladas; no demuestra contención entre dos conexiones PostgreSQL. La verificación histórica requiere el respaldo privado mediante `npm run test:reconciliation`. El flujo de navegador se prueba contra `tests/helpers/local-server.cjs`; configurar PLAYWRIGHT_MODULE con la ubicación de Playwright e instalar Edge.
 

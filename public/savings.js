@@ -1,6 +1,25 @@
 /* Funding UI uses the existing movement, balance-history and transaction modals. */
+function setBalanceCreateKind(kind){
+  G.balCreateKind=kind;
+  ['bal-item-group-row','bal-item-value-row','bal-item-note-row'].forEach(function(id){eid(id).hidden=kind==='group';});
+  eid('bal-create-item').setAttribute('aria-pressed',String(kind==='item'));
+  eid('bal-create-group').setAttribute('aria-pressed',String(kind==='group'));
+  eid('bal-item-title').textContent=kind==='group'?'Nuevo grupo':(G.balItem&&G.balItem.codigo?'Editar ítem':'Nuevo ítem');
+  eid('bal-item-nombre').placeholder=kind==='group'?'Nombre del grupo':'Nombre del ítem';
+}
+function guardarBalanceGrupoUI(){
+  var name=eid('bal-item-nombre').value.trim(),btn=eid('bal-item-save');
+  if(!name){showToast('Escribe el nombre del grupo','err');return;}
+  btn.disabled=true;btn.textContent='Guardando...';
+  gsRun('guardarBalanceGrupo',[{tipo:eid('bal-item-tipo').value,nombre:name}]).then(function(r){
+    if(!r||!r.ok)throw Error(r&&r.error||'No se pudo crear el grupo');
+    if(r.data)G.catalogo=r.data;
+    eid('mov-bal-item').classList.remove('open');loadCatalogo();loadBalance();
+    showToast('Grupo creado. Ya puedes agregarle ítems.','ok');
+  }).catch(function(e){showToast(String(e.message||e),'err');}).finally(function(){btn.disabled=false;btn.textContent='Guardar';});
+}
 function savingsAssets(){
-  return ((G.catalogo&&G.catalogo.activos)||[]).filter(function(a){return a.codigo!=='10101.05'&&['efectivo y equivalentes','activos financieros'].indexOf(nE(a.grupo))>=0;});
+  return ((G.catalogo&&G.catalogo.activos)||[]).filter(function(a){return a.codigo!=='10101.05';});
 }
 function renderFundingHome(d){
   var old=eid('home-funding-summary');if(old)old.remove();
