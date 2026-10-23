@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -93,7 +93,7 @@
         }
         return function () {
           var args = Array.prototype.slice.call(arguments);
-          postToBridge(String(prop), args, false, makeRequestId()).then(function (result) {
+          postToBridge(String(prop), args, false, (args[0] && args[0]._requestId) || makeRequestId()).then(function (result) {
             if (successHandler) successHandler(result);
           }).catch(function (error) {
             if (failureHandler) failureHandler(error.message || error);
@@ -109,7 +109,7 @@
   window.google.script.run = makeRunner(null, null);
 })();
 </script>
-<link rel="stylesheet" href="https://finanzas-personales-5aac.vercel.app/app.css?v=20260822-1">
+<link rel="stylesheet" href="/app.css?v=20261022-funding-1">
 </head>
 <body>
 <div id="boot-loader" role="status" aria-live="polite">
@@ -312,6 +312,13 @@
   <div class="msh">
     <div class="mhnd"></div>
     <div class="mti" id="m-ti">Nuevo movimiento</div>
+    <button class="btn bgh bful" id="savings-entry" onclick="abrirGastoAhorros()" style="margin-bottom:12px">Gasto desde ahorros</button>
+    <div id="savings-panel" hidden>
+      <div class="fg"><label class="fl" for="savings-source">Activo de origen</label><select class="fs" id="savings-source" onchange="previewSavings()"></select><div class="cat-manage-note" id="savings-available"></div></div>
+      <div class="fg"><label class="fl" for="savings-destination-kind">Destino del dinero</label><select class="fs" id="savings-destination-kind" onchange="savingsDestinationChanged()"><option value="necesidad">Necesidad</option><option value="deseo">Deseo</option><option value="deuda">Pago de deuda</option><option value="asset_transfer">Transferencia entre activos</option><option value="savings_withdrawal">Retiro sin gasto inmediato</option></select></div>
+      <div class="fg" id="savings-target-box" hidden><label class="fl" for="savings-target">Cuenta de destino</label><select class="fs" id="savings-target" onchange="previewSavings()"></select></div>
+      <div class="fg" id="savings-interest-box" hidden><label class="fl" for="savings-interest">Intereses y cargos incluidos ($)</label><input class="fi" id="savings-interest" inputmode="decimal" value="0" oninput="previewSavings()"><div class="cat-manage-note">El resto del importe se aplicará a capital.</div></div>
+    </div>
     <div class="fg"><div class="fl">Tipo</div>
       <div class="tsb">
         <div class="tb" data-tipo="necesidad" onclick="selTipo(this)">Necesidad</div>
@@ -329,6 +336,7 @@
       <div class="fg" id="m-aplica-box" style="display:none"><div class="fl" id="m-aplica-label">Registrar en mes</div><select class="fs" id="m-mes-aplica"></select></div>
     </div>
     <div class="fg"><div class="fl">Notas</div><input class="fi" type="text" id="m-notas" placeholder="Opcional"></div>
+    <div class="card p12 cr12" id="savings-preview" aria-live="polite" hidden style="margin-bottom:12px"></div>
     <button class="btn bb bful" id="btn-sv" onclick="guardar()">Guardar</button>
   </div>
 </div>
@@ -674,13 +682,14 @@
 <div class="mov" id="mov-bal-log" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="msh" style="max-height:88vh">
     <div class="mhnd"></div>
-    <div class="mti">Ultimos cambios</div>
+    <div class="mti">Historial del Balance General</div>
     <div style="font-size:12px;color:var(--t2);margin-bottom:12px">Balance General</div>
     <div id="bal-log-modal-list"></div>
     <button class="btn bgh bful" style="margin-top:14px" onclick="eid('mov-bal-log').classList.remove('open')">Cerrar</button>
   </div>
 </div>
 
-<script src="https://finanzas-personales-5aac.vercel.app/app.js?v=20261001-6" defer></script>
+<script src="/app.js?v=20261022-funding-1" defer></script>
+<script src="/savings.js?v=20261022-funding-1" defer></script>
 </body>
 </html>
