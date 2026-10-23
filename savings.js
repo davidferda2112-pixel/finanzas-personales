@@ -174,9 +174,10 @@ function renderFullBalanceHistory(items,targetId){
   var filtered=all.filter(function(x){return (!filter.period||period(x)===filter.period)&&(!filter.account||x.codigo===filter.account)&&(!filter.type||x.accion===filter.type)&&(!filter.state||x.estado===filter.state)&&(!focus||x.movimientoId===focus||(x.transacciones||[]).some(function(t){return t.id===focus;})||filteredOps.some(function(o){return o.operation_id===x.operationId;}));});
   filtered.forEach(function(x){
     var detail=document.createElement('details');detail.className='card p12 cr12';detail.style.marginTop='10px';
-    var summary=document.createElement('summary');var delta=x.anterior==null||x.nuevo==null?null:x.nuevo-x.anterior;
+    var ordering=/^(ordenar|reorder|orden)$/i.test(x.accion||'');
+    var summary=document.createElement('summary');var delta=ordering||x.anterior==null||x.nuevo==null?null:x.nuevo-x.anterior;
     summary.textContent=(x.fechaHora||x.fecha||'')+' · '+operationLabel(x.accion)+' · '+(x.nombre||x.codigo)+(delta==null?'':' · '+(delta<0?'−':'+')+fmt(delta));detail.appendChild(summary);
-    var body=document.createElement('div');body.className='cat-manage-note';body.textContent='Saldo: '+(x.anterior==null?'Sin dato':fmt(x.anterior))+' → '+(x.nuevo==null?'Sin dato':fmt(x.nuevo))+' · '+reconciliationLabel(x.estado)+' · '+(x.nota||'')+(x.movimientoId?' · Movimiento '+x.movimientoId:'');detail.appendChild(body);
+    var body=document.createElement('div');body.className='cat-manage-note';body.textContent=(ordering?'Cambio de orden; no representa una variación de saldo.':'Saldo: '+(x.anterior==null?'Sin dato':fmt(x.anterior))+' → '+(x.nuevo==null?'Sin dato':fmt(x.nuevo)))+' · '+reconciliationLabel(x.estado)+' · '+(x.nota||'')+(x.movimientoId?' · Movimiento '+x.movimientoId:'');detail.appendChild(body);
     (x.transacciones||[]).forEach(function(t){var button=document.createElement('button');button.className='btn bgh bful';button.textContent='Ver '+t.subcategory+' · '+fmt(t.amount);button.onclick=function(){showLinkedTransaction(t.id,t.month);};detail.appendChild(button);});
     el.appendChild(detail);
   });

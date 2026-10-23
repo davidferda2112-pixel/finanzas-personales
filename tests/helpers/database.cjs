@@ -9,6 +9,7 @@ async function database(beforeMigration) {
   if (beforeMigration) await beforeMigration(db);
   await db.exec(fs.readFileSync(path.join(__dirname, '../../supabase/migrations/20261022184346_savings_funding_and_traceability.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(__dirname, '../../supabase/migrations/20261022235107_reconciliation_cases.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(__dirname, '../../supabase/migrations/20261023121900_history_semantics.sql'), 'utf8'));
   return db;
 }
 module.exports = { database };
