@@ -889,3 +889,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   #page-tarjetas .ph .ph-r{gap:4px}
   #page-tarjetas .ph .ms{min-width:70px;max-width:91px;padding-left:7px;padding-right:21px}
 }
+[hidden]{display:none!important}
+#mov .msh,#mov-bal-log .msh{max-height:90dvh;overflow-y:auto;overscroll-behavior:contain}
+#bal-log-modal-list details summary{cursor:pointer;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+#bal-log-modal-list .btn{white-space:normal;overflow-wrap:anywhere}
+#savings-preview{font-size:12px;line-height:1.45}

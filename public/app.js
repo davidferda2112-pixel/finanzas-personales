@@ -155,6 +155,7 @@ function catalogFind(tipo,nombre){
 }
 function actualizarBalanceBox(){
   var box=eid('m-balance-box');if(!box)return;
+  if(G.savingsMode){box.style.display='none';return;}
   var tipo=G.tipoModal,sub=eid('m-sub')?eid('m-sub').value:'';
   var isNecesidad=tipo==='necesidad';
   if(!G.catalogo&&(tipo==='ahorro'||tipo==='deuda'||isNecesidad||sub==='Devolución de ahorro'||sub==='Préstamos recibidos')){
@@ -181,13 +182,13 @@ function actualizarBalanceBox(){
   }else if(isDev){
     eid('m-balance-label').textContent='Retirar desde activo';
     eid('m-balance-dest').style.display='block';fillBalanceDestinoSelect('m-balance-dest','Activo','',false);
-    eid('m-balance-hint').textContent='Este ingreso sube caja y baja el activo seleccionado.';
+    eid('m-balance-hint').textContent='Retiro de fondos propios: baja el activo, sin ingreso ordinario. Para indicar el destino utiliza el acceso Gasto desde ahorros y elige Retiro sin gasto inmediato.';
   }else if(isPre){
     eid('m-balance-label').textContent='Pasivo del préstamo';
     eid('m-balance-dest').style.display='block';fillBalanceDestinoSelect('m-balance-dest','Pasivo','',true);
     fillBalanceGrupoSelect('m-balance-grupo','Pasivo');
     eid('m-balance-dest').onchange=function(){var n=this.value==='__new';eid('m-balance-new').style.display=n?'block':'none';eid('m-balance-grupo').style.display=n?'block':'none';};
-    eid('m-balance-hint').textContent='Este ingreso sube caja, ingresos del flujo y el pasivo elegido.';
+    eid('m-balance-hint').textContent='Aumenta el pasivo y la financiación disponible; no es ingreso ordinario.';
   }
 }
 function catBalanceDestChange(){
@@ -1206,6 +1207,7 @@ function renderHome(d){
   */
 
   eid('sb-s').textContent=fmt(saldo);
+  renderFundingHome(d);
   asegurarPresupuestoMesActual(d);
 }
 
@@ -1528,6 +1530,9 @@ function loadBalance(){
     .getBalanceGeneral();
 }
 function renderBalanceLog(items,targetId){
+  return renderFullBalanceHistory(items,targetId);
+}
+function renderLegacyBalanceLog(items,targetId){
   var el=eid(targetId||'bal-log-modal-list');
   if(!el)return;
   items=items||[];
@@ -1669,6 +1674,7 @@ function renderBalance(d){
 
 
 function abrirBalanceLog(){
+  G.balanceHistoryFocus=null;
   if(G.balance){
     renderBalanceLog(G.balance.cambios||[],'bal-log-modal-list');
     eid('mov-bal-log').classList.add('open');
@@ -1874,7 +1880,7 @@ function renderHistorialMovimientos(){
   var ing=0,egr=0,aho=0;
   txs.forEach(function(t){
     var m=parseFloat(t.monto)||0;
-    if(t.tipo==='ingreso') ing+=m;
+    if(t.tipo==='ingreso'&&!t.nonIncome) ing+=m;
     else if(t.tipo==='ahorro') aho+=m;
     else if(esEgresoTipo(t.tipo)) egr+=m;
   });
@@ -1902,7 +1908,9 @@ function renderHistorialMovimientos(){
     return'<div class="hist-row" onclick="abrirDetalleHistorial(\''+t.id+'\')">'
       +'<div class="hist-ic '+icCls+'">'+ic+'</div>'
       +'<div class="hist-main"><div class="hist-title">'+t.subcategoria+'</div>'
-      +'<div class="hist-meta">'+fmtFecha(t.fecha)+' · '+tipoLabel(t.tipo)+notas+'</div></div>'
+      +'<div class="hist-meta">'+fmtFecha(t.fecha)+' · '+(t.nonIncome?operationLabel(t.operationCode):tipoLabel(t.tipo))+notas+'</div>'
+      +(t.fundedAmount?'<div class="hist-meta tokb">Financiado desde ahorros · '+fmt(t.fundedAmount)+'</div>':'')
+      +(t.nonIncome?'<div class="hist-meta">Movimiento patrimonial · sin ingreso ordinario</div>':'')+'</div>'
       +'<div class="hist-side"><div class="hist-amt" style="color:'+col+'">'+(pos?'+':'-')+fmt(t.monto)+'</div>'
       +(saldoInfo?'<div class="hist-balance">'+saldoInfo+'</div>':'')+'</div></div>';
   }).join('');
@@ -1915,13 +1923,14 @@ function abrirDetalleHistorial(id){
   var col=tx.tipo==='ingreso'?'tok2':tx.tipo==='ahorro'?'tokb':'tov2';
   eid('hist-detail-title').textContent=tx.subcategoria||'Movimiento';
   eid('hist-detail-body').innerHTML=
-    '<div class="detail-line"><span>Tipo</span><strong>'+tipoLabel(tx.tipo)+'</strong></div>'
+    '<div class="detail-line"><span>Tipo</span><strong>'+(tx.nonIncome?operationLabel(tx.operationCode):tipoLabel(tx.tipo))+'</strong></div>'
     +'<div class="detail-line"><span>Monto</span><strong class="'+col+'">'+fmt(tx.monto)+'</strong></div>'
     +'<div class="detail-line"><span>Fecha</span><strong>'+fmtFecha(tx.fecha)+'</strong></div>'
     +'<div class="detail-line"><span>Nota</span><strong>'+(tx.notas||'-')+'</strong></div>'
     +'<div class="detail-line"><span>Saldo después</span><strong>'+((tx.saldoDespues!==undefined&&tx.saldoDespues!==null)?fmt(tx.saldoDespues):'-')+'</strong></div>';
   eid('hist-detail-edit').onclick=function(){eid('mov-hist-detail').classList.remove('open');abrirEditarTx(id);};
   eid('hist-detail-delete').onclick=function(){eid('mov-hist-detail').classList.remove('open');abrirEliminarTx(id);};
+  renderFundingDetail(tx);
   eid('mov-hist-detail').classList.add('open');
 }
 
@@ -2013,6 +2022,9 @@ function filtrarHistorial(txs){
 function abrirEditarTx(id){
   var tx=(G.movimientos||[]).filter(function(t){return String(t.id)===String(id);})[0];
   if(!tx)return;
+  if(tx.fundingSource==='savings'||tx.operationCode==='asset_transfer'){
+    abrirModal('egreso');abrirGastoAhorros(tx);return;
+  }
   G.editTx=tx;
   eid('e-tipo').value=tx.tipo;
   prepEditSubcats(tx.subcategoria);
@@ -2106,7 +2118,7 @@ function abrirModalCat(nombre){
 
   var resumen=[
     {l:'Presupuesto',v:totP,c:'var(--t2)'},
-    {l:cat.aho?'Ahorrado':'Gastado',v:tot,c:s2==='ok'||cat.aho?'var(--ok)':s2==='over'?'var(--over)':'var(--warn)'}
+    {l:cat.aho?'Ahorrado':'Desde ingresos del mes',v:tot,c:s2==='ok'||cat.aho?'var(--ok)':s2==='over'?'var(--over)':'var(--warn)'}
   ];
   if(totP>0)resumen.push({l:sobrante>=0?'Sobrante':'Excedido',v:Math.abs(sobrante),c:sobrante>=0?'var(--ok)':'var(--over)'});
   eid('cat-modal-res').innerHTML=resumen.map(function(r){
@@ -2133,6 +2145,7 @@ function abrirModalCat(nombre){
   });
   tbl+='</tbody></table></div>';
   eid('cat-modal-tabla').innerHTML=tbl;
+  renderCategoryFunding(items,cat);
   eid('mov-cat').classList.add('open');
 }
 
@@ -3226,6 +3239,10 @@ function tgSrch(){G.srchOpen=!G.srchOpen;var inp=eid('si');inp.classList.toggle(
 
 function abrirModal(tipo){
   try{
+    G.savingsMode=false;G.savingsEditingId=null;G.savingsRequest=null;
+    eid('savings-panel').hidden=true;eid('savings-preview').hidden=true;
+    eid('savings-entry').hidden=false;eid('m-sub').parentElement.hidden=false;
+    eid('mov').querySelector('.tsb').parentElement.hidden=false;
     tipo=tipo||'egreso';
     var tipoReal=tipoModalInicial(tipo);
     G.tipoModal=tipoReal;
@@ -3320,6 +3337,8 @@ function selTipo(btn){
   setMovimientoTipo(btn?(btn.getAttribute('data-tipo')||'necesidad'):'necesidad');
 }
 function guardar(){
+  if(G.savingsMode)return guardarGastoAhorros();
+  if(eid('btn-sv').disabled)return;
   var monto=moneyVal(eid('m-monto').value);
   var sub=eid('m-sub').value,fecha=eid('m-fecha').value;
   if(!monto||monto<=0){showToast('Ingresa un monto válido','err');return;}
@@ -3352,9 +3371,13 @@ function guardar(){
     if(G.tipoModal==='ingreso'&&sub==='Devolución de ahorro'&&!params.balanceCodigo){showToast('Selecciona el activo de retiro','err');btn.textContent='Guardar';btn.disabled=false;return;}
   }
   var tempId='tmp_'+Date.now();
-  aplicarMovimientoHomeLocal(params);
-  actualizarSaldoVisiblePorCaja(params);
-  insertarMovimientoOptimista(movimientoOptimista(params,tempId,mesRegistro));
+  var operationCodes={'devolucion de ahorro':'savings_withdrawal','prestamos recibidos':'loan_received','cobro prestamos':'loan_collection'};
+  if(params.tipo==='ingreso'&&operationCodes[nE(sub)])params.operationCode=operationCodes[nE(sub)];
+  if(!params.operationCode){
+    aplicarMovimientoHomeLocal(params);
+    actualizarSaldoVisiblePorCaja(params);
+    insertarMovimientoOptimista(movimientoOptimista(params,tempId,mesRegistro));
+  }
   eid('mov').classList.remove('open');
   showSucc();
   showToast('Guardando...','ok');

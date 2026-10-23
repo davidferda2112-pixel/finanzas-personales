@@ -1,0 +1,31 @@
+{
+  "name": "jaeger-spend",
+  "version": "1.0.0",
+  "description": "Jaeger Spend: presupuesto y patrimonio con Supabase como fuente principal.",
+  "private": true,
+  "main": "app.js",
+  "directories": {
+    "lib": "lib",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:reconciliation": "node tests/reconciliation-local.cjs",
+    "test:browser": "node tests/browser-flow.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidferda2112-pixel/finanzas-personales.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/davidferda2112-pixel/finanzas-personales/issues"
+  },
+  "homepage": "https://github.com/davidferda2112-pixel/finanzas-personales#readme",
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11"
+  }
+}
