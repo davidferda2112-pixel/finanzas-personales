@@ -9,6 +9,13 @@ function fixture(funded=0,extra=0){
 test('un saldo confirmado prevalece sobre la reconstrucción histórica sin crear ingresos',()=>{
  const d=transformSource('getMesData',[],fixture());assert.equal(d.vistaGeneral.saldoFinal.actual,40.25);assert.equal(d.ingresos.totalActual,0);
 });
+test('flujo anual muestra el efectivo confirmado junto a la reconstrucción histórica',t=>{
+ t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-23T18:00:00Z')});
+ const d=transformSource('getFlujoCaja',[],fixture(75,2.5)).data;
+ assert.equal(d.cashAvailable,37.75);
+ assert.equal(d.filas.find(x=>x.label==='TOTAL INGRESOS').total,0);
+ assert.equal(d.filas.find(x=>x.label==='FLUJO DE CAJA ACUMULADO').valores[9],-114);
+});
 test('un gasto desde ahorros conserva el efectivo confirmado; un gasto corriente lo reduce',()=>{
  assert.equal(transformSource('getMesData',[],fixture(75)).vistaGeneral.saldoFinal.actual,40.25);
  assert.equal(transformSource('getMesData',[],fixture(0,10)).vistaGeneral.saldoFinal.actual,30.25);

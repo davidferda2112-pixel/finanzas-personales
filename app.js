@@ -131,6 +131,8 @@ function loadCatalogo(){
 }
 function balanceGrupos(tipo){
   var g=G.catalogo&&G.catalogo.grupos?G.catalogo.grupos[tipo]:null;
+  var balanceGroups=G.balance?(tipo==='Pasivo'?G.balance.pasivos:G.balance.activos):null;
+  if(balanceGroups)g=(g||[]).concat(balanceGroups.filter(function(x){return x.esGrupo;}).map(function(x){return x.nombre;}));
   return uniqCanon(g&&g.length?g:(tipo==='Pasivo'?['Tarjeta de Crédito','Préstamos','Pasivos Fijos']:['Efectivo y Equivalentes','Activos Financieros','Cuentas por Cobrar','Inventarios','Inmuebles','Equipos']));
 }
 function fillBalanceGrupoSelect(id,tipo,val){
@@ -536,8 +538,9 @@ function navTo(p){
 
   // Balance y flujo: recargar siempre si dirty, sino solo si no hay datos
   if(p==='balance'){
-    if(G._dirtyBalance||!G.balance){G.balance=null;loadBalance();}
-    else renderBalance(G.balance);
+    if(G.balance)renderBalance(G.balance);
+    loadBalance();
+    loadCatalogo();
   }
   if(p==='flujo'){
     if(G._dirtyFlujo||!G.flujo){G.flujo=null;loadFlujo();}
@@ -1604,6 +1607,11 @@ function abrirBalanceItem(modo,codigo,tipo){
     eid('bal-item-valor').value=item?String(item.valor||0):'';
     eid('bal-item-nota').value='';
     eid('mov-bal-item').classList.add('open');
+    var openedItem=G.balItem;
+    loadCatalogo().then(function(){
+      if(G.balItem!==openedItem||!eid('mov-bal-item').classList.contains('open'))return;
+      fillBalanceGrupoSelect('bal-item-grupo',eid('bal-item-tipo').value,eid('bal-item-grupo').value||(item&&item.grupo));
+    }).catch(function(){showToast('No se pudo actualizar la lista de grupos','err');});
     setTimeout(function(){var n=eid('bal-item-nombre');if(n)n.focus();},120);
   }catch(e){
     console.error('abrirBalanceItem error',e);
@@ -1650,7 +1658,7 @@ function renderBalance(d){
     function flushGrupo(){
       if(!grupoActual)return;
       var items=itemsGrupo.filter(visibleItem);
-      if(items.length||grupoActual.valor!==0){
+      if(grupoActual){
         var gid=(isActivo?'ag':'pg')+String(grupoActual.codigo||grupoActual.nombre).replace(/\W/g,'');
         html+='<div class="bal-titulo fb" onclick="tgC(\''+gid+'\')" style="cursor:pointer;user-select:none">'
           +'<span>'+hEsc(grupoActual.nombre)+'</span>'
@@ -1755,7 +1763,7 @@ function renderFlujo(d){
     {l:'Total Ingresos',v:ing?ing.total:0,c:'var(--ok)'},
     {l:'Total Egresos', v:egr?egr.total:0,c:'var(--over)'},
     {l:'Flujo Operativo',v:op?op.total:0,c:'var(--blue)'},
-    {l:'Saldo Acumulado',v:ac?ac.valores[4]||0:0,c:'var(--purple)'}
+    {l:d.cashAvailable!=null?'Efectivo Disponible':'Flujo Acumulado',v:d.cashAvailable!=null?d.cashAvailable:(ac?ac.total:0),c:'var(--purple)'}
   ].map(function(c){return'<div class="card fyc"><div class="lup">'+c.l+'</div><div class="fyv" style="color:'+c.c+'">'+fmt(c.v)+'</div></div>';}).join('');
 
   var ingArr=ing?ing.valores:d.meses.map(function(){return 0;});
@@ -1838,7 +1846,7 @@ function renderFlujo(d){
       +'</tr>';
   }
   tbody+='</tbody>';
-  eid('fl-tabla').innerHTML='<div class="fl-table-wrap"><table>'+hdr+tbody+'</table></div>';
+  eid('fl-tabla').innerHTML=(d.cashAvailable!=null?'<p class="lsub" style="margin:0 0 12px">Efectivo disponible: '+fmt(d.cashAvailable)+'. La tabla reconstruye los registros históricos; su acumulado puede diferir del efectivo confirmado.</p>':'')+'<div class="fl-table-wrap"><table>'+hdr+tbody+'</table></div>';
 }
 
 function renderPresupuesto(d){

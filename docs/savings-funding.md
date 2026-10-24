@@ -22,6 +22,8 @@ En móvil, el acceso a gastos desde ahorros es un icono junto al título de Regi
 
 Una observación de efectivo confirmada por el usuario se conserva como evidencia de conciliación, sin crear ingresos ni movimientos artificiales. El saldo disponible incorpora los movimientos posteriores a esa observación.
 
+Los grupos vacíos permanecen visibles. Al entrar a Balance General y abrir el formulario se actualiza el catálogo compartido. `node tests/persistent-groups-browser.cjs` comprueba creación, recarga y lectura desde tres sesiones de navegador independientes. El flujo anual muestra el efectivo confirmado separado del acumulado de registros históricos.
+
 `npm ci && npm test` ejecuta las pruebas sintéticas. `supabase/tests/savings_production_rollback.sql` verifica PostgreSQL real y revierte todos sus datos de prueba. La prueba paralela de PGlite comprueba saldo limitado con peticiones encoladas; no demuestra contención entre dos conexiones PostgreSQL. La verificación histórica requiere el respaldo privado mediante `npm run test:reconciliation`. El flujo de navegador se prueba contra `tests/helpers/local-server.cjs`; configurar PLAYWRIGHT_MODULE con la ubicación de Playwright e instalar Edge.
 
 ## Recuperación segura
