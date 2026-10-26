@@ -1,4 +1,6 @@
 /* Floating glass sheets: a fixed close control, with only the content scrolling. */
+.cash-explanation{margin-top:18px;padding:0 16px;border:1px solid rgba(255,255,255,.9);border-radius:18px;background:rgba(255,255,255,.65);color:#45677d;font-size:12px;line-height:1.6}
+.cash-explanation summary{padding:14px 0;min-height:44px;cursor:pointer;font-weight:650;color:#236a91}.cash-explanation p{margin:12px 0 16px}.cash-equation>div{display:flex;justify-content:space-between;gap:18px;padding:7px 0}.cash-equation b{white-space:nowrap;font-variant-numeric:tabular-nums}.cash-equation>div:last-child{border-top:1px solid #bcd8e6;margin-top:7px;padding-top:12px;color:#147a65;font-size:14px}
 .settings-row-icon.visa-card{background:linear-gradient(145deg,#48c3fa,#0075c7)}
 .settings-row-icon.mc-card{background:linear-gradient(145deg,#f7d05c,#ac7c16)}
 .aero-sheet:focus{outline:none}

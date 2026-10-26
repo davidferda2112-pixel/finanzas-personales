@@ -1757,6 +1757,7 @@ function ensureChartJs(){
 
 function renderFlujo(d){
   if(!d)return;
+  function flowMoney(value){return(Number(value)<0?'-':'')+fmt(Math.abs(Number(value)||0));}
   var get=function(lbl){return d.filas.filter(function(x){return x.label===lbl;})[0]||null;};
   var ing=get('TOTAL INGRESOS'),egr=get('TOTAL EGRESOS'),op=get('FLUJO OPERATIVO'),ac=get('FLUJO DE CAJA ACUMULADO'),si=get('SALDO INICIAL');
 
@@ -1765,7 +1766,7 @@ function renderFlujo(d){
     {l:'Total Egresos', v:egr?egr.total:0,c:'var(--over)'},
     {l:'Flujo Operativo',v:op?op.total:0,c:'var(--blue)'},
     {l:d.cashAvailable!=null?'Efectivo Disponible':'Flujo Acumulado',v:d.cashAvailable!=null?d.cashAvailable:(ac?ac.total:0),c:'var(--purple)'}
-  ].map(function(c){return'<div class="card fyc"><div class="lup">'+c.l+'</div><div class="fyv" style="color:'+c.c+'">'+fmt(c.v)+'</div></div>';}).join('');
+  ].map(function(c){return'<div class="card fyc"><div class="lup">'+c.l+'</div><div class="fyv" style="color:'+c.c+'">'+flowMoney(c.v)+'</div></div>';}).join('');
 
   var ingArr=ing?ing.valores:d.meses.map(function(){return 0;});
   var egrArr=egr?egr.valores:d.meses.map(function(){return 0;});
@@ -1778,7 +1779,7 @@ function renderFlujo(d){
       {label:'Ingresos',data:ingArr,backgroundColor:'rgba(52,199,89,0.55)',borderColor:'rgba(52,199,89,0.85)',borderWidth:1.5,borderRadius:5},
       {label:'Egresos', data:egrArr,backgroundColor:'rgba(255,59,48,0.45)',borderColor:'rgba(255,59,48,0.75)',borderWidth:1.5,borderRadius:5}
     ]},options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'rgba(0,0,0,0.45)',font:{size:11}}},tooltip:{callbacks:{label:function(c){return' '+fmt(c.parsed.y);}}}},
+      plugins:{legend:{labels:{color:'rgba(0,0,0,0.45)',font:{size:11}}},tooltip:{callbacks:{label:function(c){return' '+flowMoney(c.parsed.y);}}}},
       scales:{x:{ticks:{color:'rgba(0,0,0,0.38)',font:{size:10}},grid:{color:'rgba(0,0,0,0.035)'}},
               y:{ticks:{color:'rgba(0,0,0,0.38)',callback:function(v){return'$'+v;},font:{size:10}},grid:{color:'rgba(0,0,0,0.04)'}}}}});
   }
@@ -1790,15 +1791,15 @@ function renderFlujo(d){
   function tdV(v,cls,bold){
     return'<td style="text-align:right;padding:7px 8px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:11px;'
       +(bold?'font-weight:700;':'')+(v!==0?'color:'+cls+';':'color:var(--t3);')
-      +'white-space:nowrap;border-bottom:0.5px solid rgba(0,0,0,0.04)">'+(v!==0?fmt(v):'-')+'</td>';
+      +'white-space:nowrap;border-bottom:0.5px solid rgba(0,0,0,0.04)">'+(v!==0?flowMoney(v):'-')+'</td>';
   }
   function tdTot(v,cls){
-    return'<td style="text-align:right;padding:7px 10px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:11px;font-weight:700;color:'+cls+';white-space:nowrap;border-bottom:0.5px solid rgba(0,0,0,0.04);border-left:1px solid rgba(0,0,0,0.05)">'+fmt(v)+'</td>';
+    return'<td style="text-align:right;padding:7px 10px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:11px;font-weight:700;color:'+cls+';white-space:nowrap;border-bottom:0.5px solid rgba(0,0,0,0.04);border-left:1px solid rgba(0,0,0,0.05)">'+flowMoney(v)+'</td>';
   }
   var hdr='<thead><tr>'
     +'<th style="text-align:left;padding:8px 12px;font-size:9px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(0,0,0,0.07);white-space:nowrap;width:132px;min-width:132px;max-width:132px;position:sticky;left:0;background:#fff;z-index:3">Concepto</th>'
     +d.meses.map(function(m){return'<th style="text-align:right;padding:7px 8px;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(0,0,0,0.07);white-space:nowrap;min-width:62px">'+m+'</th>';}).join('')
-    +'<th style="text-align:right;padding:7px 10px;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(0,0,0,0.07);white-space:nowrap;border-left:1px solid rgba(0,0,0,0.05);min-width:72px">Total</th>'
+    +'<th style="text-align:right;padding:7px 10px;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(0,0,0,0.07);white-space:nowrap;border-left:1px solid rgba(0,0,0,0.05);min-width:72px">'+(d.totalThrough?'Acum. a '+hEsc(d.totalThrough):'Total')+'</th>'
     +'</tr></thead>';
 
   var tbody='<tbody>';
@@ -1810,7 +1811,7 @@ function renderFlujo(d){
     return'<tr style="background:'+(bg||'')+'">'
       +'<td style="padding:'+(bold?'7px 12px':'7px 12px 7px 16px')+';font-size:11px;font-weight:'+(bold?'700':'500')+';color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:0.5px solid rgba(0,0,0,0.04);position:sticky;left:0;background:'+(bg?bg:'#fff')+';z-index:2;width:132px;min-width:132px;max-width:132px">'+label+'</td>'
       +f.valores.map(function(v){return tdV(v,cls,bold);}).join('')
-      +tdTot(f.total||tot,cls)+'</tr>';
+      +tdTot(f.total!=null?f.total:tot,cls)+'</tr>';
   }
 
   if(si){
@@ -1824,6 +1825,7 @@ function renderFlujo(d){
   tbody+=trData('Sueldo',get('SUELDO'),'var(--ok)','');
   tbody+=trData('Pinturas',get('PINTURAS'),'var(--ok)','');
   tbody+=trData('Otros ingresos',get('OTROS INGRESOS'),'var(--ok)','');
+  if(get('PRESTAMOS RECIBIDOS')&&get('PRESTAMOS RECIBIDOS').valores.some(function(v){return v!==0;}))tbody+=trData('Préstamos registrados',get('PRESTAMOS RECIBIDOS'),'var(--blue)','');
   if(ing)tbody+=trData('Total Ingresos',ing,'var(--ok)','rgba(52,199,89,0.05)',true);
 
   tbody+=trSec('Egresos','var(--over)','rgba(255,59,48,0.03)');
@@ -1833,21 +1835,37 @@ function renderFlujo(d){
   tbody+=trData('Ahorros',get('AHORROS'),'var(--ok)','');
   if(egr)tbody+=trData('Total Egresos',egr,'var(--over)','rgba(255,59,48,0.05)',true);
 
+  var financing=get('FINANCIACIÓN RECIBIDA');
+  if(financing&&financing.valores.some(function(v){return v!==0;})){
+    tbody+=trSec('Entradas de financiación','var(--blue)','rgba(0,122,255,0.03)');
+    tbody+=trData('Financiación recibida',financing,'var(--blue)','');
+  }
+
   if(op){
     tbody+='<tr style="background:rgba(0,122,255,0.04)">'
       +'<td style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--blue);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid rgba(0,0,0,0.05);position:sticky;left:0;background:#eaf6ff;z-index:2;width:132px;min-width:132px;max-width:132px">Flujo Operativo</td>'
       +op.valores.map(function(v){return tdV(v,v>=0?'var(--ok)':'var(--over)',true);}).join('')
       +tdTot(op.total,op.total>=0?'var(--ok)':'var(--over)')+'</tr>';
   }
+  var basis=get('BASE DE SALDO CONFIRMADO');
+  if(basis)tbody+=trData('Diferencia histórica',basis,'var(--gold)','rgba(255,149,0,0.045)',true);
   if(ac){
     tbody+='<tr style="background:rgba(175,82,222,0.04)">'
       +'<td style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--purple);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:none;position:sticky;left:0;background:#f2eafb;z-index:2;width:132px;min-width:132px;max-width:132px">Flujo Acumulado</td>'
-      +ac.valores.map(function(v){return'<td style="text-align:right;padding:7px 8px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:11px;font-weight:700;color:'+(v>=0?'var(--ok)':'var(--over)')+';white-space:nowrap;border-bottom:none">'+fmt(v)+'</td>';}).join('')
-      +'<td style="text-align:right;padding:7px 10px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:11px;font-weight:700;color:var(--purple);white-space:nowrap;border-left:1px solid rgba(0,0,0,0.05)">'+fmt(d.cashAvailable!=null?d.cashAvailable:ac.total)+'</td>'
+      +ac.valores.map(function(v){return'<td style="text-align:right;padding:7px 8px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:11px;font-weight:700;color:'+(v>=0?'var(--ok)':'var(--over)')+';white-space:nowrap;border-bottom:none">'+flowMoney(v)+'</td>';}).join('')
+      +'<td style="text-align:right;padding:7px 10px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:11px;font-weight:700;color:var(--purple);white-space:nowrap;border-left:1px solid rgba(0,0,0,0.05)">'+flowMoney(ac.total)+'</td>'
       +'</tr>';
   }
   tbody+='</tbody>';
   eid('fl-tabla').innerHTML='<div class="fl-table-wrap"><table>'+hdr+tbody+'</table></div>';
+  if(d.balanceCalculation){
+    var calculation=d.balanceCalculation;
+    var explanation='<details class="cash-explanation"><summary>Cómo se calcula el saldo</summary><div class="cash-equation">';
+    [['Saldo inicial del año',calculation.initial],['+ Ingresos',calculation.income],['+ Financiación recibida',calculation.financing],['− Egresos y aportes a ahorros',calculation.expenses],['+ Diferencia histórica',calculation.historicalDifference],['= Saldo actual',calculation.total]].forEach(function(line){explanation+='<div><span>'+line[0]+'</span><b>'+flowMoney(line[1])+'</b></div>';});
+    explanation+='</div>';
+    if(d.cashBasis){var b=d.cashBasis;explanation+='<p>El saldo confirmado en '+hEsc(b.month)+' fue <b>'+flowMoney(b.confirmed)+'</b>. En ese momento, los registros históricos daban '+flowMoney(b.reconstructed)+'. La diferencia de '+flowMoney(b.difference)+' se muestra por separado: es una base de saldo, no un ingreso ni un movimiento nuevo.</p><p>Desde esa confirmación, el cambio neto registrado es '+flowMoney(b.netSinceConfirmation)+'. El saldo se actualiza con cada movimiento que afecta al efectivo. Los gastos financiados desde activos se descuentan de esos activos.</p>';}
+    explanation+='</details>';eid('fl-tabla').insertAdjacentHTML('beforeend',explanation);
+  }
 }
 
 function renderPresupuesto(d){
