@@ -23,10 +23,6 @@ function savingsAssets(){
 }
 function renderFundingHome(d){
   var old=eid('home-funding-summary');if(old)old.remove();
-  if(!d.financiacion||!d.financiacion.desdeAhorros)return;
-  var info=document.createElement('div');info.id='home-funding-summary';info.className='cat-manage-note';
-  info.style.padding='10px 0';info.textContent='Egresos totales: '+fmt(d.financiacion.egresosTotales)+' · Financiados desde ahorros: '+fmt(d.financiacion.desdeAhorros)+'. El presupuesto disponible descuenta solo lo financiado con ingresos del mes.';
-  eid('h-cats').appendChild(info);
 }
 function savingsOption(a){return '<option value="'+hEsc(a.codigo)+'">'+hEsc(a.nombre)+' · '+fmt(a.valor)+'</option>';}
 function abrirGastoAhorros(tx){
@@ -155,7 +151,7 @@ function renderFullBalanceHistory(items,targetId){
   el.textContent='';
   function text(tag,cls,value){var n=document.createElement(tag);n.className=cls||'';n.textContent=value;return n;}
   function period(x){var s=String(x.fechaHora||x.economic_date||'');var m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);return m?m[3]+'-'+m[2].padStart(2,'0'):s.slice(0,7);}
-  function timestamp(x){return Date.parse(x.createdAt||x.created_at||x.economic_date||'')||0;}
+  function timestamp(x){var s=String(x.fechaHora||x.fecha||x.economic_date||''),m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);return Date.parse(m?m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0')+'T12:00:00':/^\d{4}-\d{2}-\d{2}$/.test(s)?s+'T12:00:00':s)||Date.parse(x.createdAt||x.created_at||'')||0;}
   var controls=document.createElement('details');controls.className='history-filters';controls.open=!!G.historyFiltersOpen;
   controls.appendChild(text('summary','',filter.period||filter.account||filter.type?'Filtros activos':'Filtrar movimientos'));
   controls.ontoggle=function(){G.historyFiltersOpen=controls.open;};
@@ -180,16 +176,20 @@ function renderFullBalanceHistory(items,targetId){
   el.appendChild(text('p','history-count',entries.length+' movimientos'));
   var list=document.createElement('div');list.className='history-list';el.appendChild(list);
   function link(parent,id,month,label){if(!id)return;var b=text('button','history-link',label||'Ver transacción');b.onclick=function(){showLinkedTransaction(id,month);};parent.appendChild(b);}
-  var limit=G.historyLimit||30;
+  var limit=G.historyLimit||30,lastDay='';
   entries.slice(0,limit).forEach(function(entry){
     var x=entry.change,o=entry.op,ordering=x&&/^(ordenar|reorder|orden|mover grupo)$/i.test(x.accion||'');
     var historical=x?x.estado==='historical':o.state!=='reconciled'&&String(o.economic_date||'')<'2026-10-23';
     var title=x?(x.nombre||x.codigo):(o.source_name||'Operación de ahorro');
     var action=operationLabel(x?x.accion:o.operation_code);
     var amount=x?(ordering||x.anterior==null||x.nuevo==null?null:x.nuevo-x.anterior):Number(o.amount);
-    var row=document.createElement('details');row.className='history-entry';
+    var day=entry.time?new Date(entry.time).toLocaleDateString('es-EC',{day:'numeric',month:'short',year:'numeric'}):'Sin fecha';
+    if(day!==lastDay){list.appendChild(text('h3','history-day',day));lastDay=day;}
+    var tone=ordering||(!x&&/transfer|withdrawal/.test(o.operation_code))?'transfer':amount==null?'transfer':(x?amount<0:true)?'out':'in';
+    var row=document.createElement('details');row.className='history-entry history-'+tone;
     var summary=document.createElement('summary'),main=document.createElement('div');main.className='history-entry-main';
-    main.appendChild(text('b','',title));main.appendChild(text('span','',action+' · '+(x?(x.fecha||x.fechaHora||''):(o.economic_date||''))));
+    var symbol=text('span','history-symbol',tone==='transfer'?'↔':tone==='in'?'↙':'↗');symbol.setAttribute('aria-hidden','true');summary.appendChild(symbol);
+    main.appendChild(text('b','',title));main.appendChild(text('span','',action));
     summary.appendChild(main);summary.appendChild(text('strong',amount<0?'history-negative':'',amount==null?'—':(x&&amount>0?'+':'')+fmt(amount)));row.appendChild(summary);
     var body=document.createElement('div');body.className='history-entry-body';
     body.appendChild(text('span','history-status',historical?'Movimiento histórico · Sin conciliación':'Movimiento registrado'));

@@ -1847,7 +1847,7 @@ function renderFlujo(d){
       +'</tr>';
   }
   tbody+='</tbody>';
-  eid('fl-tabla').innerHTML=(d.cashAvailable!=null?'<p class="lsub" style="margin:0 0 12px">Efectivo disponible: '+fmt(d.cashAvailable)+'. La tabla reconstruye los registros históricos; su acumulado puede diferir del efectivo confirmado.</p>':'')+'<div class="fl-table-wrap"><table>'+hdr+tbody+'</table></div>';
+  eid('fl-tabla').innerHTML='<div class="fl-table-wrap"><table>'+hdr+tbody+'</table></div>';
 }
 
 function renderPresupuesto(d){
@@ -2995,6 +2995,7 @@ function configContext(){
 }
 function abrirConfiguracion(foco){
   eid('mov-config').classList.add('open');
+  seleccionarSeccionConfiguracion(foco||'tarjetas');
   cerrarEditorTarjeta();cerrarEditorAsignacion();
   if(G.configuracion)renderConfiguracion(G.configuracion);
   else{
@@ -3013,7 +3014,7 @@ function abrirConfiguracion(foco){
 }
 function renderConfiguracion(d){
   if(!d)return;
-  eid('cfg-status').innerHTML='<span>Fuente principal: <b>'+hEsc(String(d.fuente||'supabase').toUpperCase())+'</b></span><span>'+hEsc(d.timezone||'America/Guayaquil')+'</span>';
+  eid('cfg-status').innerHTML='<span class="settings-sync-dot" aria-hidden="true"></span><span>Sincronizado con tu cuenta</span>';
   var cards=(d.tarjetas||[]).slice().sort(function(a,b){return(a.orden||0)-(b.orden||0);});
   eid('cfg-card-list').innerHTML=cards.length?cards.map(function(card){
     var inactive=!card.activo,network=String(card.red||'other').toUpperCase();

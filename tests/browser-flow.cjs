@@ -35,9 +35,10 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'C:/Users/USER/.cache/co
  await page.getByRole('button',{name:'Ver transacción',exact:true}).click();
  await page.waitForSelector('#mov-hist-detail.open');
  await page.locator('#hist-detail-edit').click();
+ await page.waitForFunction(()=>eid('m-monto').value==='75'&&eid('savings-source').value==='10102.01');
  await page.locator('#m-monto').fill('80');
  const editResponse=page.waitForResponse(r=>r.url().includes('/api/apps-script')&&r.request().postDataJSON()?.fn==='actualizarMovimiento');
- await page.locator('#btn-sv').click();assert.equal((await(await editResponse).json()).ok,true);
+ await page.locator('#btn-sv').click();const editedResponse=await editResponse;const editedResult=await editedResponse.json();assert.equal(editedResult.ok,true,JSON.stringify({result:editedResult,request:editedResponse.request().postDataJSON()}));
  await page.evaluate(()=>new Promise(resolve=>google.script.run.withSuccessHandler(r=>{G.movimientos=r.data;resolve();}).getMovimientosMes('Octubre 26')));
  await page.evaluate(id=>abrirEliminarTx(id),tx.id);
  const deleteResponse=page.waitForResponse(r=>r.url().includes('/api/apps-script')&&r.request().postDataJSON()?.fn==='eliminarMovimiento');

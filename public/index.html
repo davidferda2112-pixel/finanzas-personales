@@ -109,7 +109,8 @@
   window.google.script.run = makeRunner(null, null);
 })();
 </script>
-<link rel="stylesheet" href="/app.css?v=20261026-japan-1">
+<link rel="stylesheet" href="/app.css?v=20261026-aero-1">
+<link rel="stylesheet" href="/sheets.css?v=20261026-aero-1">
 </head>
 <body>
 <div id="boot-loader" role="status" aria-live="polite">
@@ -605,7 +606,12 @@
 <div class="mov" id="mov-config" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="msh settings-sheet">
     <div class="mhnd"></div>
-    <div class="settings-title-row"><div><div class="mti" style="margin-bottom:2px">Configuración</div><div class="settings-sub">Administra Jaeger Spend sin cambiar código</div></div><button class="settings-close" onclick="eid('mov-config').classList.remove('open')" aria-label="Cerrar">×</button></div>
+    <div class="mti">Configuración</div>
+    <div class="settings-tabs" role="tablist" aria-label="Secciones de configuración">
+      <button id="cfg-tab-tarjetas" role="tab" aria-controls="cfg-section-tarjetas" aria-selected="true" onclick="seleccionarSeccionConfiguracion('tarjetas')">Tarjetas</button>
+      <button id="cfg-tab-japon" role="tab" aria-controls="cfg-section-japon" aria-selected="false" onclick="seleccionarSeccionConfiguracion('japon')">Meta Japón</button>
+      <button id="cfg-tab-catalogos" role="tab" aria-controls="cfg-section-catalogos" aria-selected="false" onclick="seleccionarSeccionConfiguracion('catalogos')">Catálogos</button>
+    </div>
     <div class="settings-status" id="cfg-status"><span>Cargando configuración…</span></div>
 
     <div class="settings-section" id="cfg-section-tarjetas">
@@ -628,7 +634,7 @@
     </div>
 
     <div class="settings-section" id="cfg-section-japon">
-      <div class="settings-section-head"><div><b>Meta Japón y activos</b><span>Indica qué parte de cada activo está reservada para el viaje</span></div><button class="btn bb bsm" onclick="abrirEditorAsignacion()">+ Asignar</button></div>
+      <div class="settings-section-head"><div><b>Tu viaje, cada vez más cerca</b><span>Vincula activos completos o un monto reservado</span></div><button class="btn bb bsm" onclick="abrirEditorAsignacion()">+ Vincular</button></div>
       <div class="settings-goal-summary" id="cfg-goal-summary"></div>
       <div id="cfg-allocation-list"></div>
       <div class="settings-editor" id="cfg-allocation-editor" style="display:none">
@@ -639,7 +645,7 @@
       </div>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section" id="cfg-section-catalogos">
       <div class="settings-section-head"><div><b>Catálogos y estructura</b><span>Accesos rápidos a configuraciones existentes</span></div></div>
       <div class="settings-shortcuts">
         <button onclick="abrirConfigCategoria('Ahorros')"><b>Ahorros</b><span>Crear, editar, asignar o inactivar</span></button>
@@ -648,7 +654,6 @@
         <button onclick="abrirConfigBalance('Pasivo')"><b>Pasivos</b><span>Administrar Balance General</span></button>
       </div>
     </div>
-    <button class="btn bgh bful settings-done" onclick="eid('mov-config').classList.remove('open')">Listo</button>
   </div>
 </div>
 
@@ -684,14 +689,14 @@
 <div class="mov" id="mov-bal-log" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="msh" style="max-height:88vh">
     <div class="mhnd"></div>
-    <div class="mti">Movimientos del balance</div>
+    <div class="mti">Historial del balance</div>
     <div class="history-caption">Cambios de saldo y movimientos registrados</div>
     <div id="bal-log-modal-list"></div>
-    <button class="btn bgh bful" style="margin-top:14px" onclick="eid('mov-bal-log').classList.remove('open')">Cerrar</button>
   </div>
 </div>
 
-<script src="/app.js?v=20261026-japan-1" defer></script>
-<script src="/savings.js?v=20261026-japan-1" defer></script>
+<script src="/app.js?v=20261026-aero-1" defer></script>
+<script src="/savings.js?v=20261026-aero-1" defer></script>
+<script src="/sheets.js?v=20261026-aero-1" defer></script>
 </body>
 </html>
