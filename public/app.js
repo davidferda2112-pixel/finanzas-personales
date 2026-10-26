@@ -1843,7 +1843,7 @@ function renderFlujo(d){
     tbody+='<tr style="background:rgba(175,82,222,0.04)">'
       +'<td style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--purple);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:none;position:sticky;left:0;background:#f2eafb;z-index:2;width:132px;min-width:132px;max-width:132px">Flujo Acumulado</td>'
       +ac.valores.map(function(v){return'<td style="text-align:right;padding:7px 8px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:11px;font-weight:700;color:'+(v>=0?'var(--ok)':'var(--over)')+';white-space:nowrap;border-bottom:none">'+fmt(v)+'</td>';}).join('')
-      +'<td style="text-align:right;padding:7px 10px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:11px;font-weight:700;color:var(--purple);white-space:nowrap;border-left:1px solid rgba(0,0,0,0.05)">'+fmt(ac.valores[ac.valores.length-1])+'</td>'
+      +'<td style="text-align:right;padding:7px 10px;font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-size:11px;font-weight:700;color:var(--purple);white-space:nowrap;border-left:1px solid rgba(0,0,0,0.05)">'+fmt(d.cashAvailable!=null?d.cashAvailable:ac.total)+'</td>'
       +'</tr>';
   }
   tbody+='</tbody>';
