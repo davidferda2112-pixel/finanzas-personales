@@ -877,6 +877,7 @@ function invalidarDatosCompartidos(){
   G._dirtyTarjetas=true;
 }
 function syncTrasCambio(opts){
+  loadJapon();
   opts=opts||{};
   G._dirty=true;
   G._dirtyFlujo=true;
@@ -1529,7 +1530,7 @@ function renderTxs(){
 
 function loadBalance(){
   google.script.run
-    .withSuccessHandler(function(res){if(!res||!res.ok){showToast('Error balance','err');return;}G.balance=res;G._dirtyBalance=false;renderBalance(res);})
+    .withSuccessHandler(function(res){if(!res||!res.ok){showToast('Error balance','err');return;}G.balance=res;G._dirtyBalance=false;renderBalance(res);loadJapon();})
     .withFailureHandler(function(e){showToast('Error: '+e,'err');})
     .getBalanceGeneral();
 }
@@ -1639,7 +1640,7 @@ function guardarBalanceItemUI(){
       btn.disabled=false;btn.textContent='Guardar';
       if(!res||!res.ok){showToast('Error: '+(res&&res.error?res.error:'desconocido'),'err');return;}
       eid('mov-bal-item').classList.remove('open');
-      if(res.balance){G.balance=res.balance;G._dirtyBalance=false;renderBalance(res.balance);}
+      if(res.balance){G.balance=res.balance;G._dirtyBalance=false;renderBalance(res.balance);loadJapon();}
       else syncTrasCambio({delay:80,balance:true});
       loadCatalogo();
       showToast(params.codigo?'Balance actualizado':'Item agregado','ok');
@@ -3025,13 +3026,13 @@ function renderConfiguracion(d){
       +'</div></div>';
   }).join(''):'<div class="settings-empty">No hay tarjetas configuradas.</div>';
 
-  var assigned=(d.activos||[]).filter(function(asset){return Number(asset.asignadoJapon||0)>0;});
+  var assigned=(d.activos||[]).filter(function(asset){return asset.vinculadoJapon||Number(asset.asignadoJapon||0)>0;});
   eid('cfg-goal-summary').innerHTML='<div class="settings-goal-kpi"><span>Asignado</span><b>'+fmt(d.totalAsignadoJapon||0)+'</b></div>'
     +'<div class="settings-goal-kpi"><span>Respaldado hoy</span><b class="'+((d.totalEfectivoJapon||0)<(d.totalAsignadoJapon||0)?'settings-warning':'')+'">'+fmt(d.totalEfectivoJapon||0)+'</b></div>';
   eid('cfg-allocation-list').innerHTML=assigned.length?assigned.map(function(asset){
     var short=Number(asset.efectivoJapon||0)+.004<Number(asset.asignadoJapon||0);
     return'<div class="settings-row"><div class="settings-row-main"><b>'+hEsc(asset.nombre)+'</b><span>'+hEsc(asset.grupo||'Activo')+' · Disponible '+fmt(asset.valor)+(short?' · respaldo insuficiente':'')+'</span></div>'
-      +'<div class="settings-row-main" style="flex:0 0 auto;text-align:right"><b class="'+(short?'settings-warning':'tok2')+'">'+fmt(asset.asignadoJapon)+'</b><span>para Japón</span></div>'
+      +'<div class="settings-row-main" style="flex:0 0 auto;text-align:right"><b class="'+(short?'settings-warning':'tok2')+'">'+fmt(asset.asignadoJapon)+'</b><span>'+(asset.modoJapon==='full'?'Activo completo':'para Japón')+'</span></div>'
       +'<div class="settings-row-actions"><button class="settings-icon-btn" onclick="abrirEditorAsignacion(\''+asset.codigo+'\')">✎</button><button class="settings-icon-btn danger" onclick="eliminarAsignacionMetaUI(\''+asset.codigo+'\')">×</button></div></div>';
   }).join(''):'<div class="settings-empty">Aún no has vinculado activos a Japón.</div>';
 }
@@ -3081,12 +3082,13 @@ function moverTarjetaConfiguracionUI(codigo,direccion){
   }).catch(function(e){showToast('Error: '+(e.message||e),'err');});
 }
 function abrirEditorAsignacion(codigo){
-  var assets=(G.configuracion&&G.configuracion.activos||[]).filter(function(asset){return asset.activo||asset.codigo===codigo;});
+  var assets=(G.configuracion&&G.configuracion.activos||[]).filter(function(asset){return (asset.activo||asset.codigo===codigo)&&asset.codigo!=='10101.05';});
   var select=eid('cfg-allocation-asset');
   select.innerHTML=assets.map(function(asset){return'<option value="'+hEsc(asset.codigo)+'">'+hEsc((asset.grupo?asset.grupo+' · ':'')+asset.nombre)+' — '+fmt(asset.valor)+'</option>';}).join('');
   if(codigo)select.value=codigo;
   var selected=assets.filter(function(asset){return asset.codigo===select.value;})[0];
   eid('cfg-allocation-amount').value=selected&&selected.asignadoJapon?String(selected.asignadoJapon):'';
+  eid('cfg-allocation-mode').value=selected&&selected.vinculadoJapon?selected.modoJapon:'full';
   eid('cfg-allocation-editor').style.display='block';actualizarHintAsignacion();
   eid('cfg-allocation-editor').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -3094,12 +3096,14 @@ function cerrarEditorAsignacion(){var box=eid('cfg-allocation-editor');if(box)bo
 function actualizarHintAsignacion(){
   var code=eid('cfg-allocation-asset').value;
   var asset=(G.configuracion&&G.configuracion.activos||[]).filter(function(x){return x.codigo===code;})[0];
+  eid('cfg-allocation-amount').closest('.fg').style.display=eid('cfg-allocation-mode').value==='full'?'none':'';
   eid('cfg-allocation-hint').textContent=asset?'Disponible en '+asset.nombre+': '+fmt(asset.valor)+'. Esta asignación no mueve ni duplica dinero.':'';
 }
 function guardarAsignacionMetaUI(){
   var code=eid('cfg-allocation-asset').value,amount=moneyVal(eid('cfg-allocation-amount').value);
   var asset=(G.configuracion&&G.configuracion.activos||[]).filter(function(x){return x.codigo===code;})[0];
   if(!asset){showToast('Selecciona un activo','err');return;}
+  if(eid('cfg-allocation-mode').value==='full'){guardarAsignacionMetaRequest(code,0,false,'full');return;}
   if(amount<=0){showToast('Escribe un monto mayor a cero','err');return;}
   if(amount>Number(asset.valor||0)+.004){showToast('El monto supera el valor del activo','err');return;}
   guardarAsignacionMetaRequest(code,amount,false);
@@ -3108,8 +3112,8 @@ function eliminarAsignacionMetaUI(codigo){
   if(!confirm('¿Quitar este activo de la meta Japón? El saldo del activo no cambiará.'))return;
   guardarAsignacionMetaRequest(codigo,0,true);
 }
-function guardarAsignacionMetaRequest(codigo,monto,eliminando){
-  var params={meta:'japan',balanceCodigo:codigo,monto:String(monto)};Object.assign(params,configContext());
+function guardarAsignacionMetaRequest(codigo,monto,eliminando,modo){
+  var params={meta:'japan',balanceCodigo:codigo,monto:String(monto),modo:modo||'fixed',eliminar:!!eliminando};Object.assign(params,configContext());
   var btn=eid('cfg-allocation-save');if(btn){btn.disabled=true;btn.textContent='Guardando…';}
   gsRun('guardarAsignacionMeta',[params]).then(function(res){
     if(btn){btn.disabled=false;btn.textContent='Guardar asignación';}
@@ -3144,60 +3148,69 @@ function renderJapon(d){
 }
 function renderModalJapon(d){
   var body=eid('j-modal-body');if(!body||!d)return;
-  var w=Math.min(d.porcentaje||0,100),pct=(d.porcentaje||0).toFixed(1)+'%';
-  var sbj=eid('sb-j');if(sbj)sbj.textContent='Japón: '+pct;
-  var tram=(d.tramites||[]).map(function(t){
-    return'<div class="tram-row"><div><div style="font-size:13px;font-weight:700">'+t.nombre+'</div>'
-      +'<div style="font-size:11px;color:var(--t3)">'+fmt(t.presupuesto)+'</div></div>'
-      +'<div class="fr g8">'+(G.japEdit?'<input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+t.actual+'" onchange="saveJap(\''+t.nombre+'\',normMoney(this.value))">':'')
-      +'<span class="bdg '+(t.pagado?'ok':'warn')+'">'+(t.pagado?'Pagado':'Pendiente')+'</span></div></div>';
-  }).join('');
-  var items=(d.items||[]).map(function(i){
-    var falt=i.faltante||(i.presupuesto-i.actual);
-    return'<div class="jap-item"><div class="jn">'+i.nombre+'</div>'
-      +'<div class="jv"><span style="color:var(--t3)">'+fmt(i.presupuesto)+'</span>'
-      +(G.japEdit?'<input class="edit-in" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="'+i.actual+'" onchange="saveJap(\''+i.nombre+'\',normMoney(this.value))">':'<span style="color:var(--ok)">'+fmt(i.actual)+'</span>')
-      +(falt>0?'<span class="bdg over">-'+fmt(falt)+'</span>':'<span class="bdg ok">✓</span>')
-      +'</div></div>';
-  }).join('');
-  var allocations=(d.asignaciones||[]).map(function(a){
-    var short=Number(a.efectivo||0)+.004<Number(a.asignado||0);
-    return'<div class="japan-allocation-row"><div><b>'+hEsc(a.nombre||a.balanceId)+'</b><span>'+hEsc(a.grupo||'Activo')+' · Disponible '+fmt(a.disponible)+(short?' · respaldo insuficiente':'')+'</span></div>'
-      +'<strong class="'+(short?'settings-warning':'')+'">'+fmt(a.efectivo||0)+'</strong></div>';
-  }).join('');
-  var manual=Number(d.totalManual||0),linked=Number(d.totalVinculado||0);
-  body.innerHTML=
-    '<div class="card cs p20 mb14">'
-    +'<div class="fb mb12"><div><div class="lup mb4">Total ahorrado</div><div class="ah tok2">'+fmt(d.totalActual||0)+'</div></div>'
-    +'<div style="text-align:right"><div class="lup mb4">Meta</div><div class="alg">'+fmt(d.totalPresupuesto||4177)+'</div></div></div>'
-    +'<div class="prog h12 mb10"><div class="pf ok" style="width:'+w+'%"></div></div>'
-    +'<div class="fb" style="font-size:12px;color:var(--t2)"><span>Completado: <strong>'+pct+'</strong></span><span>Falta: <strong class="tov2">'+fmt(d.faltante||0)+'</strong></span></div>'
-    +'</div>'
-    +'<div class="settings-goal-summary mb14"><div class="settings-goal-kpi"><span>Aportes manuales</span><b>'+fmt(manual)+'</b></div><div class="settings-goal-kpi"><span>Desde activos</span><b>'+fmt(linked)+'</b></div></div>'
-    +'<div class="lup mb10">Ahorro alojado en activos</div><div class="japan-allocation-list">'+(allocations||'<div class="settings-empty">Configura qué activos respaldan el viaje.</div>')+'</div>'
-    +'<button class="btn bgh bful mb14" onclick="eid(\'mov-japon\').classList.remove(\'open\');abrirConfiguracion(\'japon\')">Configurar activos de Japón</button>'
-    +'<div class="lup mb10">Trámites pre-viaje</div><div class="mb14">'+(tram||'<div class="empty-state">Sin trámites registrados.</div>')+'</div>'
-    +'<div class="lup mb10">Desglose del viaje</div><div class="mb14">'+(items||'<div class="empty-state">Sin desglose registrado.</div>')+'</div>'
-    +'<div class="lup mb10">Calculadora</div><div class="card cr12 calc-row mb14"><span style="font-size:13px;color:var(--t2)">Si ahorro</span><input type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" id="calc-in" placeholder="200" oninput="calcJ()"><span style="font-size:13px;color:var(--t2)">$/mes</span><div class="cres" id="calc-out">ingresa un monto</div></div>'
-    +'<div class="card cr12 p14 mb14"><div style="font-size:13px;color:var(--t2);line-height:1.6">El progreso suma <strong>'+fmt(manual)+'</strong> de aportes manuales y <strong>'+fmt(linked)+'</strong> efectivamente respaldados por activos del Balance. Las asignaciones no mueven ni duplican dinero.</div></div>'
-    +'<div class="detail-actions"><button class="btn bb bful" onclick="tgEditJap()">'+(G.japEdit?'Terminar edición':'Editar meta')+'</button><button class="btn bgh bful" onclick="eid(\'mov-japon\').classList.remove(\'open\')">Cerrar</button></div>';
+  if(G.japanEditing)return;
+  paintHomeJapon(d);
+  var pct=Number(d.porcentaje||0),sb=eid('sb-j');if(sb)sb.textContent='Japón: '+pct.toFixed(1)+'%';
+  function section(label,key,list){
+    return '<div class="japan-section-heading"><h3>'+label+'</h3><button class="settings-icon-btn" aria-label="Añadir '+label+'" onclick="abrirPartidaJapon(\''+key+'\')">+</button></div><div class="japan-budget-list">'+list.map(function(t){
+      return '<div class="japan-budget-row"><div><b>'+hEsc(t.nombre)+'</b><span>Presupuesto '+fmt(t.presupuesto)+' · Registrado '+fmt(t.actual)+'</span></div><button class="settings-icon-btn" aria-label="Editar '+hEsc(t.nombre)+'" onclick="abrirPartidaJapon(\''+key+'\',\''+t.id+'\')">✎</button></div>';
+    }).join('')+(list.length?'':'<p class="settings-empty">Añade la primera partida.</p>')+'</div>';
+  }
+  var allocations=(d.asignaciones||[]).map(function(a){return '<div class="japan-allocation-row"><div><b>'+hEsc(a.nombre)+'</b><span>'+hEsc(a.grupo)+(a.modo==='full'?' · Activo completo':' · Monto fijo')+(a.activo?'':' · Inactivo')+'</span></div><strong>'+fmt(a.efectivo)+'</strong></div>';}).join('');
+  body.innerHTML='<div class="card cs p20 mb14"><div class="fb mb12"><div><div class="lup mb4">Progreso de la meta</div><div class="ah tok2">'+fmt(d.totalActual)+'</div></div><div style="text-align:right"><div class="lup mb4">Presupuesto total</div><div class="alg">'+fmt(d.totalPresupuesto)+'</div></div></div>'
+    +'<div class="prog h12 mb10"><div class="pf ok" style="width:'+Math.min(pct,100)+'%"></div></div><div class="fb"><span>'+pct.toFixed(1)+'% alcanzado</span><span>Falta '+fmt(d.faltante)+'</span></div></div>'
+    +'<div id="japan-item-editor" hidden></div>'
+    +'<div class="japan-section-heading"><h3>Activos vinculados</h3><button class="btn bgh" onclick="eid(\'mov-japon\').classList.remove(\'open\');abrirConfiguracion(\'japon\')">Seleccionar</button></div>'
+    +'<div class="japan-allocation-list">'+(allocations||'<p class="settings-empty">Selecciona activos para seguir su saldo.</p>')+'</div>'
+    +section('Trámites','tramites',d.tramites||[])+section('Desglose del viaje','viaje',d.items||[])
+    +'<div class="lup mb10" style="margin-top:18px">Calculadora</div><div class="card cr12 calc-row mb14"><span>Si ahorro</span><input inputmode="decimal" id="calc-in" placeholder="200" oninput="calcJ()"><span>$/mes</span><div class="cres" id="calc-out">ingresa un monto</div></div>'
+    +'<button class="btn bgh bful" onclick="eid(\'mov-japon\').classList.remove(\'open\')">Cerrar</button>';
 }
 function abrirModalJapon(){
-  eid('mov-japon').classList.add('open');
-  if(G.japon){renderModalJapon(G.japon);return;}
-  eid('j-modal-body').innerHTML='<div class="empty-state">Cargando meta Japón...</div>';
+  eid('mov-japon').classList.add('open');G.japanEditing=false;
+  if(G.japon)renderModalJapon(G.japon);else eid('j-modal-body').innerHTML='<div class="empty-state">Cargando meta Japón…</div>';
   loadJapon();
 }
-function tgEditJap(){G.japEdit=!G.japEdit;if(G.japon)renderModalJapon(G.japon);showToast(G.japEdit?'Modo edición':'Guardado','ok');}
-function saveJap(nombre,valor){
-  google.script.run
-    .withSuccessHandler(function(res){if(res&&res.ok){showToast('Actualizado','ok');loadJapon();loadHomeJapon();}else showToast('Error','err');})
-    .actualizarJapon({item:nombre,monto:valor});
+function abrirPartidaJapon(section,id){
+  var rows=(G.japon.items||[]).concat(G.japon.tramites||[]),item=rows.filter(function(t){return String(t.id)===String(id);})[0];
+  G.japanEditing={section:section,id:id||null};
+  var editor=eid('japan-item-editor');editor.hidden=false;editor.className='japan-editor';
+  editor.innerHTML='<h3>'+(item?'Editar partida':'Nueva partida')+'</h3><label class="fl" for="japan-item-name">Nombre</label><input class="fi" id="japan-item-name" maxlength="120" value="'+hEsc(item?item.nombre:'')+'">'
+    +'<div class="m-date-row"><div class="fg"><label class="fl" for="japan-item-budget">Presupuesto ($)</label><input class="fi" id="japan-item-budget" inputmode="decimal" value="'+(item?item.presupuesto:'')+'"></div>'
+    +'<div class="fg"><label class="fl" for="japan-item-actual">Registrado ($)</label><input class="fi" id="japan-item-actual" inputmode="decimal" value="'+(item?item.actual:0)+'"></div></div>'
+    +'<div class="detail-actions"><button class="btn bgh" onclick="cerrarPartidaJapon()">Cancelar</button><button class="btn bb" id="japan-item-save" onclick="guardarPartidaJapon(false)">Guardar</button></div>'
+    +(item?'<button class="japan-delete" onclick="guardarPartidaJapon(true)">Eliminar partida</button>':'');
+  editor.scrollIntoView({behavior:'smooth',block:'nearest'});eid('japan-item-name').focus();
 }
+function cerrarPartidaJapon(){G.japanEditing=false;renderModalJapon(G.japon);}
+function guardarPartidaJapon(remove){
+  var editing=G.japanEditing;if(!editing||G.japanSaving)return;
+  var name=eid('japan-item-name').value.trim(),budget=Number(eid('japan-item-budget').value.replace(',','.')),actual=Number(eid('japan-item-actual').value.replace(',','.'));
+  if(!remove&&(!name||!Number.isFinite(budget)||!Number.isFinite(actual)||budget<0||actual<0)){showToast('Revisa el nombre y los importes','err');return;}
+  if(remove&&!confirm('¿Eliminar esta partida de la meta? Los activos vinculados no cambiarán.'))return;
+  G.japanSaving=true;eid('japan-item-save').disabled=true;
+  gsRun('gestionarItemJapon',[{id:editing.id,accion:remove?'eliminar':'guardar',seccion:editing.section,nombre:name,presupuesto:String(budget),actual:String(actual)}]).then(function(r){
+    if(!r||!r.ok)throw Error(r&&r.error||'No se pudo guardar');
+    G.japanEditing=false;if(r.japon){G.japon=r.japon;renderModalJapon(r.japon);}else loadJapon();
+    showToast(remove?'Partida eliminada':'Partida guardada','ok');
+  }).catch(function(e){showToast(e.message||'Error al guardar','err');}).finally(function(){G.japanSaving=false;var b=eid('japan-item-save');if(b)b.disabled=false;});
+}
+function tgEditJap(){abrirPartidaJapon('viaje');}
+function saveJap(nombre,valor){gsRun('actualizarJapon',[{item:nombre,monto:valor}]).then(function(r){if(r&&r.ok)loadJapon();else showToast('No se pudo guardar','err');});}
+function refreshJapanVisible(){
+  if(document.hidden||G.japanEditing||G.japanRefreshing)return;
+  if(!eid('mov-japon').classList.contains('open')&&!eid('page-home').classList.contains('active'))return;
+  G.japanRefreshing=true;
+  gsRun('getViajeJapon').then(function(r){if(r&&r.ok){G.japon=r;paintHomeJapon(r);if(eid('mov-japon').classList.contains('open'))renderModalJapon(r);}}).catch(function(){}).finally(function(){G.japanRefreshing=false;});
+}
+setInterval(refreshJapanVisible,30000);
+document.addEventListener('visibilitychange',refreshJapanVisible);
+
+
 function calcJ(){
   var m=moneyVal(eid('calc-in').value);
   if(!m||!G.japon){eid('calc-out').textContent='ingresa un monto';return;}
-  var falt=(G.japon.totalPresupuesto||4177)-(G.japon.totalActual||0);
+  var falt=Math.max(0,(G.japon.totalPresupuesto||0)-(G.japon.totalActual||0));
   if(falt<=0){eid('calc-out').textContent='🎌 ¡Meta alcanzada!';return;}
   var meses=Math.ceil(falt/m);
   var fecha=new Date();fecha.setMonth(fecha.getMonth()+meses);

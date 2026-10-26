@@ -151,54 +151,62 @@ function renderCategoryFunding(items,cat){
 }
 function renderFullBalanceHistory(items,targetId){
   var el=eid(targetId||'bal-log-modal-list');if(!el)return;
-  var all=items||[],ops=(G.balance&&G.balance.fundingOperations)||[],filter=G.balanceHistoryFilter||{};
+  var all=items||[],ops=(G.balance&&G.balance.fundingOperations)||[],filter=G.balanceHistoryFilter||{},focus=G.balanceHistoryFocus;
   el.textContent='';
-  var controls=document.createElement('div');controls.className='m-date-row';el.appendChild(controls);
+  function text(tag,cls,value){var n=document.createElement(tag);n.className=cls||'';n.textContent=value;return n;}
+  function period(x){var s=String(x.fechaHora||x.economic_date||'');var m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);return m?m[3]+'-'+m[2].padStart(2,'0'):s.slice(0,7);}
+  function timestamp(x){return Date.parse(x.createdAt||x.created_at||x.economic_date||'')||0;}
+  var controls=document.createElement('details');controls.className='history-filters';controls.open=!!G.historyFiltersOpen;
+  controls.appendChild(text('summary','',filter.period||filter.account||filter.type?'Filtros activos':'Filtrar movimientos'));
+  controls.ontoggle=function(){G.historyFiltersOpen=controls.open;};
+  var fields=document.createElement('div');fields.className='history-filter-grid';controls.appendChild(fields);el.appendChild(controls);
   function select(label,key,values){
-    var box=document.createElement('label');box.className='fg';box.textContent=label;
-    var field=document.createElement('select');field.className='fs';field.setAttribute('aria-label',label);
-    field.add(new Option('Todos',''));
+    var box=text('label','fg',label),field=document.createElement('select');field.className='fs';field.setAttribute('aria-label',label);field.add(new Option('Todos',''));
     values.forEach(function(v){field.add(new Option(v[1],v[0]));});field.value=filter[key]||'';
-    field.onchange=function(){filter[key]=field.value;G.balanceHistoryFilter=filter;G.balanceHistoryFocus=null;renderFullBalanceHistory(all,targetId);};
-    box.appendChild(field);controls.appendChild(box);
+    field.onchange=function(){filter[key]=field.value;G.balanceHistoryFilter=filter;G.historyLimit=30;renderFullBalanceHistory(all,targetId);};
+    box.appendChild(field);fields.appendChild(box);
   }
-  function period(x){var s=String(x.fechaHora||'');var m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);return m?m[3]+'-'+m[2].padStart(2,'0'):s.slice(0,7);}
-  select('Periodo','period',Array.from(new Set(all.map(period).filter(Boolean))).sort().reverse().map(function(p){return[p,p];}));
   var accounts=new Map();all.forEach(function(x){accounts.set(x.codigo,x.nombre||x.codigo);});
-  select('Activo o pasivo','account',Array.from(accounts));
-  select('Movimiento','type',Array.from(new Set(all.map(function(x){return x.accion;}).concat(ops.map(function(o){return o.operation_code;})))).filter(Boolean).map(function(t){return[t,operationLabel(t)];}));
-  select('Conciliación','state',['reconciled','adjusted','partial','pending','cancelled'].map(function(s){return[s,reconciliationLabel(s)];}));
-  var focus=G.balanceHistoryFocus;
-  if(!focus){((G.balance&&G.balance.reconciliationCases)||[]).filter(function(c){return (!filter.account||c.balance_id===filter.account)&&(!filter.state||c.state===filter.state)&&!filter.type&&(!filter.period||c.period===filter.period||c.period==='2026');}).forEach(function(c){
-    var box=document.createElement('details');box.className='card p12 cr12';box.style.marginTop='10px';
-    var summary=document.createElement('summary');summary.textContent=(c.account_name||c.case_key)+' · '+reconciliationLabel(c.state);box.appendChild(summary);
-    var note=document.createElement('p');note.className='cat-manage-note';note.textContent=c.note;box.appendChild(note);el.appendChild(box);
-  });}
-  if(focus){var clear=document.createElement('button');clear.className='btn bgh bful';clear.textContent='Mostrar todo el historial';clear.onclick=function(){G.balanceHistoryFocus=null;renderFullBalanceHistory(all,targetId);};el.appendChild(clear);}
-  var filteredOps=ops.filter(function(o){return (!filter.account||[o.source_asset_id,o.destination_asset_id].indexOf(filter.account)>=0)&&(!filter.state||o.state===filter.state)&&(!filter.type||o.operation_code===filter.type)&&(!filter.period||String(o.economic_date||'').slice(0,7)===filter.period)&&(!focus||o.source_movement_id===focus||(o.allocations||[]).some(function(a){return a.movement_id===focus;}));});
-  filteredOps.forEach(function(o){
-    var detail=document.createElement('details');detail.className='card p12 cr12';detail.style.marginTop='10px';
-    var summary=document.createElement('summary');summary.textContent=(o.economic_date||'Fecha por verificar')+' · '+operationLabel(o.operation_code)+' · '+fmt(o.amount);detail.appendChild(summary);
-    var text=document.createElement('div');text.className='cat-manage-note';
-    var allocated=(o.allocations||[]).reduce(function(s,a){return s+Number(a.amount);},0);
-    text.textContent=(o.source_name||'Origen pendiente')+(o.destination_name?' → '+o.destination_name:'')+' · '+reconciliationLabel(o.state)+' · '+o.note;
-    detail.appendChild(text);
-    (o.allocations||[]).forEach(function(a){
-      var row=document.createElement('div');row.className='detail-line';row.textContent=a.category+' · '+fmt(a.amount)+(a.movement_id?'':' · vinculación transaccional pendiente');detail.appendChild(row);
-      if(a.movement_id){var button=document.createElement('button');button.className='btn bgh bful';button.textContent='Ver transacción · '+a.movement_id;button.onclick=function(){showLinkedTransaction(a.movement_id,a.month);};detail.appendChild(button);}
-    });
-    if((o.allocations||[]).length){var remainder=document.createElement('div');remainder.className='cat-manage-note';remainder.textContent='Distribuido: '+fmt(allocated)+' · Pendiente de destino: '+fmt(Number(o.amount)-allocated);detail.appendChild(remainder);}
-    el.appendChild(detail);
+  select('Cuenta','account',Array.from(accounts));
+  select('Mes','period',Array.from(new Set(all.map(period).concat(ops.map(period)).filter(Boolean))).sort().reverse().map(function(x){return[x,x];}));
+  select('Tipo','type',Array.from(new Set(all.map(function(x){return x.accion;}).concat(ops.map(function(x){return x.operation_code;})))).filter(Boolean).map(function(x){return[x,operationLabel(x)];}));
+  if(filter.period||filter.account||filter.type){var clear=text('button','btn bgh','Limpiar filtros');clear.onclick=function(){G.balanceHistoryFilter={};G.historyLimit=30;renderFullBalanceHistory(all,targetId);};fields.appendChild(clear);}
+  if(focus){var back=text('button','btn bgh bful','Ver todos los movimientos');back.onclick=function(){G.balanceHistoryFocus=null;G.balanceHistoryFilter={};renderFullBalanceHistory(all,targetId);};el.appendChild(back);}
+  var selectedOps=ops.filter(function(o){return (!filter.account||[o.source_asset_id,o.destination_asset_id].includes(filter.account))&&(!filter.period||period(o)===filter.period)&&(!filter.type||o.operation_code===filter.type)&&(!focus||o.source_movement_id===focus||(o.allocations||[]).some(function(a){return a.movement_id===focus;}));});
+  var entries=selectedOps.map(function(o){return {op:o,time:timestamp(o)};});
+  var shownOperations=new Set(selectedOps.map(function(o){return o.operation_id;}));
+  all.filter(function(x){return !shownOperations.has(x.operationId)&&(!filter.account||x.codigo===filter.account)&&(!filter.period||period(x)===filter.period)&&(!filter.type||x.accion===filter.type)&&(!focus||x.movimientoId===focus||(x.transacciones||[]).some(function(t){return t.id===focus;}));}).forEach(function(x){entries.push({change:x,time:timestamp(x)});});
+  entries.sort(function(a,b){return b.time-a.time;});
+  el.appendChild(text('p','history-count',entries.length+' movimientos'));
+  var list=document.createElement('div');list.className='history-list';el.appendChild(list);
+  function link(parent,id,month,label){if(!id)return;var b=text('button','history-link',label||'Ver transacción');b.onclick=function(){showLinkedTransaction(id,month);};parent.appendChild(b);}
+  var limit=G.historyLimit||30;
+  entries.slice(0,limit).forEach(function(entry){
+    var x=entry.change,o=entry.op,ordering=x&&/^(ordenar|reorder|orden|mover grupo)$/i.test(x.accion||'');
+    var historical=x?x.estado==='historical':o.state!=='reconciled'&&String(o.economic_date||'')<'2026-10-23';
+    var title=x?(x.nombre||x.codigo):(o.source_name||'Operación de ahorro');
+    var action=operationLabel(x?x.accion:o.operation_code);
+    var amount=x?(ordering||x.anterior==null||x.nuevo==null?null:x.nuevo-x.anterior):Number(o.amount);
+    var row=document.createElement('details');row.className='history-entry';
+    var summary=document.createElement('summary'),main=document.createElement('div');main.className='history-entry-main';
+    main.appendChild(text('b','',title));main.appendChild(text('span','',action+' · '+(x?(x.fecha||x.fechaHora||''):(o.economic_date||''))));
+    summary.appendChild(main);summary.appendChild(text('strong',amount<0?'history-negative':'',amount==null?'—':(x&&amount>0?'+':'')+fmt(amount)));row.appendChild(summary);
+    var body=document.createElement('div');body.className='history-entry-body';
+    body.appendChild(text('span','history-status',historical?'Movimiento histórico · Sin conciliación':'Movimiento registrado'));
+    if(x){
+      body.appendChild(text('p','',ordering?'Cambio de organización; saldo conservado.':'Saldo anterior '+(x.anterior==null?'sin dato':fmt(x.anterior))+' → '+(x.nuevo==null?'sin dato':fmt(x.nuevo))));
+      if(x.nota)body.appendChild(text('p','',x.nota));
+      (x.transacciones||[]).forEach(function(t){link(body,t.id,t.month,'Ver '+t.subcategory+' · '+fmt(t.amount));});
+      if(x.movimientoId)body.appendChild(text('small','history-reference','Referencia '+x.movimientoId));
+    }else{
+      body.appendChild(text('p','',(o.source_name||'Ahorros')+(o.destination_name?' → '+o.destination_name:'')));
+      (o.allocations||[]).forEach(function(a){body.appendChild(text('p','',a.category+' · '+fmt(a.amount)));link(body,a.movement_id,a.month,'Ver transacción');});
+      if(o.note)body.appendChild(text('p','',o.note));
+      var changes=all.filter(function(c){return c.operationId===o.operation_id;});
+      changes.forEach(function(c){body.appendChild(text('p','',c.nombre+': '+(c.anterior==null?'sin dato':fmt(c.anterior))+' → '+(c.nuevo==null?'sin dato':fmt(c.nuevo))));});
+    }
+    row.appendChild(body);list.appendChild(row);
   });
-  var filtered=all.filter(function(x){return (!filter.period||period(x)===filter.period)&&(!filter.account||x.codigo===filter.account)&&(!filter.type||x.accion===filter.type)&&(!filter.state||x.estado===filter.state)&&(!focus||x.movimientoId===focus||(x.transacciones||[]).some(function(t){return t.id===focus;})||filteredOps.some(function(o){return o.operation_id===x.operationId;}));});
-  filtered.forEach(function(x){
-    var detail=document.createElement('details');detail.className='card p12 cr12';detail.style.marginTop='10px';
-    var ordering=/^(ordenar|reorder|orden)$/i.test(x.accion||'');
-    var summary=document.createElement('summary');var delta=ordering||x.anterior==null||x.nuevo==null?null:x.nuevo-x.anterior;
-    summary.textContent=(x.fechaHora||x.fecha||'')+' · '+operationLabel(x.accion)+' · '+(x.nombre||x.codigo)+(delta==null?'':' · '+(delta<0?'−':'+')+fmt(delta));detail.appendChild(summary);
-    var body=document.createElement('div');body.className='cat-manage-note';body.textContent=(ordering?'Cambio de orden; no representa una variación de saldo.':'Saldo: '+(x.anterior==null?'Sin dato':fmt(x.anterior))+' → '+(x.nuevo==null?'Sin dato':fmt(x.nuevo)))+' · '+reconciliationLabel(x.estado)+' · '+(x.nota||'')+(x.movimientoId?' · Movimiento '+x.movimientoId:'');detail.appendChild(body);
-    (x.transacciones||[]).forEach(function(t){var button=document.createElement('button');button.className='btn bgh bful';button.textContent='Ver '+t.subcategory+' · '+fmt(t.amount);button.onclick=function(){showLinkedTransaction(t.id,t.month);};detail.appendChild(button);});
-    el.appendChild(detail);
-  });
-  if(!filtered.length&&!filteredOps.length){var empty=document.createElement('p');empty.className='cat-manage-note';empty.textContent='No hay movimientos para estos filtros.';el.appendChild(empty);}
+  if(entries.length>limit){var more=text('button','btn bgh bful','Cargar más');more.onclick=function(){G.historyLimit=limit+30;renderFullBalanceHistory(all,targetId);};el.appendChild(more);}
+  if(!entries.length)list.appendChild(text('p','settings-empty','No hay movimientos para estos filtros.'));
 }

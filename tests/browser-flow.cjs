@@ -30,8 +30,9 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'C:/Users/USER/.cache/co
  await page.waitForTimeout(300);
  assert.ok((await page.locator('#bal-log-modal-list').innerText()).includes('Gasto desde ahorros'));
  await page.screenshot({path:path.resolve('../evidence/mobile-balance-history.png'),fullPage:true});
- await page.locator('#bal-log-modal-list details').first().locator('summary').click();
- await page.getByRole('button',{name:'Ver transacción · '+tx.id,exact:true}).click();
+ assert.equal(await page.locator('#bal-log-modal-list .history-entry').count(),1);
+ await page.locator('#bal-log-modal-list .history-entry').first().locator('summary').click();
+ await page.getByRole('button',{name:'Ver transacción',exact:true}).click();
  await page.waitForSelector('#mov-hist-detail.open');
  await page.locator('#hist-detail-edit').click();
  await page.locator('#m-monto').fill('80');

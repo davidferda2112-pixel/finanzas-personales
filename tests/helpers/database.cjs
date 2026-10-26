@@ -11,6 +11,7 @@ async function database(beforeMigration) {
   await db.exec(fs.readFileSync(path.join(__dirname, '../../supabase/migrations/20261022235107_reconciliation_cases.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(__dirname, '../../supabase/migrations/20261023121900_history_semantics.sql'), 'utf8'));
   await db.exec(fs.readFileSync(path.join(__dirname, '../../supabase/migrations/20261023124500_stable_asset_identity.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(__dirname, '../../supabase/migrations/20261026121646_japan_live_assets_and_items.sql'), 'utf8'));
   return db;
 }
 module.exports = { database };

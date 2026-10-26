@@ -109,7 +109,7 @@
   window.google.script.run = makeRunner(null, null);
 })();
 </script>
-<link rel="stylesheet" href="/app.css?v=20261023-mobile-3">
+<link rel="stylesheet" href="/app.css?v=20261026-japan-1">
 </head>
 <body>
 <div id="boot-loader" role="status" aria-live="polite">
@@ -634,7 +634,7 @@
       <div class="settings-editor" id="cfg-allocation-editor" style="display:none">
         <div class="settings-editor-title">Asignar activo a Japón</div>
         <div class="fg"><div class="fl">Activo del Balance General</div><select class="fs" id="cfg-allocation-asset" onchange="actualizarHintAsignacion()"></select></div>
-        <div class="fg"><div class="fl">Monto reservado para Japón</div><input class="fi" id="cfg-allocation-amount" inputmode="decimal" placeholder="0.00"><div class="settings-hint" id="cfg-allocation-hint"></div></div>
+        <div class="fg"><label class="fl" for="cfg-allocation-mode">Vinculación</label><select class="fs" id="cfg-allocation-mode" onchange="actualizarHintAsignacion()"><option value="full">Activo completo · saldo actualizado</option><option value="fixed">Monto fijo</option></select></div><div class="fg"><div class="fl">Monto reservado para Japón</div><input class="fi" id="cfg-allocation-amount" inputmode="decimal" placeholder="0.00"><div class="settings-hint" id="cfg-allocation-hint"></div></div>
         <div class="settings-actions"><button class="btn bgh bful" onclick="cerrarEditorAsignacion()">Cancelar</button><button class="btn bb bful" id="cfg-allocation-save" onclick="guardarAsignacionMetaUI()">Guardar asignación</button></div>
       </div>
     </div>
@@ -684,14 +684,14 @@
 <div class="mov" id="mov-bal-log" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="msh" style="max-height:88vh">
     <div class="mhnd"></div>
-    <div class="mti">Historial del Balance General</div>
-    <div style="font-size:12px;color:var(--t2);margin-bottom:12px">Balance General</div>
+    <div class="mti">Movimientos del balance</div>
+    <div class="history-caption">Cambios de saldo y movimientos registrados</div>
     <div id="bal-log-modal-list"></div>
     <button class="btn bgh bful" style="margin-top:14px" onclick="eid('mov-bal-log').classList.remove('open')">Cerrar</button>
   </div>
 </div>
 
-<script src="/app.js?v=20261023-mobile-4" defer></script>
-<script src="/savings.js?v=20261023-mobile-3" defer></script>
+<script src="/app.js?v=20261026-japan-1" defer></script>
+<script src="/savings.js?v=20261026-japan-1" defer></script>
 </body>
 </html>

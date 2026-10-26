@@ -43,6 +43,7 @@ const WRITE_METHODS = new Set([
   'guardarBalanceItem',
   'eliminarBalanceItem',
   'actualizarJapon',
+  'gestionarItemJapon',
   'guardarPinturasMes',
   'registrarMovimientoTarjeta',
   'actualizarMovimientoTarjeta',
