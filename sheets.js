@@ -69,7 +69,4 @@ function seleccionarSeccionConfiguracion(section){
     buttons[i].click();buttons[i].focus();
   });
   seleccionarSeccionConfiguracion('tarjetas');
-  function viewport(){document.documentElement.style.setProperty('--sheet-viewport',(window.visualViewport?window.visualViewport.height:window.innerHeight)+'px');}
-  viewport();if(window.visualViewport)window.visualViewport.addEventListener('resize',viewport);
-  window.addEventListener('resize',viewport);
 })();

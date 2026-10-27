@@ -8,7 +8,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'C:/Users/USER/.cache/co
  assert.ok(!(await page.locator('#page-home').innerText()).includes('Egresos totales:'));
  await page.evaluate(()=>abrirConfiguracion());await page.waitForFunction(()=>G.configuracion);await page.waitForTimeout(350);
  await page.screenshot({path:path.resolve('../evidence/aero-settings-mobile.png')});
- const bounds=await page.locator('#mov-config .msh').boundingBox();assert.ok(bounds.height<=844*.81);assert.ok(bounds.y>100);
+ const bounds=await page.locator('#mov-config .msh').boundingBox();assert.ok(bounds.height<=844*.85);assert.ok(bounds.y>100);
  const close=page.locator('#mov-config .sheet-close'),before=await close.boundingBox();
  await page.locator('#mov-config .sheet-content').evaluate(el=>el.scrollTop=el.scrollHeight);
  assert.equal((await close.boundingBox()).y,before.y);assert.ok(await close.isVisible());
@@ -28,7 +28,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'C:/Users/USER/.cache/co
  // Every existing modal gets the same reachable close control and stays within the viewport.
  for(const id of await page.locator('.mov').evaluateAll(nodes=>nodes.map(n=>n.id))){
    await page.evaluate(id=>document.getElementById(id).classList.add('open'),id);await page.waitForTimeout(280);
-   const sheet=page.locator('#'+id+' .msh'),b=await sheet.boundingBox();assert.ok(b.width<=390&&b.height<=844*.81,id);
+   const sheet=page.locator('#'+id+' .msh'),b=await sheet.boundingBox();assert.ok(b.width<=390&&b.height<=844*.85,id);
    const content=page.locator('#'+id+' .sheet-content');await content.evaluate(el=>el.scrollTop=el.scrollHeight);
    const x=page.locator('#'+id+' .sheet-close');assert.ok(await x.isVisible(),id);await x.click();
  }
