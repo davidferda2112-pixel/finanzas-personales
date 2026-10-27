@@ -1825,7 +1825,6 @@ function renderFlujo(d){
   tbody+=trData('Sueldo',get('SUELDO'),'var(--ok)','');
   tbody+=trData('Pinturas',get('PINTURAS'),'var(--ok)','');
   tbody+=trData('Otros ingresos',get('OTROS INGRESOS'),'var(--ok)','');
-  if(get('PRESTAMOS RECIBIDOS')&&get('PRESTAMOS RECIBIDOS').valores.some(function(v){return v!==0;}))tbody+=trData('Préstamos registrados',get('PRESTAMOS RECIBIDOS'),'var(--blue)','');
   if(ing)tbody+=trData('Total Ingresos',ing,'var(--ok)','rgba(52,199,89,0.05)',true);
 
   tbody+=trSec('Egresos','var(--over)','rgba(255,59,48,0.03)');
@@ -1835,11 +1834,6 @@ function renderFlujo(d){
   tbody+=trData('Ahorros',get('AHORROS'),'var(--ok)','');
   if(egr)tbody+=trData('Total Egresos',egr,'var(--over)','rgba(255,59,48,0.05)',true);
 
-  var financing=get('FINANCIACIÓN RECIBIDA');
-  if(financing&&financing.valores.some(function(v){return v!==0;})){
-    tbody+=trSec('Entradas de financiación','var(--blue)','rgba(0,122,255,0.03)');
-    tbody+=trData('Financiación recibida',financing,'var(--blue)','');
-  }
 
   if(op){
     tbody+='<tr style="background:rgba(0,122,255,0.04)">'
@@ -1847,8 +1841,6 @@ function renderFlujo(d){
       +op.valores.map(function(v){return tdV(v,v>=0?'var(--ok)':'var(--over)',true);}).join('')
       +tdTot(op.total,op.total>=0?'var(--ok)':'var(--over)')+'</tr>';
   }
-  var basis=get('BASE DE SALDO CONFIRMADO');
-  if(basis)tbody+=trData('Diferencia histórica',basis,'var(--gold)','rgba(255,149,0,0.045)',true);
   if(ac){
     tbody+='<tr style="background:rgba(175,82,222,0.04)">'
       +'<td style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--purple);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:none;position:sticky;left:0;background:#f2eafb;z-index:2;width:132px;min-width:132px;max-width:132px">Flujo Acumulado</td>'
@@ -1858,14 +1850,6 @@ function renderFlujo(d){
   }
   tbody+='</tbody>';
   eid('fl-tabla').innerHTML='<div class="fl-table-wrap"><table>'+hdr+tbody+'</table></div>';
-  if(d.balanceCalculation){
-    var calculation=d.balanceCalculation;
-    var explanation='<details class="cash-explanation"><summary>Cómo se calcula el saldo</summary><div class="cash-equation">';
-    [['Saldo inicial del año',calculation.initial],['+ Ingresos',calculation.income],['+ Financiación recibida',calculation.financing],['− Egresos y aportes a ahorros',calculation.expenses],['+ Diferencia histórica',calculation.historicalDifference],['= Saldo actual',calculation.total]].forEach(function(line){explanation+='<div><span>'+line[0]+'</span><b>'+flowMoney(line[1])+'</b></div>';});
-    explanation+='</div>';
-    if(d.cashBasis){var b=d.cashBasis;explanation+='<p>El saldo confirmado en '+hEsc(b.month)+' fue <b>'+flowMoney(b.confirmed)+'</b>. En ese momento, los registros históricos daban '+flowMoney(b.reconstructed)+'. La diferencia de '+flowMoney(b.difference)+' se muestra por separado: es una base de saldo, no un ingreso ni un movimiento nuevo.</p><p>Desde esa confirmación, el cambio neto registrado es '+flowMoney(b.netSinceConfirmation)+'. El saldo se actualiza con cada movimiento que afecta al efectivo. Los gastos financiados desde activos se descuentan de esos activos.</p>';}
-    explanation+='</details>';eid('fl-tabla').insertAdjacentHTML('beforeend',explanation);
-  }
 }
 
 function renderPresupuesto(d){

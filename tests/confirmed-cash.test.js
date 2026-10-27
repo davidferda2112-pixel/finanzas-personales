@@ -9,36 +9,35 @@ function fixture(funded=0,extra=0){
 test('un saldo confirmado prevalece sobre la reconstrucción histórica sin crear ingresos',()=>{
  const d=transformSource('getMesData',[],fixture());assert.equal(d.vistaGeneral.saldoFinal.actual,40.25);assert.equal(d.ingresos.totalActual,0);
 });
-test('el saldo confirmado entra como base explícita y el cierre mensual cuadra con el anual',t=>{
+test('el flujo conserva la tabla general y su total muestra el disponible actual',t=>{
  t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-23T18:00:00Z')});
  const d=transformSource('getFlujoCaja',[],fixture(75,2.5)).data;
  assert.equal(d.cashAvailable,37.75);
  assert.equal(d.filas.find(x=>x.label==='TOTAL INGRESOS').total,0);
- assert.equal(d.filas.find(x=>x.label==='FLUJO DE CAJA ACUMULADO').valores[9],37.75);
- assert.equal(d.filas.find(x=>x.label==='BASE DE SALDO CONFIRMADO').valores[9],151.75);
+ assert.equal(d.filas.find(x=>x.label==='FLUJO DE CAJA ACUMULADO').valores[9],-114);
  assert.equal(d.filas.find(x=>x.label==='FLUJO DE CAJA ACUMULADO').total,37.75);
+ assert.ok(!d.filas.some(x=>/FINANCI|CONFIRMADO/.test(x.label)));
+ assert.equal(d.balanceCalculation,undefined);assert.equal(d.cashBasis,undefined);
 });
 
-test('cada mes y el acumulado cuadran sin duplicar la confirmación en Inicio, balance o historial',t=>{
- t.mock.timers.enable({apis:['Date'],now:new Date('2026-11-26T18:00:00Z')});
- const source=fixture(75,2.5);source.month='Noviembre 26';
- source.movementTotals.push({month_number:11,kind:'ingreso',operation_code:'loan_received',funding_source:'monthly_income',amount:12});
- const data=transformSource('getFlujoCaja',[],source).data;
- const r=label=>data.filas.find(item=>item.label===label);
- for(let i=0;i<12;i++){
-  assert.ok(Math.abs(r('FLUJO OPERATIVO').valores[i]-(r('TOTAL INGRESOS').valores[i]-r('TOTAL EGRESOS').valores[i]))<0.001);
-  const close=r('SALDO INICIAL').valores[i]+r('TOTAL INGRESOS').valores[i]+r('FINANCIACIÓN RECIBIDA').valores[i]-r('TOTAL EGRESOS').valores[i]+r('BASE DE SALDO CONFIRMADO').valores[i];
-  assert.ok(Math.abs(close-r('FLUJO DE CAJA ACUMULADO').valores[i])<0.001,'Cierre del mes '+i);
-  if(i>0)assert.equal(r('SALDO INICIAL').valores[i],r('FLUJO DE CAJA ACUMULADO').valores[i-1]);
- }
- const c=data.balanceCalculation;
- assert.ok(Math.abs(c.initial+c.income+c.financing-c.expenses+c.historicalDifference-c.total)<0.001);
- assert.equal(c.initial,-50);assert.equal(c.total,49.75);
- assert.equal(transformSource('getMesData',[],source).vistaGeneral.saldoFinal.actual,49.75);
- assert.equal(transformSource('getMovimientosMes',[],{...source,movements:[]}).saldoBase,37.75);
- assert.equal(data.cashBasis.netSinceConfirmation,9.5);
+test('el flujo general excluye activos, retiros y gastos financiados; las operaciones mixtas incluyen solo la parte general',t=>{
+ t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-26T18:00:00Z')});
+ const source={cashFlow:[],movementTotals:[
+  {month_number:10,kind:'ingreso',subcategory:'Sueldo',amount:100},
+  {month_number:10,kind:'necesidad',amount:25},
+  {month_number:10,kind:'necesidad',amount:75,funding_source:'savings'},
+  {month_number:10,kind:'deseo',amount:80,funded_amount:60},
+  {month_number:10,kind:'ingreso',amount:170,operation_code:'asset_transfer',funding_source:'asset_transfer'},
+  {month_number:10,kind:'ingreso',amount:16,operation_code:'savings_withdrawal'},
+  {month_number:10,kind:'ingreso',amount:20,operation_code:'loan_collection',funding_source:'asset_transfer'},
+  {month_number:10,kind:'ingreso',amount:30,operation_code:'ordinary',funding_source:'asset_transfer'}
+ ]};
+ const d=transformSource('getFlujoCaja',[],source).data,r=l=>d.filas.find(x=>x.label===l);
+ assert.equal(r('TOTAL INGRESOS').total,100);assert.equal(r('TOTAL EGRESOS').total,45);
+ assert.equal(r('NECESIDADES').total,25);assert.equal(r('DESEOS').total,20);
+ assert.equal(r('FLUJO OPERATIVO').total,55);assert.equal(r('FLUJO DE CAJA ACUMULADO').total,55);
+ for(let i=0;i<12;i++)assert.ok(Math.abs(r('SALDO INICIAL').valores[i]+r('TOTAL INGRESOS').valores[i]-r('TOTAL EGRESOS').valores[i]-r('FLUJO DE CAJA ACUMULADO').valores[i])<.001);
 });
-
 test('el total vigente admite cero y no incorpora ingresos de meses futuros',t=>{
  t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-26T18:00:00Z')});
  const source=fixture(75,40.25);
