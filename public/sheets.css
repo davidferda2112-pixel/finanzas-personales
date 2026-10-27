@@ -1,9 +1,4 @@
 /* Floating glass sheets: a fixed close control, with only the content scrolling. */
-html.vercel-runtime{height:100%;min-height:0;overscroll-behavior:none;background-color:#eaf8ff}
-html.vercel-runtime body{position:fixed;inset:0;width:100%;height:var(--app-height,100dvh);min-height:0;overscroll-behavior:none}
-html.vercel-runtime #app{height:100%;min-height:0}
-html.booting,html.booting body{background:#003f50!important}
-#boot-loader{height:var(--app-height,100dvh);bottom:auto}
 .aero-sheet .fg{min-width:0}
 .aero-sheet button{font-family:inherit}
 .aero-sheet .fi,.aero-sheet .fs{height:48px;min-height:48px;max-width:100%;min-width:0;box-sizing:border-box;font-size:16px;line-height:24px;padding:11px 12px}
@@ -34,14 +29,6 @@ html.booting,html.booting body{background:#003f50!important}
 .aero-sheet #cat-modal-tabla th:first-child{width:37%}
 .aero-sheet #cat-modal-tabla :is(th,td){vertical-align:middle;overflow-wrap:anywhere}
 .aero-sheet #cat-modal-tabla td:not(:first-child){font-variant-numeric:tabular-nums;white-space:nowrap;font-size:11px}
-@media(max-width:768px),(max-width:1024px) and (pointer:coarse){
-  html.vercel-runtime{--nav-height:56px}
-  html.vercel-runtime .bnv{position:absolute;bottom:0;height:calc(var(--nav-height) + var(--sb));min-height:0;padding:0 0 var(--sb);background:linear-gradient(120deg,rgba(250,252,255,.95),rgba(225,245,249,.95),rgba(234,250,241,.95));box-shadow:0 -8px 28px rgba(31,55,76,.07)}
-  html.vercel-runtime .bnv::after{display:none}
-  html.vercel-runtime .tr{height:var(--nav-height);padding:0 2px;transform:none}
-  html.vercel-runtime .tab{min-height:48px;justify-content:center}
-  html.vercel-runtime .pc{padding-bottom:calc(var(--nav-height) + var(--sb) + 20px)}
-}
 .cash-explanation{margin-top:18px;padding:0 16px;border:1px solid rgba(255,255,255,.9);border-radius:18px;background:rgba(255,255,255,.65);color:#45677d;font-size:12px;line-height:1.6}
 .cash-explanation summary{padding:14px 0;min-height:44px;cursor:pointer;font-weight:650;color:#236a91}.cash-explanation p{margin:12px 0 16px}.cash-equation>div{display:flex;justify-content:space-between;gap:18px;padding:7px 0}.cash-equation b{white-space:nowrap;font-variant-numeric:tabular-nums}.cash-equation>div:last-child{border-top:1px solid #bcd8e6;margin-top:7px;padding-top:12px;color:#147a65;font-size:14px}
 .settings-row-icon.visa-card{background:linear-gradient(145deg,#48c3fa,#0075c7)}

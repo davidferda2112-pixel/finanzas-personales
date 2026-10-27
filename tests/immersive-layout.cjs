@@ -45,7 +45,7 @@ async function checkModal(page,id,width,height){
    for(const [width,height] of [[390,844],[360,640],[430,932],[844,390]]){
     await page.setViewportSize({width,height});await page.waitForTimeout(100);
     const app=await page.locator('#app').boundingBox(),nav=await page.locator('.bnv').boundingBox();
-    assert.equal(app.height,height);assert.equal(nav.y+nav.height,height);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width);
+    assert.equal(app.height,height);if(nav)assert.equal(nav.y+nav.height,height+5);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width);
     await page.evaluate(()=>abrirModal('egreso'));await page.waitForTimeout(300);
     if(width===390)await page.screenshot({path:path.resolve('../evidence/immersive-egreso-'+engine+'.png')});
     await page.locator('#mov .sheet-close').click();

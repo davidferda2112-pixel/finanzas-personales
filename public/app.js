@@ -347,7 +347,7 @@ function bootText(t){var el=eid('boot-copy');if(el)el.textContent=t;}
 function hideBootLoader(){
   var el=eid('boot-loader');if(!el)return;
   el.classList.add('done');
-  setTimeout(function(){if(el&&el.parentNode)el.parentNode.removeChild(el);document.documentElement.classList.remove('booting');},420);
+  setTimeout(function(){if(el&&el.parentNode)el.parentNode.removeChild(el);},420);
 }
 function gsRun(fn,args){
   return new Promise(function(resolve,reject){
