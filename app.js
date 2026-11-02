@@ -2711,9 +2711,9 @@ function guardarMovTdc(){
   var btn=eid('btn-tdc-sv');btn.disabled=true;btn.textContent='Registrando...';
   var fechaTdc=eid('tdc-fecha').value;
   var mesCajaTdc=mesDesdeFechaISO(fechaTdc)||G.mesActual||G.tcMesActual;
-  var mesGastoTdc=G.tdcAccion==='abono'?mesCajaTdc:(G.tcMesActual||G.mesActual||mesCajaTdc);
+  var mesGastoTdc=G.tcMesActual||G.mesActual||mesCajaTdc;
   var mesAplicadoTdc=G.tdcAccion==='abono'
-    ? (eid('tdc-mes-aplica').value||mesSiguienteNombre(G.tcMesActual||mesCajaTdc)||mesCajaTdc)
+    ? (eid('tdc-mes-aplica').value||mesSiguienteNombre(mesGastoTdc)||mesGastoTdc)
     : mesGastoTdc;
   if(G.tdcAccion==='abono'&&mesAplicadoTdc===mesCajaTdc){
     var okSame=confirm('Este abono saldrá de caja en '+mesCajaTdc+' y también se aplicará a Pagos / Créditos de '+mesAplicadoTdc+'. Si estás adelantando el pago del siguiente ciclo, cambia el campo "Aplicar a Pagos / Créditos". ¿Quieres registrarlo así?');
