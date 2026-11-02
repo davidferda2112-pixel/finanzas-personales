@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { database } = require('./helpers/database.cjs');
+const { transformSource } = require('../lib/jaeger-supabase-read');
 
 test('Historial usa mes de caja para abonos de tarjeta sin recalcular Flujo ni Inicio', async () => {
   const db = await database();
@@ -26,12 +27,18 @@ test('Historial usa mes de caja para abonos de tarjeta sin recalcular Flujo ni I
     const beforeSeptember = await read('getMesData', 'Septiembre 26');
     await db.exec(fs.readFileSync(path.join(__dirname,
       '../supabase/migrations/20261102210000_card_payment_history_uses_cash_month.sql'), 'utf8'));
+    await db.exec(fs.readFileSync(path.join(__dirname,
+      '../supabase/migrations/20261102220000_card_payment_history_running_balance.sql'), 'utf8'));
     const september = await read('getMovimientosMes', 'Septiembre 26');
     const october = await read('getMovimientosMes', 'Octubre 26');
     const afterFlow = await read('getFlujoCaja', 'Octubre 26');
     const afterSeptember = await read('getMesData', 'Septiembre 26');
     assert.ok(!september.movements.some(m => m.legacy_id === 'card-payment-test'));
     assert.equal(october.movements.find(m => m.legacy_id === 'card-payment-test').economic_month, 'Octubre 26');
+    assert.equal(Number(october.historyBaseAdjustment), 66.66);
+    const history = transformSource('getMovimientosMes', ['Octubre 26'], october);
+    assert.equal(history.saldoBase, 0);
+    assert.equal(history.data.find(m => m.id === 'card-payment-test').saldoDespues, -66.66);
     assert.ok(afterSeptember.movements.some(m => m.legacy_id === 'card-payment-test'));
     assert.deepEqual(afterSeptember.movements, beforeSeptember.movements);
     assert.deepEqual(afterFlow.movementTotals, beforeFlow.movementTotals);
