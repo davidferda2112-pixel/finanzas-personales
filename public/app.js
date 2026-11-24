@@ -2410,21 +2410,37 @@ function renderSelectorTarjeta(){
       +'<div class="bc-bal">'+t.nombre+'</div>'
       +'<div class="tdc-card-back-label">'+hEsc(t.nombre)+'</div>'
       +'<div class="tdc-card-status"><div class="tdc-card-state">'+estado+'</div><div class="tdc-card-amount '+(alDia?'ok':'')+'">'+monto+'</div></div>'
-      +'<div class="tdc-card-tap">'+(activo?'Toca para resumen':'Cambiar')+'</div>'
+      +'<div class="tdc-card-tap">'+(activo?'Desliza ↔ · Toca para resumen':'Cambiar')+'</div>'
       +'</div></div>';
-  }).join('')+'</div>'
-    +(cards.length>1?'<div class="tdc-switcher-head"><span>TUS TARJETAS</span><span>'+cards.length+' tarjetas</span></div>'
-      +'<div class="tdc-card-switcher" role="tablist" aria-label="Seleccionar tarjeta" style="grid-template-columns:repeat('+Math.min(cards.length,3)+',minmax(0,1fr))">'
-      +cards.map(function(t,i){
-        var active=i===G.tcIdx;
-        return'<button type="button" class="tdc-switcher-item '+hEsc(t.clase)+(active?' is-active':'')+'" role="tab" aria-selected="'+active+'" aria-label="'+hEsc(t.nombre)+' '+hEsc(t.numero.slice(-4))+'" onclick="cambiarTarjetaDesdeSelector('+i+')">'
-          +'<span class="tdc-switcher-mark"></span><span class="tdc-switcher-copy"><b>'+hEsc(t.nombre)+'</b><small>•••• '+hEsc(t.numero.slice(-4))+'</small></span>'
-          +'<span class="tdc-switcher-check" aria-hidden="true">✓</span></button>';
-      }).join('')+'</div>':'');
+  }).join('')+'</div>';
+  configurarDeslizamientoTarjetas();
 }
 
-function cambiarTarjetaDesdeSelector(i){
-  if(i!==G.tcIdx)selectTarjeta(i);
+function configurarDeslizamientoTarjetas(){
+  var wallet=eid('tc-sel');
+  if(!wallet||wallet._swipeReady)return;
+  wallet._swipeReady=true;
+  var start=null;
+  wallet.addEventListener('pointerdown',function(event){
+    if(event.pointerType==='mouse'&&event.button!==0)return;
+    start={x:event.clientX,y:event.clientY};
+  });
+  wallet.addEventListener('pointerup',function(event){
+    if(!start)return;
+    var dx=event.clientX-start.x,dy=event.clientY-start.y;
+    start=null;
+    if(Math.abs(dx)<50||Math.abs(dx)<Math.abs(dy)*1.2)return;
+    var count=(G.tarjetas||[]).length;
+    if(count<2)return;
+    G.tdcIgnoreCardClickUntil=Date.now()+500;
+    selectTarjeta((G.tcIdx+(dx<0?1:count-1))%count);
+  });
+  wallet.addEventListener('pointercancel',function(){start=null;});
+  wallet.addEventListener('click',function(event){
+    if(Date.now()<(G.tdcIgnoreCardClickUntil||0)){
+      event.preventDefault();event.stopPropagation();
+    }
+  },true);
 }
 
 function selectTarjeta(i){
