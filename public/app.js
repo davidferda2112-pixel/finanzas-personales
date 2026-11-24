@@ -2384,12 +2384,16 @@ function prepararMesesTarjeta(){
 }
 
 function renderSelectorTarjeta(){
-  var selected=G.tarjetas&&G.tarjetas[G.tcIdx];
+  var cards=G.tarjetas||[];
+  if(cards.length&&G.tcIdx>=cards.length)G.tcIdx=0;
+  var selected=cards[G.tcIdx];
   var issuer=eid('tc-issuer');if(issuer)issuer.textContent=selected&&selected.emisor?selected.emisor:'Tarjetas de crédito';
   eid('tc-sel').className='tdc-wallet '+(selected?'stacked':'');
-  eid('tc-sel').innerHTML='<div class="tdc-wallet-grid">'
-    +(G.tarjetas||[]).map(function(t,i){
+  var stackHeight=202+Math.max(0,cards.length-2)*30;
+  eid('tc-sel').innerHTML='<div class="tdc-wallet-grid" style="min-height:'+stackHeight+'px">'
+    +cards.map(function(t,i){
     var activo=i===G.tcIdx;
+    var backSlot=activo?0:((i-G.tcIdx+cards.length)%cards.length)-1;
     var res=getResumenTdc(t);
     var alDia=res.alDia||res.pendiente<=0.009;
     var estado=res.saldoFavor>0?'Saldo a favor':(alDia?'Al dia':'Por recoger');
@@ -2399,15 +2403,28 @@ function renderSelectorTarjeta(){
     var brand=String(t.red||t.logo||'other').toLowerCase();if(brand==='mc')brand='mastercard';
     var logo=CARD_LOGOS[brand]?'<img class="card-brand-logo '+(brand==='mastercard'?'mc':brand)+'" src="'+CARD_LOGOS[brand]+'" alt="'+brand+'">':'';
     if(!logo)logo='<span class="card-network-text">'+hEsc(brand==='other'?'Tarjeta':brand)+'</span>';
-    return'<div class="'+wrapClass+'" onclick="selectTarjeta('+i+')">'
+    return'<div class="'+wrapClass+'" style="--stack-offset:'+(backSlot*30)+'px" onclick="selectTarjeta('+i+')">'
       +'<div class="bcard '+t.clase+'" style="cursor:pointer">'
       +logo
       +'<div class="bc-num">'+t.numero+'</div>'
       +'<div class="bc-bal">'+t.nombre+'</div>'
+      +'<div class="tdc-card-back-label">'+hEsc(t.nombre)+'</div>'
       +'<div class="tdc-card-status"><div class="tdc-card-state">'+estado+'</div><div class="tdc-card-amount '+(alDia?'ok':'')+'">'+monto+'</div></div>'
       +'<div class="tdc-card-tap">'+(activo?'Toca para resumen':'Cambiar')+'</div>'
       +'</div></div>';
-  }).join('')+'</div>';
+  }).join('')+'</div>'
+    +(cards.length>1?'<div class="tdc-switcher-head"><span>TUS TARJETAS</span><span>'+cards.length+' tarjetas</span></div>'
+      +'<div class="tdc-card-switcher" role="tablist" aria-label="Seleccionar tarjeta" style="grid-template-columns:repeat('+Math.min(cards.length,3)+',minmax(0,1fr))">'
+      +cards.map(function(t,i){
+        var active=i===G.tcIdx;
+        return'<button type="button" class="tdc-switcher-item '+hEsc(t.clase)+(active?' is-active':'')+'" role="tab" aria-selected="'+active+'" aria-label="'+hEsc(t.nombre)+' '+hEsc(t.numero.slice(-4))+'" onclick="cambiarTarjetaDesdeSelector('+i+')">'
+          +'<span class="tdc-switcher-mark"></span><span class="tdc-switcher-copy"><b>'+hEsc(t.nombre)+'</b><small>•••• '+hEsc(t.numero.slice(-4))+'</small></span>'
+          +'<span class="tdc-switcher-check" aria-hidden="true">✓</span></button>';
+      }).join('')+'</div>':'');
+}
+
+function cambiarTarjetaDesdeSelector(i){
+  if(i!==G.tcIdx)selectTarjeta(i);
 }
 
 function selectTarjeta(i){

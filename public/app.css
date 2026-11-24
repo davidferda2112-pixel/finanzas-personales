@@ -730,7 +730,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .tdc-wallet.stacked{min-height:202px;padding-top:2px;perspective:900px}
 .tdc-wallet.stacked .tdc-wallet-card-wrap{position:absolute;left:0;right:0;top:0;transition:transform .58s cubic-bezier(.2,.9,.18,1),opacity .28s ease,filter .28s ease}
 .tdc-wallet.stacked .tdc-wallet-card-wrap.active{z-index:3;transform:translateY(0) scale(1);animation:cardIn .42s cubic-bezier(.2,.9,.18,1)}
-.tdc-wallet.stacked .tdc-wallet-card-wrap.back{z-index:1;left:52px;right:52px;transform:translateY(150px) scale(.88) rotateX(1deg);opacity:.74;filter:saturate(.86) brightness(.88)}
+.tdc-wallet.stacked .tdc-wallet-card-wrap.back{z-index:1;left:52px;right:52px;transform:translateY(calc(150px + var(--stack-offset, 0px))) scale(.88) rotateX(1deg);opacity:.82;filter:saturate(.9) brightness(.92)}
 .tdc-wallet.stacked .tdc-wallet-card-wrap.back .bcard{height:28px;border-radius:0 0 16px 16px;box-shadow:0 16px 26px rgba(40,80,120,.12),inset 0 1px 0 rgba(255,255,255,.10)}
 .tdc-wallet.stacked .tdc-wallet-card-wrap.back .bcard::before,.tdc-wallet.stacked .tdc-wallet-card-wrap.back .bcard::after{opacity:.26}
 .tdc-wallet.stacked .tdc-wallet-card-wrap.back .bc-num,.tdc-wallet.stacked .tdc-wallet-card-wrap.back .bc-bal,.tdc-wallet.stacked .tdc-wallet-card-wrap.back .bc-lbl{display:none}
@@ -740,6 +740,28 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .tdc-card-amount.ok{font-family:inherit;font-size:20px;letter-spacing:0}
 .tdc-wallet-card-wrap.back .tdc-card-status{display:none}
 .tdc-wallet-card-wrap.back .tdc-card-tap{right:16px;bottom:7px;font-size:10px;color:rgba(255,255,255,.66)}
+.tdc-card-back-label{display:none}
+.tdc-wallet-card-wrap.back .tdc-card-back-label{display:block;position:absolute;left:16px;bottom:7px;z-index:2;max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:11px;font-weight:750;text-shadow:0 1px 4px rgba(0,0,0,.22)}
+.tdc-switcher-head{display:flex;justify-content:space-between;gap:12px;padding:0 5px;margin:0 0 8px;color:var(--t2);font-size:10px;font-weight:800;letter-spacing:.11em;text-transform:uppercase}
+.tdc-switcher-head span:last-child{font-weight:650;letter-spacing:0;text-transform:none;color:var(--t3)}
+.tdc-card-switcher{display:grid;gap:6px;padding:6px;border:1px solid rgba(255,255,255,.82);border-radius:24px;background:rgba(246,249,255,.56);backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);box-shadow:0 12px 32px rgba(38,60,101,.1),inset 0 1px 0 rgba(255,255,255,.9)}
+.tdc-switcher-item{--switch-accent:#007aff;--switch-tint:rgba(0,122,255,.11);display:flex;align-items:center;gap:9px;min-width:0;min-height:60px;padding:8px 10px;border:1px solid transparent;border-radius:19px;background:transparent;color:var(--t1);text-align:left;font:inherit;cursor:pointer;transition:background .25s ease,box-shadow .25s ease,transform .25s ease,border-color .25s ease}
+.tdc-switcher-item:hover{background:rgba(255,255,255,.58)}
+.tdc-switcher-item:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.tdc-switcher-item.is-active{background:rgba(255,255,255,.94);border-color:rgba(255,255,255,.94);box-shadow:0 5px 18px rgba(28,47,80,.13),0 1px 3px rgba(28,47,80,.06);transform:translateY(-1px)}
+.tdc-switcher-item.visa-card{--switch-accent:#ed690a;--switch-tint:rgba(237,105,10,.13)}
+.tdc-switcher-item.mc-card{--switch-accent:#bd8c12;--switch-tint:rgba(189,140,18,.13)}
+.tdc-switcher-item.emerald-card{--switch-accent:#00a978;--switch-tint:rgba(0,169,120,.13)}
+.tdc-switcher-item.violet-card{--switch-accent:#8954c8;--switch-tint:rgba(137,84,200,.13)}
+.tdc-switcher-item.graphite-card{--switch-accent:#536073;--switch-tint:rgba(83,96,115,.13)}
+.tdc-switcher-mark{flex:0 0 27px;width:27px;height:27px;border-radius:9px;background:var(--switch-tint);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--switch-accent) 18%,transparent);position:relative}
+.tdc-switcher-mark::after{content:'';position:absolute;inset:8px;border-radius:50%;background:var(--switch-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--switch-accent) 18%,transparent)}
+.tdc-switcher-copy{display:block;min-width:0;flex:1}
+.tdc-switcher-copy b,.tdc-switcher-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tdc-switcher-copy b{font-size:12px;font-weight:750;letter-spacing:-.015em}
+.tdc-switcher-copy small{margin-top:3px;color:var(--t3);font-size:10px;font-variant-numeric:tabular-nums}
+.tdc-switcher-check{flex:0 0 19px;width:19px;height:19px;display:grid;place-items:center;border-radius:50%;background:var(--switch-accent);color:#fff;font-size:11px;font-weight:800;opacity:0;transform:scale(.7);transition:opacity .25s ease,transform .25s ease}
+.tdc-switcher-item.is-active .tdc-switcher-check{opacity:1;transform:scale(1)}
 @keyframes cardIn{from{transform:translateY(18px) scale(.965);opacity:.82}to{transform:translateY(0) scale(1);opacity:1}}
 .tdc-card-tap{position:absolute;right:18px;bottom:18px;z-index:1;font-size:11px;color:rgba(255,255,255,.7)}
 .tdc-empty{padding:16px;border-radius:20px;text-align:center;color:var(--t2);font-size:13px;background:rgba(255,255,255,.68);border:1px solid rgba(255,255,255,.75)}
@@ -805,7 +827,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   #page-tarjetas .pc{padding-top:18px}
   #page-tarjetas .bcard{height:clamp(158px,29vw,176px);border-radius:22px;padding:20px 22px}
   #page-tarjetas .tdc-wallet.stacked{min-height:202px}
-  #page-tarjetas .tdc-wallet.stacked .tdc-wallet-card-wrap.back{left:62px;right:62px;transform:translateY(164px) scale(.86);opacity:.68}
+  #page-tarjetas .tdc-wallet.stacked .tdc-wallet-card-wrap.back{left:62px;right:62px;transform:translateY(calc(164px + var(--stack-offset, 0px))) scale(.86);opacity:.8}
   #page-tarjetas .tdc-wallet.stacked .tdc-wallet-card-wrap.back .bcard{height:24px;border-radius:0 0 15px 15px}
   #page-tarjetas .bc-num{font-size:11px;letter-spacing:.18em;margin-bottom:10px}
   #page-tarjetas .bc-bal{font-size:24px;letter-spacing:-.04em}
