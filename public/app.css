@@ -252,6 +252,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .card-brand-logo{position:absolute;right:20px;top:18px;z-index:2;object-fit:contain;filter:drop-shadow(0 2px 7px rgba(0,0,0,.16));pointer-events:none}
 .card-brand-logo.visa{width:70px;height:24px}
 .card-brand-logo.mc{width:78px;height:44px;top:13px}
+.card-brand-logo.amex{width:52px;height:52px;top:12px;right:18px}
 .tdc-wallet-card-wrap.back .card-brand-logo{display:none}
 
 .ah{font-family:-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;font-weight:700;font-size:42px;letter-spacing:-0.04em;line-height:1;}

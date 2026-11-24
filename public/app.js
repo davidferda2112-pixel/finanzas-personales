@@ -32,7 +32,8 @@ var SUBCATS={
 var ICONOS={'Plan Celular':'📱','Comida Diaria':'🍽️','Salud':'💊','Transporte':'🚗','Arriendo':'🏠','Internet':'🌐','Comida Fuera':'🍔','Ropa':'👕','Entretenimiento':'🎮','Cerveza':'🍺','Sueldo':'💰','Pinturas':'🎨','Brackets':'🦷','default':'💳'};
 var CARD_LOGOS={
   visa:'https://finanzas-personales-5aac.vercel.app/visa-logo.webp?v=20260814-1',
-  mastercard:'https://finanzas-personales-5aac.vercel.app/mastercard-logo.webp?v=20260814-1'
+  mastercard:'https://finanzas-personales-5aac.vercel.app/mastercard-logo.webp?v=20260814-1',
+  amex:'/amex-logo.png?v=20261124-1'
 };
 
 function eid(i){return document.getElementById(i);}
@@ -2396,7 +2397,7 @@ function renderSelectorTarjeta(){
     if(res.saldoFavor>0){estado='Saldo a favor';monto=fmt(res.saldoFavor);}
     var wrapClass=selected?(activo?'tdc-wallet-card-wrap active':'tdc-wallet-card-wrap back'):'tdc-wallet-card-wrap';
     var brand=String(t.red||t.logo||'other').toLowerCase();if(brand==='mc')brand='mastercard';
-    var logo=CARD_LOGOS[brand]?'<img class="card-brand-logo '+(brand==='mastercard'?'mc':'visa')+'" src="'+CARD_LOGOS[brand]+'" alt="'+brand+'">':'';
+    var logo=CARD_LOGOS[brand]?'<img class="card-brand-logo '+(brand==='mastercard'?'mc':brand)+'" src="'+CARD_LOGOS[brand]+'" alt="'+brand+'">':'';
     if(!logo)logo='<span class="card-network-text">'+hEsc(brand==='other'?'Tarjeta':brand)+'</span>';
     return'<div class="'+wrapClass+'" onclick="selectTarjeta('+i+')">'
       +'<div class="bcard '+t.clase+'" style="cursor:pointer">'
@@ -3041,6 +3042,8 @@ function renderConfiguracion(d){
 }
 function abrirEditorTarjeta(codigo){
   var card=(G.configuracion&&G.configuracion.tarjetas||[]).filter(function(x){return x.codigo===codigo;})[0]||null;
+  G.cfgCardEditorMode=card?'editar':'crear';
+  G.cfgCardEditorVersion=card?card.version:null;
   eid('cfg-card-editor').style.display='block';
   eid('cfg-card-editor-title').textContent=card?(card.activo?'Editar tarjeta':'Editar y reactivar tarjeta'):'Nueva tarjeta';
   eid('cfg-card-code').value=card?card.codigo:'';eid('cfg-card-code').disabled=!!card;
@@ -3058,8 +3061,12 @@ function guardarTarjetaConfiguracionUI(){
   if(!/^[A-Z0-9][A-Z0-9_-]{1,15}$/.test(code)){showToast('Código: 2 a 16 letras o números','err');return;}
   if(!name){showToast('Escribe el nombre de la tarjeta','err');return;}
   if(!/^\d{4}$/.test(last4)){showToast('Escribe los últimos 4 dígitos','err');return;}
+  if(G.cfgCardEditorMode==='crear'&&(G.configuracion&&G.configuracion.tarjetas||[]).some(function(card){return card.codigo===code;})){
+    showToast('Ese código ya pertenece a otra tarjeta. Usa uno nuevo, por ejemplo AMEX.','err');return;
+  }
   var params={codigo:code,nombre:name,emisor:eid('cfg-card-issuer').value.trim(),ultimos4:last4,
-    red:eid('cfg-card-network').value,estilo:eid('cfg-card-style').value,activo:true};
+    red:eid('cfg-card-network').value,estilo:eid('cfg-card-style').value,activo:true,
+    modo:G.cfgCardEditorMode,version:G.cfgCardEditorVersion};
   Object.assign(params,configContext());
   var btn=eid('cfg-card-save');btn.disabled=true;btn.textContent='Guardando…';
   gsRun('guardarTarjetaConfiguracion',[params]).then(function(res){

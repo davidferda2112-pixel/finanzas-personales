@@ -124,7 +124,7 @@
   window.google.script.run = makeRunner(null, null);
 })();
 </script>
-<link rel="stylesheet" href="/app.css?v=20261026-approved-nav-1">
+<link rel="stylesheet" href="/app.css?v=20261124-amex-card-1">
 <link rel="stylesheet" href="/sheets.css?v=20261026-general-flow-nav-1">
 </head>
 <body>
@@ -635,7 +635,7 @@
       <div class="settings-editor" id="cfg-card-editor" style="display:none">
         <div class="settings-editor-title" id="cfg-card-editor-title">Nueva tarjeta</div>
         <div class="settings-form-grid">
-          <div class="fg"><div class="fl">Código corto</div><input class="fi" id="cfg-card-code" maxlength="16" placeholder="AMEX"></div>
+          <div class="fg"><div class="fl">Código único de la tarjeta</div><input class="fi" id="cfg-card-code" maxlength="16" placeholder="AMEX"><small>Para una tarjeta nueva usa un código distinto de VISA o MC.</small></div>
           <div class="fg"><div class="fl">Últimos 4 dígitos</div><input class="fi" id="cfg-card-last4" maxlength="4" inputmode="numeric" placeholder="1234"></div>
         </div>
         <div class="fg"><div class="fl">Nombre visible</div><input class="fi" id="cfg-card-name" maxlength="80" placeholder="Visa Black"></div>
@@ -710,7 +710,7 @@
   </div>
 </div>
 
-<script src="/app.js?v=20261026-general-flow-nav-1" defer></script>
+<script src="/app.js?v=20261124-safe-cards-1" defer></script>
 <script src="/savings.js?v=20261026-general-flow-nav-1" defer></script>
 <script src="/sheets.js?v=20261026-general-flow-nav-1" defer></script>
 </body>

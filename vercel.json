@@ -1,7 +1,7 @@
 {
   "headers": [
     {
-      "source": "/(app.css|app.js|loading.webp|visa-logo.webp|mastercard-logo.webp|app-icon.png|logo-app.png|logo-header.png|sidebar-isotype.png|logo.svg)",
+      "source": "/(app.css|app.js|loading.webp|visa-logo.webp|mastercard-logo.webp|amex-logo.png|app-icon.png|logo-app.png|logo-header.png|sidebar-isotype.png|logo.svg)",
       "headers": [
         {
           "key": "Cache-Control",
